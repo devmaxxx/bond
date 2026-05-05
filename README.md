@@ -41,7 +41,7 @@ export BITBUCKET_TOKEN="…"
 ```bash
 # In Claude Code
 /plugin marketplace add devmaxxx/bond
-/plugin install bond@bond
+/plugin install bond@devmaxxx
 ```
 
 ### Local dev
@@ -50,7 +50,7 @@ Add this directory as a local marketplace:
 
 ```bash
 /plugin marketplace add /Users/max/Documents/projects/bond
-/plugin install bond@bond
+/plugin install bond@devmaxxx
 ```
 
 ## Layout
