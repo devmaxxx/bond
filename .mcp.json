@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "jira": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-atlassian"],
+      "env": {
+        "JIRA_URL": "${JIRA_URL:-https://bonliva.atlassian.net}",
+        "JIRA_USERNAME": "${JIRA_USERNAME}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
+      }
+    },
+    "bitbucket": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "bitbucket-mcp-py", "bitbucket-mcp"],
+      "env": {
+        "BITBUCKET_USERNAME": "${BITBUCKET_USERNAME}",
+        "BITBUCKET_TOKEN": "${BITBUCKET_TOKEN}",
+        "BITBUCKET_WORKSPACE": "${BITBUCKET_WORKSPACE:-https://bitbucket.org}"
+      }
+    }
+  }
+}
