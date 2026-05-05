@@ -18,6 +18,7 @@ This plugin ships preconfigured MCP servers in `.mcp.json`:
 
 - **jira** — `mcp-atlassian` (read/write Jira issues, sprints, comments)
 - **bitbucket** — `bitbucket-mcp-py` (PRs, repositories, pipelines)
+- **clockify** — `mcp_clockify` (time entries, projects, tasks, workspaces)
 
 Set the following environment variables before launching Claude Code so the servers can authenticate:
 
@@ -26,6 +27,7 @@ export JIRA_USERNAME="you@bonliva.dev"
 export JIRA_API_TOKEN="…"
 export BITBUCKET_USERNAME="you@bonliva.dev"
 export BITBUCKET_TOKEN="…"
+export CLOCKIFY_API_KEY="…"
 ```
 
 `JIRA_URL` defaults to `https://bonliva.atlassian.net` and `BITBUCKET_WORKSPACE` to `https://bitbucket.org` — override if needed.

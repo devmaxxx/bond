@@ -19,6 +19,14 @@
         "BITBUCKET_TOKEN": "${BITBUCKET_TOKEN}",
         "BITBUCKET_WORKSPACE": "${BITBUCKET_WORKSPACE:-https://bitbucket.org}"
       }
+    },
+    "clockify": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp_clockify@latest"],
+      "env": {
+        "CLOCKIFY_API_KEY": "${CLOCKIFY_API_KEY}"
+      }
     }
   }
 }
