@@ -53,6 +53,7 @@ For each missing variable, use `AskUserQuestion` to ask the user to provide the 
 | `JIRA_API_TOKEN` | Jira API token (generate at id.atlassian.com) |
 | `BITBUCKET_USERNAME` | Bitbucket account email (e.g. `max.synenko@bonliva.dev`) |
 | `BITBUCKET_TOKEN` | Bitbucket API token — get it at https://id.atlassian.com/manage-profile/security/api-tokens. ⚠️ Use a **scoped** token, not a global one. When creating the token, select specific scopes (e.g. Repositories: Read, Pull requests: Read/Write). Global tokens without explicit scopes do not work with this MCP server. |
+| `CLOCKIFY_API_KEY` | Clockify API key — generate at https://app.clockify.me/user/settings (under "API") |
 | `BONLIVA_MCP_TOKEN` | Bearer JWT for the bonliva-erp MCP server |
 
 For any variable not in the table above, ask generically: "Value for `${VAR_NAME}`".
