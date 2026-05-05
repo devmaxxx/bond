@@ -1,7 +1,7 @@
 {
   "name": "bond",
-  "version": "0.1.0",
-  "description": "Bonliva dev workflow commands and MCP integrations: implement, jira-status, log-plan, open-pr, setup-mcp",
+  "version": "0.2.0",
+  "description": "Bonliva dev workflow commands and MCP integrations: help, implement, jira-status, log-plan, open-pr, setup-mcp",
   "author": {
     "name": "Max Synenko",
     "email": "syn.max.13@gmail.com"

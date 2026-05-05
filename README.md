@@ -6,6 +6,7 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 
 | Command         | Purpose                                                    |
 | --------------- | ---------------------------------------------------------- |
+| `/help`         | List all bond plugin commands with their descriptions      |
 | `/implement`    | Fetch a Jira ticket, create a typed branch, plan, and code |
 | `/jira-status`  | Transition Jira tickets to a given status                  |
 | `/log-plan`     | Generate a day/week/month time-log plan                    |
