@@ -1,6 +1,6 @@
 {
   "name": "bond",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Bonliva dev workflow commands and MCP integrations: help, implement, log-plan, open-pr, setup-mcp",
   "author": {
     "name": "Max Synenko",
@@ -11,6 +11,5 @@
   "license": "MIT",
   "keywords": ["bonliva", "workflow", "jira", "bitbucket", "mcp", "commands"],
   "commands": "./commands/",
-  "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json"
 }
