@@ -16,7 +16,6 @@ Output the following table verbatim:
 | -------------------- | ---------------------------------------------------------- |
 | `/bond:help`         | List all bond plugin commands with their descriptions      |
 | `/bond:implement`    | Fetch a Jira ticket, create a typed branch, plan, and code |
-| `/bond:jira-status`  | Transition Jira tickets to a given status                  |
 | `/bond:log-plan`     | Generate a day/week/month time-log plan                    |
 | `/bond:open-pr`      | Open the Bitbucket PR creation page for the current branch |
 | `/bond:setup-mcp`    | Bootstrap project `.mcp.json` from the template            |
