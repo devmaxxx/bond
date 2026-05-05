@@ -1,27 +1,36 @@
 ---
-description: Create or update .mcp.json by substituting env vars into .mcp.json.template
+description: Sync project .mcp.json with the bond plugin's MCP server template, prompting for any missing env vars
 ---
 
 # /setup-mcp
 
-Write (or overwrite) the project `.mcp.json` by substituting `${VAR}` placeholders in `.mcp.json.template` with environment variables. Prompts for any that are missing. Run this after cloning or when rotating tokens.
+Use the bond plugin's bundled `.mcp.json` (at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`) as the canonical template. Merge any missing servers, args, or env keys into the project's `.mcp.json` (without clobbering values the user has already filled in), and prompt for any env vars that are still missing.
+
+Run this after cloning, after a plugin update introduces new servers, or when rotating tokens.
 
 ## Steps
 
-### 1. Check template exists
+### 1. Locate the template
 
-Verify `.mcp.json.template` exists in the project root. If not, abort with:
-> `.mcp.json.template` not found in project root.
+The template is the plugin's own MCP config:
 
-### 2. Check uvx is installed
+```sh
+TEMPLATE="${CLAUDE_PLUGIN_ROOT}/.mcp.json"
+```
 
-The `jira` and `bitbucket` MCP servers run via `uvx` (part of the `uv` toolchain). Check if it's available:
+If `$TEMPLATE` does not exist, abort with:
+
+> Plugin MCP template not found at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`.
+
+### 2. Check `uvx` is installed
+
+The `jira` and `bitbucket` servers run via `uvx` (part of the `uv` toolchain):
 
 ```sh
 command -v uvx
 ```
 
-If not found, install `uv` and tell the user to restart their terminal before continuing:
+If missing, install `uv` and tell the user to restart their shell:
 
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -29,23 +38,33 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 > uvx not found — installing uv. **Restart your terminal, then re-run `/setup-mcp`.**
 
-If the install command fails (e.g. no curl), tell the user to install manually from https://docs.astral.sh/uv/getting-started/installation/ and abort.
+If install fails, point the user at https://docs.astral.sh/uv/getting-started/installation/ and abort.
 
-### 4. Find all placeholders
+### 3. Load (or initialize) the project `.mcp.json`
 
-Extract every `${VAR_NAME}` from the template:
+Project file is `<repo-root>/.mcp.json` (resolve via `git rev-parse --show-toplevel`).
 
-```sh
-grep -o '\${[^}]*}' .mcp.json.template | sed 's/[${}]//g' | sort -u
-```
+- If the project file does not exist: start from an empty config `{ "mcpServers": {} }`.
+- If it exists: parse it as JSON. If parsing fails, abort and ask the user to fix or delete it.
 
-### 5. Check which are missing
+### 4. Diff against the template
 
-For each variable name found in step 2, check if it is set and non-empty in the current environment. Collect the ones that are missing.
+For each server in `template.mcpServers`:
 
-### 6. Prompt for missing variables
+- **Server missing in project** → mark the whole server for addition.
+- **Server exists** → compare `command`, `args`, and the set of `env` keys:
+  - If `command` or `args` differ from the template, ask the user (`AskUserQuestion`) whether to keep their version or take the template's. Default: keep theirs.
+  - For `env`: any key present in the template but missing from the project entry is marked for addition. **Never overwrite existing values** — if the project already has a value (even an empty string), leave it alone.
 
-For each missing variable, use `AskUserQuestion` to ask the user to provide the value. One question per variable — label it with the variable name and a short description of what it's for:
+Servers in the project that are **not** in the template are left untouched.
+
+### 5. Resolve env values for additions
+
+For each env key being added, prefer in order:
+
+1. Process environment (`$VAR_NAME` set and non-empty)
+2. The template's literal default (e.g. `${JIRA_URL:-https://bonliva.atlassian.net}` → `https://bonliva.atlassian.net` when `JIRA_URL` is unset)
+3. Prompt the user via `AskUserQuestion`, one question per missing key, using this label table:
 
 | Variable | Description |
 |----------|-------------|
@@ -56,27 +75,31 @@ For each missing variable, use `AskUserQuestion` to ask the user to provide the 
 | `CLOCKIFY_API_KEY` | Clockify API key — generate at https://app.clockify.me/user/settings (under "API") |
 | `BONLIVA_MCP_TOKEN` | Bearer JWT for the bonliva-erp MCP server |
 
-For any variable not in the table above, ask generically: "Value for `${VAR_NAME}`".
+For variables not in the table, ask generically: "Value for `${VAR_NAME}`".
 
-### 7. Substitute and write
+If the user skips a prompt, store the placeholder unresolved (e.g. `"${VAR_NAME}"`) so the next `/setup-mcp` run will pick it up again.
 
-Run `envsubst` with all variables set — combining environment variables with any values collected in step 4:
+### 6. Write the merged config
 
-```sh
-VAR1=value1 VAR2=value2 envsubst < .mcp.json.template > .mcp.json
-```
+Write the resulting JSON to `<repo-root>/.mcp.json` (pretty-printed, 2-space indent). Preserve any keys/servers the project already had that aren't in the template.
 
-### 8. Verify and report
+### 7. Verify and report
 
-Check for any remaining unresolved placeholders:
+Print one of:
 
-```sh
-grep -o '\${[^}]*}' .mcp.json | sort -u
-```
+- **Already in sync** — `✓ .mcp.json already matches the template, nothing to do.`
+- **Updated** — list each addition, e.g.:
+  ```
+  ✓ Added server: clockify
+  ✓ Added env key bitbucket.BITBUCKET_TOKEN (prompted)
+  ✓ Added env key jira.JIRA_URL (default)
+  ```
+  Then remind the user: **Restart Claude Code to reload the MCP servers.**
 
-- If none remain: print `✓ .mcp.json written` and remind the user to restart Claude Code to reload the MCP servers.
-- If any remain: list them as still-missing and tell the user to re-run `/setup-mcp`.
+If any placeholders remain unresolved, list them and tell the user to re-run `/setup-mcp`.
 
 ## Do NOT
 
 - Do not commit `.mcp.json` — it contains secrets and is gitignored.
+- Do not overwrite existing env values, even if they look wrong.
+- Do not remove servers or keys the project has but the template doesn't.
