@@ -8,13 +8,21 @@ Full ticket-to-implementation workflow: fetch one or more Jira tickets, create a
 
 ## Arguments
 
-`$ARGUMENTS` — one or more Jira ticket IDs, space-separated.
+`$ARGUMENTS` — one or more Jira ticket IDs, space-separated, plus optional flags.
 
 Examples:
 - `/implement ERP-135`
 - `/implement ERP-135 ERP-136`
+- `/implement ERP-135 --worktree`
+- `/implement ERP-135 --auto`
+- `/implement ERP-135 --worktree --auto`
 
-If `$ARGUMENTS` is missing or empty, ask the user for ticket IDs before proceeding.
+### Flags
+
+- `--worktree` — create the branch in a new git worktree at `../<repo>-<branch-slug>` instead of switching branches in the current working tree. Useful when you want to keep the current branch checked out.
+- `--auto` — skip the plan confirmation prompt in step 6, and automatically run `/bond:open-pr` after implementation completes.
+
+Strip flags from `$ARGUMENTS` before parsing ticket IDs. If after stripping flags there are no remaining tokens, ask the user for ticket IDs before proceeding.
 
 ## Steps
 
@@ -54,6 +62,8 @@ If any ticket is not found or the tool returns an error, report which ticket fai
 
 ### 4. Create the branch
 
+#### Default mode (no `--worktree`)
+
 Follow the same safe sequence as `/start-branch`:
 
 1. Run `git status --porcelain`. If the working tree is dirty, tell the user to commit or stash first and **abort** — do not auto-stash.
@@ -69,6 +79,25 @@ Follow the same safe sequence as `/start-branch`:
    git checkout -b <branch-name>
    ```
 4. Confirm: report the branch name and the short SHA of main it was cut from.
+
+#### Worktree mode (`--worktree`)
+
+Do **not** require a clean working tree — that's the whole point of a worktree.
+
+1. Determine the repo name from `basename "$(git rev-parse --show-toplevel)"`.
+2. Build a filesystem-safe slug from the branch name (replace `/` with `-`).
+3. Worktree path: `../<repo>-<slug>` (sibling to the current repo directory).
+4. Sync remote refs without changing the current branch:
+   ```sh
+   git fetch origin
+   ```
+5. Create the worktree off `origin/main`:
+   ```sh
+   git worktree add -b <branch-name> ../<repo>-<slug> origin/main
+   ```
+   If the path already exists or the branch already exists, surface the error and **abort**.
+6. `cd` into the new worktree path for the rest of the workflow. All subsequent steps (codebase analysis, plan file, implementation) run inside the worktree.
+7. Confirm: report the worktree path, branch name, and the short SHA of `origin/main` it was cut from.
 
 ### 5. Analyse the codebase
 
@@ -108,7 +137,11 @@ For each new or changed behaviour, list the specific test case to write:
 - `<test file path>` — `<describe block> > <it block>` — <what it asserts>
 ```
 
-After writing the file, print the full plan to the user and ask:
+After writing the file, print the full plan to the user.
+
+If `--auto` was passed: skip the confirmation prompt and proceed directly to step 7. Note in the printed output that auto-confirm is enabled.
+
+Otherwise, ask:
 
 > "Does this plan look correct? Reply with changes or corrections, or say **yes** to start implementing."
 
@@ -134,14 +167,24 @@ After all implementation steps are done, write the tests listed in the plan's **
 
 Tell the user:
 - Branch created (`<branch-name>` from `main@<sha>`)
+- Worktree path (only if `--worktree` was used)
 - Tickets implemented: `<ID>: <summary>` for each
 - Plan saved to `docs/plans/<TICKET_IDS>.md`
 - Files changed: brief list
-- Next step: run `/bonliva-dev:ship` to validate, commit, and push
+- Next step: run `/bonliva-dev:ship` to validate, commit, and push (skipped automatically if `--auto` is set — see step 9)
+
+### 9. Auto open PR (`--auto` only)
+
+If `--auto` was passed, after step 8:
+
+1. Run `/bonliva-dev:ship` to validate, commit, and push the branch.
+2. Then invoke `/bond:open-pr` to create the Bitbucket PR.
+
+If either step fails, surface the error and stop — do not retry blindly.
 
 ## Do NOT
 
-- Do not push the branch — always ask the user first.
-- Do not start implementing before the user confirms the plan.
+- Do not push the branch — always ask the user first, **unless** `--auto` was passed (in which case step 9 handles ship + open-pr).
+- Do not start implementing before the user confirms the plan, **unless** `--auto` was passed.
 - Do not skip the codebase analysis step — surface relevant context before writing the plan.
-- Do not commit anything.
+- Do not commit anything yourself, **unless** `--auto` was passed and you're delegating to `/bonliva-dev:ship`.
