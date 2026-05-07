@@ -25,18 +25,20 @@ If any token is invalid, report which ones fail and **abort**.
 
 ### 2. Fetch ticket details from Jira
 
-For each ticket ID call the Jira MCP tool:
+Resolve the Atlassian `cloudId` once via `mcp__atlassian__getAccessibleAtlassianResources` (use the resource matching `bonliva.atlassian.net`).
+
+Then for each ticket ID call:
 ```
-mcp__jira__jira_get_issue({ issue_key: "<TICKET_ID>" })
+mcp__atlassian__getJiraIssue({ cloudId: "<CLOUD_ID>", issueIdOrKey: "<TICKET_ID>" })
 ```
 
 Extract from the response:
-- `summary`
-- `issuetype.name` — used for branch prefix logic
-- `status.name`
-- `priority.name`
-- `assignee.displayName`
-- `description` — plain text or Atlassian Document Format; render as plain text
+- `fields.summary`
+- `fields.issuetype.name` — used for branch prefix logic
+- `fields.status.name`
+- `fields.priority.name`
+- `fields.assignee.displayName`
+- `fields.description` — Atlassian Document Format; render as plain text
 
 If any ticket is not found or the tool returns an error, report which ticket failed and **abort**.
 

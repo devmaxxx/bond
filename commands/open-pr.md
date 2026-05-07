@@ -92,7 +92,8 @@ On success, print the PR URL. On failure, report the error and stop.
 
 For each ticket ID extracted in step 3 (if any):
 
-1. Use `mcp__jira__jira_get_transitions` with the ticket ID to fetch available transitions.
-2. Find the transition whose `name` contains "review" (case-insensitive).
-3. If found, call `mcp__jira__jira_transition_issue` with that transition ID.
-4. Report success or skip silently if no matching transition exists.
+1. Resolve `cloudId` once via `mcp__atlassian__getAccessibleAtlassianResources`.
+2. Use `mcp__atlassian__getTransitionsForJiraIssue` with `cloudId` and `issueIdOrKey` to fetch available transitions.
+3. Find the transition whose `name` contains "review" (case-insensitive).
+4. If found, call `mcp__atlassian__transitionJiraIssue` with `cloudId`, `issueIdOrKey`, and that transition ID.
+5. Report success or skip silently if no matching transition exists.

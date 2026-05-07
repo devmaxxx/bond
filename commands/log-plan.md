@@ -157,7 +157,7 @@ After the markdown is written, ask the user (`AskUserQuestion`):
 - **No** — stop here.
 - **Calls only** — post just the CRMDEV-1366 call entries (handy when ticket work is already logged but additional calls were added later).
 
-For each worklog: call `mcp__jira__jira_add_worklog` with `issue_key`, `time_spent`, `started` (ISO UTC, see CEST→UTC table in `docs/time-logs/log.md`), and `comment`. Strip `-2`/`-3` branch suffixes — log to the base ticket with `comment: "Follow-up (branch X-2)"`.
+For each worklog: call `mcp__atlassian__addWorklogToJiraIssue` with `cloudId` (resolve once via `mcp__atlassian__getAccessibleAtlassianResources`), `issueIdOrKey`, `timeSpent`, `started` (ISO UTC, see CEST→UTC table in `docs/time-logs/log.md`), and `comment`. Strip `-2`/`-3` branch suffixes — log to the base ticket with `comment: "Follow-up (branch X-2)"`.
 
 Report each post inline: `✓ CRMDEV-1366 30m on 2026-04-15 — Call Daniel`. Continue past failures.
 

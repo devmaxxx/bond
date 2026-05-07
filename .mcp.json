@@ -1,14 +1,8 @@
 {
   "mcpServers": {
-    "jira": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["mcp-atlassian"],
-      "env": {
-        "JIRA_URL": "${JIRA_URL:-https://bonliva.atlassian.net}",
-        "JIRA_USERNAME": "${JIRA_USERNAME}",
-        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
-      }
+    "atlassian": {
+      "type": "sse",
+      "url": "https://mcp.atlassian.com/v1/sse"
     },
     "bitbucket": {
       "type": "stdio",
