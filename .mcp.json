@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "atlassian": {
+    "bond-atlassian": {
       "type": "sse",
       "url": "https://mcp.atlassian.com/v1/sse"
     },
-    "bitbucket": {
+    "bond-bitbucket": {
       "type": "stdio",
       "command": "uvx",
       "args": ["--from", "bitbucket-mcp-py", "bitbucket-mcp"],
@@ -14,7 +14,7 @@
         "BITBUCKET_WORKSPACE": "${BITBUCKET_WORKSPACE:-https://bitbucket.org}"
       }
     },
-    "clockify": {
+    "bond-clockify": {
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "mcp_clockify@latest"],

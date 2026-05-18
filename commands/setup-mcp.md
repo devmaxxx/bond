@@ -6,15 +6,15 @@ description: Install the bond plugin's MCP servers into the user-scope (global) 
 
 Use the bond plugin's bundled `.mcp.json` (at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`) as the canonical template. Install its servers into the **user scope** (global) MCP config so they are available to this user across **all** projects — not just the current repo.
 
-To avoid colliding with any servers the user already runs, every bond server is installed under a **`bond-` prefixed name**. The template ships server keys `atlassian`, `bitbucket`, `clockify`; they are installed as:
+To avoid colliding with any servers the user already runs, every bond server is named with a **`bond-` prefix**. The template keys are already prefixed, so they install into the user scope verbatim:
 
-| Template key | Installed as (user scope) | Type | Auth | Notes |
-|--------------|---------------------------|------|------|-------|
-| `atlassian` | `bond-atlassian` | `sse` (remote) | OAuth (browser on first use) | Official Atlassian MCP server. No env vars. |
-| `bitbucket` | `bond-bitbucket` | `stdio` (`uvx`) | API token | Requires `uv` toolchain. |
-| `clockify` | `bond-clockify` | `stdio` (`npx`) | API key | Requires Node/`npx`. |
+| Server (template key = user-scope name) | Type | Auth | Notes |
+|-----------------------------------------|------|------|-------|
+| `bond-atlassian` | `sse` (remote) | OAuth (browser on first use) | Official Atlassian MCP server. No env vars. |
+| `bond-bitbucket` | `stdio` (`uvx`) | API token | Requires `uv` toolchain. |
+| `bond-clockify` | `stdio` (`npx`) | API key | Requires Node/`npx`. |
 
-This command **only ever manages `bond-` prefixed servers**. It never reads values from, modifies, or removes any other user-scope server — including a user's own unprefixed `atlassian` / `bitbucket` / `clockify`.
+This command **only ever manages `bond-` prefixed servers**. It never reads values from, modifies, or removes any other user-scope server — including a user's own unprefixed `atlassian` / `bitbucket` / `clockify`. Because the template keys are themselves `bond-` prefixed, each server installs under the exact key from the template with no renaming.
 
 User-scope servers live in the top-level `mcpServers` of `~/.claude.json`. Manage them with the `claude mcp` CLI (`--scope user`) rather than editing `~/.claude.json` by hand — that file also holds session state and is easy to corrupt.
 
@@ -32,14 +32,14 @@ If `$TEMPLATE` does not exist, abort:
 
 > Plugin MCP template not found at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`.
 
-Parse it as JSON to get `mcpServers`. For each template key `<name>`, the target user-scope server name is `bond-<name>`.
+Parse it as JSON to get `mcpServers`. Every key is already `bond-` prefixed; that key is the user-scope server name. If any key is somehow not `bond-` prefixed, abort and report it — this command installs `bond-` servers only.
 
 ### 2. Tooling checks
 
 For each server in the template, check the runtime it needs:
 
-- **`type: "sse"` or `"http"`** (e.g. `atlassian`) — no local tool needed. Note to user: a browser will open for OAuth on first use.
-- **`command: "uvx"`** (e.g. `bitbucket`) — verify `uvx` is on PATH:
+- **`type: "sse"` or `"http"`** (e.g. `bond-atlassian`) — no local tool needed. Note to user: a browser will open for OAuth on first use.
+- **`command: "uvx"`** (e.g. `bond-bitbucket`) — verify `uvx` is on PATH:
   ```sh
   command -v uvx
   ```
@@ -50,7 +50,7 @@ For each server in the template, check the runtime it needs:
   > uvx not found — installing uv. **Restart your terminal, then re-run `/setup-mcp`.**
 
   If install fails, point at https://docs.astral.sh/uv/getting-started/installation/ and abort.
-- **`command: "npx"`** (e.g. `clockify`) — verify `npx` is on PATH; if missing, tell the user to install Node.js (https://nodejs.org) and abort.
+- **`command: "npx"`** (e.g. `bond-clockify`) — verify `npx` is on PATH; if missing, tell the user to install Node.js (https://nodejs.org) and abort.
 
 ### 3. Read the current user-scope config
 
@@ -63,8 +63,10 @@ claude mcp list --scope user
 For any `bond-` prefixed server you intend to touch, inspect its current definition (including resolved env keys) with:
 
 ```sh
-claude mcp get bond-<name>
+claude mcp get <name>
 ```
+
+where `<name>` is a `bond-` prefixed template key.
 
 This is the source of truth for what already exists. Do **not** edit `~/.claude.json` directly, and do **not** inspect or rely on any non-`bond-` server.
 
@@ -81,10 +83,10 @@ Never assume an unprefixed `jira` server belongs to bond — leave it alone.
 
 ### 5. Diff against the template
 
-For each template key `<name>`, compare `template.mcpServers.<name>` against the user-scope server `bond-<name>`:
+For each template key `<name>` (already `bond-` prefixed), compare `template.mcpServers.<name>` against the user-scope server of the same name:
 
-- **`bond-<name>` missing from the user scope** → mark it for install (the template definition, renamed to `bond-<name>`).
-- **`bond-<name>` already in the user scope** → reconcile per type:
+- **`<name>` missing from the user scope** → mark it for install (the template definition verbatim).
+- **`<name>` already in the user scope** → reconcile per type:
   - **SSE/HTTP servers**: compare `type` and `url`. If they differ, ask whether to take the template's values. Default: keep the user's existing config. There are no env vars to merge.
   - **stdio servers**: compare `command`, `args`, and the set of `env` keys.
     - If `command` or `args` differ, ask whether to keep theirs or take the template's. Default: keep theirs.
@@ -113,13 +115,13 @@ If the user skips a prompt, **do not install** that stdio server this run (an un
 
 ### 7. Install / update servers in the user scope
 
-For each server to install or update, write it with `claude mcp add-json` at user scope under its `bond-` prefixed name. Build the full per-server JSON object (the value from `template.mcpServers.<name>`, with env values resolved from step 6) and run:
+For each server to install or update, write it with `claude mcp add-json` at user scope. The template key `<name>` is already `bond-` prefixed and is used as-is. Build the full per-server JSON object (the value from `template.mcpServers.<name>`, with env values resolved from step 6) and run:
 
 ```sh
-claude mcp add-json bond-<name> '<json>' --scope user
+claude mcp add-json <name> '<json>' --scope user
 ```
 
-`add-json` overwrites an existing server of the same name, so when updating an existing `bond-<name>` pass the **merged** object — template definition plus every existing env value preserved from step 5 — not the bare template.
+`add-json` overwrites an existing server of the same name, so when updating an existing server pass the **merged** object — template definition plus every existing env value preserved from step 5 — not the bare template.
 
 For a server that needs no changes at all, skip it (don't re-add).
 
