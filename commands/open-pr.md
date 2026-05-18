@@ -4,7 +4,7 @@ description: Open the Bitbucket PR creation page for the current branch
 
 # /open-pr
 
-Creates a Bitbucket pull request from the current branch into `main` using the Bitbucket MCP server (`bitbucket`).
+Creates a Bitbucket pull request from the current branch into `main` using the Bitbucket MCP server (`bond-bitbucket`).
 
 Usage: `/open-pr [--draft]`
 
@@ -63,7 +63,7 @@ Omit the Jira section if no ticket IDs were found.
 
 ### 4. Resolve reviewers
 
-Use `mcp__bitbucket__get_effective_default_reviewers` with the resolved workspace and repo slug to fetch all default reviewers. Collect their `uuid` values and pass them as the `reviewers` array when creating the PR.
+Use `mcp__bond-bitbucket__get_effective_default_reviewers` with the resolved workspace and repo slug to fetch all default reviewers. Collect their `uuid` values and pass them as the `reviewers` array when creating the PR.
 
 ### 5. Push the branch
 
@@ -73,11 +73,11 @@ git push -u origin <branch>
 
 ### 6. Create the PR
 
-First, use `mcp__bitbucket__get_pull_requests` (state `OPEN`) to check whether an open PR already exists for this source branch. If one is found, skip creation, print its URL, and continue to step 7.
+First, use `mcp__bond-bitbucket__get_pull_requests` (state `OPEN`) to check whether an open PR already exists for this source branch. If one is found, skip creation, print its URL, and continue to step 7.
 
 Otherwise, create a new PR (this also covers the case where a previous PR was declined — Bitbucket does not support reopening declined PRs):
 
-If `--draft` was passed, use `mcp__bitbucket__create_draft_pull_request`; otherwise use `mcp__bitbucket__create_pull_request`. Both accept the same parameters:
+If `--draft` was passed, use `mcp__bond-bitbucket__create_draft_pull_request`; otherwise use `mcp__bond-bitbucket__create_pull_request`. Both accept the same parameters:
 - `workspace`: resolved workspace (e.g. `bonliva`)
 - `repo_slug`: resolved repository slug (e.g. `bonliva-erp`)
 - `title`: built in step 3
@@ -92,8 +92,8 @@ On success, print the PR URL. On failure, report the error and stop.
 
 For each ticket ID extracted in step 3 (if any):
 
-1. Resolve `cloudId` once via `mcp__atlassian__getAccessibleAtlassianResources`.
-2. Use `mcp__atlassian__getTransitionsForJiraIssue` with `cloudId` and `issueIdOrKey` to fetch available transitions.
+1. Resolve `cloudId` once via `mcp__bond-atlassian__getAccessibleAtlassianResources`.
+2. Use `mcp__bond-atlassian__getTransitionsForJiraIssue` with `cloudId` and `issueIdOrKey` to fetch available transitions.
 3. Find the transition whose `name` contains "review" (case-insensitive).
-4. If found, call `mcp__atlassian__transitionJiraIssue` with `cloudId`, `issueIdOrKey`, and that transition ID.
+4. If found, call `mcp__bond-atlassian__transitionJiraIssue` with `cloudId`, `issueIdOrKey`, and that transition ID.
 5. Report success or skip silently if no matching transition exists.

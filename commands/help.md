@@ -18,7 +18,7 @@ Output the following table verbatim:
 | `/bond:implement`    | Fetch a Jira ticket, create a typed branch, plan, and code |
 | `/bond:log-plan`     | Generate a day/week/month time-log plan                    |
 | `/bond:open-pr`      | Open the Bitbucket PR creation page for the current branch |
-| `/bond:setup-mcp`    | Bootstrap project `.mcp.json` from the template            |
+| `/bond:setup-mcp`    | Install the bond MCP servers (`bond-*`) into the user scope |
 
 ### 2. Done
 

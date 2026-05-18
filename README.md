@@ -10,17 +10,22 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | `/implement`    | Fetch a Jira ticket, create a typed branch, plan, and code |
 | `/log-plan`     | Generate a day/week/month time-log plan                    |
 | `/open-pr`      | Open the Bitbucket PR creation page for the current branch |
-| `/setup-mcp`    | Bootstrap project `.mcp.json` from the template            |
+| `/setup-mcp`    | Install the bond MCP servers (`bond-*`) into the user scope |
 
 ## MCP Servers
 
-This plugin ships preconfigured MCP servers in `.mcp.json`:
+This plugin ships an MCP server template in `.mcp.json`. Run `/setup-mcp` to
+install those servers into your **user-scope** (global) config, where they apply
+to every project. To avoid colliding with any servers you already run, each is
+installed under a `bond-` prefixed name and exposed as `mcp__bond-<name>__*`:
 
-- **atlassian** — official Atlassian remote MCP server (`https://mcp.atlassian.com/v1/sse`, OAuth, no env vars). Opens a browser on first use.
-- **bitbucket** — `bitbucket-mcp-py` (PRs, repositories, pipelines)
-- **clockify** — `mcp_clockify` (time entries, projects, tasks, workspaces)
+- **bond-atlassian** — official Atlassian remote MCP server (`https://mcp.atlassian.com/v1/sse`, OAuth, no env vars). Opens a browser on first use.
+- **bond-bitbucket** — `bitbucket-mcp-py` (PRs, repositories, pipelines)
+- **bond-clockify** — `mcp_clockify` (time entries, projects, tasks, workspaces)
 
-Set the following environment variables before launching Claude Code so the servers can authenticate:
+`/setup-mcp` prompts for any missing credentials and writes them via the
+`claude mcp` CLI. You can also export them in your environment beforehand so the
+command picks them up without prompting:
 
 ```bash
 export BITBUCKET_USERNAME="you@bonliva.dev"
@@ -64,7 +69,7 @@ bond/
 ├── hooks/
 │   ├── hooks.json
 │   └── format-file.sh
-├── .mcp.json               # MCP server declarations
+├── .mcp.json               # MCP server template (installed via /setup-mcp)
 ├── LICENSE
 └── README.md
 ```

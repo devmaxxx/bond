@@ -82,7 +82,7 @@ Parse each commit:
 
 ### 4. Gather merged PRs (Bitbucket MCP)
 
-For each repo, call `mcp__bitbucket__get_pull_requests` filtered by author + the resolved date range. Build the **Merged tickets** table: PR#, ticket key, merged date, branch.
+For each repo, call `mcp__bond-bitbucket__get_pull_requests` filtered by author + the resolved date range. Build the **Merged tickets** table: PR#, ticket key, merged date, branch.
 
 If the Bitbucket MCP isn't configured, skip and note in the output.
 
@@ -157,7 +157,7 @@ After the markdown is written, ask the user (`AskUserQuestion`):
 - **No** — stop here.
 - **Calls only** — post just the CRMDEV-1366 call entries (handy when ticket work is already logged but additional calls were added later).
 
-For each worklog: call `mcp__atlassian__addWorklogToJiraIssue` with `cloudId` (resolve once via `mcp__atlassian__getAccessibleAtlassianResources`), `issueIdOrKey`, `timeSpent`, `started` (ISO UTC, see CEST→UTC table in `docs/time-logs/log.md`), and `comment`. Strip `-2`/`-3` branch suffixes — log to the base ticket with `comment: "Follow-up (branch X-2)"`.
+For each worklog: call `mcp__bond-atlassian__addWorklogToJiraIssue` with `cloudId` (resolve once via `mcp__bond-atlassian__getAccessibleAtlassianResources`), `issueIdOrKey`, `timeSpent`, `started` (ISO UTC, see CEST→UTC table in `docs/time-logs/log.md`), and `comment`. Strip `-2`/`-3` branch suffixes — log to the base ticket with `comment: "Follow-up (branch X-2)"`.
 
 Report each post inline: `✓ CRMDEV-1366 30m on 2026-04-15 — Call Daniel`. Continue past failures.
 

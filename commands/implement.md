@@ -33,11 +33,11 @@ If any token is invalid, report which ones fail and **abort**.
 
 ### 2. Fetch ticket details from Jira
 
-Resolve the Atlassian `cloudId` once via `mcp__atlassian__getAccessibleAtlassianResources` (use the resource matching `bonliva.atlassian.net`).
+Resolve the Atlassian `cloudId` once via `mcp__bond-atlassian__getAccessibleAtlassianResources` (use the resource matching `bonliva.atlassian.net`).
 
 Then for each ticket ID call:
 ```
-mcp__atlassian__getJiraIssue({ cloudId: "<CLOUD_ID>", issueIdOrKey: "<TICKET_ID>" })
+mcp__bond-atlassian__getJiraIssue({ cloudId: "<CLOUD_ID>", issueIdOrKey: "<TICKET_ID>" })
 ```
 
 Extract from the response:
