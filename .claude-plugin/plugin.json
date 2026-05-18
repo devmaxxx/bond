@@ -10,6 +10,5 @@
   "repository": "https://github.com/devmaxxx/bond",
   "license": "MIT",
   "keywords": ["bonliva", "workflow", "jira", "bitbucket", "mcp", "commands"],
-  "commands": "./commands/",
-  "mcpServers": "./.mcp.json"
+  "commands": "./commands/"
 }
