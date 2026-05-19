@@ -13,6 +13,8 @@ To avoid colliding with any servers the user already runs, every bond server is 
 | `bond-atlassian` | `sse` (remote) | OAuth (browser on first use) | Official Atlassian MCP server. No env vars. |
 | `bond-bitbucket` | `stdio` (`uvx`) | API token | Requires `uv` toolchain. |
 | `bond-clockify` | `stdio` (`npx`) | API key | Requires Node/`npx`. |
+| `bond-teams` | `stdio` (`npx`) | Microsoft Graph OAuth | Requires Node/`npx`. No env vars — auth is a separate one-time CLI step. |
+| `bond-outline` | `stdio` (`npx`) | API key | Requires Node/`npx`. |
 
 This command **only ever manages `bond-` prefixed servers**. It never reads values from, modifies, or removes any other user-scope server — including a user's own unprefixed `atlassian` / `bitbucket` / `clockify`. Because the template keys are themselves `bond-` prefixed, each server installs under the exact key from the template with no renaming.
 
@@ -107,6 +109,8 @@ Only applies to stdio servers. For each env key being added, prefer in order:
 | `BITBUCKET_USERNAME` | Bitbucket account email (e.g. `max.synenko@bonliva.dev`) |
 | `BITBUCKET_TOKEN` | Bitbucket API token — get it at https://id.atlassian.com/manage-profile/security/api-tokens. ⚠️ Use a **scoped** token, not a global one. When creating the token, select specific scopes (e.g. Repositories: Read, Pull requests: Read/Write). Global tokens without explicit scopes do not work with this MCP server. |
 | `CLOCKIFY_API_KEY` | Clockify API key — generate at https://app.clockify.me/user/settings (under "API") |
+| `OUTLINE_API_KEY` | Outline API token — create one under Settings → API Tokens in your Outline instance |
+| `OUTLINE_API_URL` | Outline API base URL — defaults to `https://app.getoutline.com/api`; override only for a self-hosted instance |
 | `BONLIVA_MCP_TOKEN` | Bearer JWT for the bonliva-erp MCP server |
 
 For variables not in the table, ask generically: "Value for `${VAR_NAME}`".
@@ -140,6 +144,11 @@ Run `claude mcp list --scope user` to confirm, then print one of:
   - **Restart Claude Code** to reload MCP servers.
   - These servers now apply to **every project** you open, exposed as `mcp__bond-<name>__*` tools.
   - On the first call to a `bond-atlassian` tool, a browser tab will open for OAuth — sign in with the Atlassian account that has access to `bonliva.atlassian.net`.
+  - If `bond-teams` was installed, authentication is a **separate one-time CLI step** (the server has no env vars). Tell the user to run, in their terminal:
+    ```sh
+    npx -y @floriscornel/teams-mcp@latest authenticate
+    ```
+    This opens a Microsoft Graph OAuth flow and caches a token in their home directory. `bond-teams` tools will fail until this completes.
 
 If any stdio server was skipped for missing env (step 6), list it and tell the user to re-run `/setup-mcp`.
 

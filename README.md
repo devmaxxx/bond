@@ -22,6 +22,8 @@ installed under a `bond-` prefixed name and exposed as `mcp__bond-<name>__*`:
 - **bond-atlassian** — official Atlassian remote MCP server (`https://mcp.atlassian.com/v1/sse`, OAuth, no env vars). Opens a browser on first use.
 - **bond-bitbucket** — `bitbucket-mcp-py` (PRs, repositories, pipelines)
 - **bond-clockify** — `mcp_clockify` (time entries, projects, tasks, workspaces)
+- **bond-teams** — `@floriscornel/teams-mcp` (Microsoft Teams chats, channels, messages). No env vars; auth is a one-time CLI step (see below).
+- **bond-outline** — `outline-mcp-server` (Outline docs, collections, search)
 
 `/setup-mcp` prompts for any missing credentials and writes them via the
 `claude mcp` CLI. You can also export them in your environment beforehand so the
@@ -31,9 +33,19 @@ command picks them up without prompting:
 export BITBUCKET_USERNAME="you@bonliva.dev"
 export BITBUCKET_TOKEN="…"
 export CLOCKIFY_API_KEY="…"
+export OUTLINE_API_KEY="…"
 ```
 
 `BITBUCKET_WORKSPACE` defaults to `https://bitbucket.org` — override if needed.
+`OUTLINE_API_URL` defaults to `https://app.getoutline.com/api` — override for a
+self-hosted Outline instance.
+
+`bond-teams` has no env vars. After `/setup-mcp`, authenticate it once with a
+Microsoft Graph OAuth flow:
+
+```bash
+npx -y @floriscornel/teams-mcp@latest authenticate
+```
 
 ## Hooks
 
