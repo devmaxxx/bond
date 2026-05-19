@@ -1,0 +1,322 @@
+{
+  "values": [
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Daniel Khoroshko",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7Bc82293ff-0d4a-47ba-bb96-ef08d7f59bb1%7D"
+          },
+          "avatar": {
+            "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/61698a5c64ff010071f88942/7941719c-fd65-4bc0-9c98-69127b5d9535/128"
+          },
+          "html": { "href": "https://bitbucket.org/%7Bc82293ff-0d4a-47ba-bb96-ef08d7f59bb1%7D/" }
+        },
+        "type": "user",
+        "uuid": "{c82293ff-0d4a-47ba-bb96-ef08d7f59bb1}",
+        "account_id": "61698a5c64ff010071f88942",
+        "nickname": "Daniel Khoroshko"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7Bc82293ff-0d4a-47ba-bb96-ef08d7f59bb1%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Henrik Rundquist",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7Bbaf99fdf-0847-435a-89e7-010a822fd354%7D"
+          },
+          "avatar": {
+            "href": "https://secure.gravatar.com/avatar/44ab5adf6692ef97ecb6e417175a5450?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FHR-3.png"
+          },
+          "html": { "href": "https://bitbucket.org/%7Bbaf99fdf-0847-435a-89e7-010a822fd354%7D/" }
+        },
+        "type": "user",
+        "uuid": "{baf99fdf-0847-435a-89e7-010a822fd354}",
+        "account_id": "61b7134eef5b460071f7015d",
+        "nickname": "Henrik Rundquist"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7Bbaf99fdf-0847-435a-89e7-010a822fd354%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Vincent De La Rosée",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7Ba37dfc60-f5b5-4e67-8205-83db0c82a7d0%7D"
+          },
+          "avatar": {
+            "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/635675b3fc0cc7a600ae360f/8b7ca9ff-8a63-4838-a830-65a633d28b2a/128"
+          },
+          "html": { "href": "https://bitbucket.org/%7Ba37dfc60-f5b5-4e67-8205-83db0c82a7d0%7D/" }
+        },
+        "type": "user",
+        "uuid": "{a37dfc60-f5b5-4e67-8205-83db0c82a7d0}",
+        "account_id": "635675b3fc0cc7a600ae360f",
+        "nickname": "Vincent De La Rosée"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7Ba37dfc60-f5b5-4e67-8205-83db0c82a7d0%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Shcherbyna Dmytro",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7B3a07eb95-1bb6-4ef9-a298-af293069a445%7D"
+          },
+          "avatar": {
+            "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/initials/SD-5.png"
+          },
+          "html": { "href": "https://bitbucket.org/%7B3a07eb95-1bb6-4ef9-a298-af293069a445%7D/" }
+        },
+        "type": "user",
+        "uuid": "{3a07eb95-1bb6-4ef9-a298-af293069a445}",
+        "account_id": "712020:4ccc2030-ea6c-42c3-9a32-d3e84c9e2fa8",
+        "nickname": "Shcherbyna Dmytro"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7B3a07eb95-1bb6-4ef9-a298-af293069a445%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Filip Fornell",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7B0e2bafc4-a4ad-43de-a434-eb13499c0f57%7D"
+          },
+          "avatar": {
+            "href": "https://secure.gravatar.com/avatar/b881b8a57f17af9042bddbf2f1ebb48a?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FFF-0.png"
+          },
+          "html": { "href": "https://bitbucket.org/%7B0e2bafc4-a4ad-43de-a434-eb13499c0f57%7D/" }
+        },
+        "type": "user",
+        "uuid": "{0e2bafc4-a4ad-43de-a434-eb13499c0f57}",
+        "account_id": "712020:92225d5b-6a8f-4631-a04a-521716894d38",
+        "nickname": "Filip Fornell"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7B0e2bafc4-a4ad-43de-a434-eb13499c0f57%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Jonathan Brandt",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7B85d3e9cb-1c6c-48f1-ba90-daea414d655e%7D"
+          },
+          "avatar": {
+            "href": "https://secure.gravatar.com/avatar/bdcbe4630e471795e110eca7b28c7456?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FJB-6.png"
+          },
+          "html": { "href": "https://bitbucket.org/%7B85d3e9cb-1c6c-48f1-ba90-daea414d655e%7D/" }
+        },
+        "type": "user",
+        "uuid": "{85d3e9cb-1c6c-48f1-ba90-daea414d655e}",
+        "account_id": "70121:3277d256-944a-4762-b3fa-06291e215b8c",
+        "nickname": "Jonathan Brandt"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7B85d3e9cb-1c6c-48f1-ba90-daea414d655e%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Denys Postyka",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7Be7b8eb28-54aa-4b61-b083-6ed659f986e1%7D"
+          },
+          "avatar": {
+            "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/712020:63e1466e-26c6-4a0a-899e-425b7160d26d/5737d18e-95ae-4ec0-bbec-1d3fd58f07b6/128"
+          },
+          "html": { "href": "https://bitbucket.org/%7Be7b8eb28-54aa-4b61-b083-6ed659f986e1%7D/" }
+        },
+        "type": "user",
+        "uuid": "{e7b8eb28-54aa-4b61-b083-6ed659f986e1}",
+        "account_id": "712020:63e1466e-26c6-4a0a-899e-425b7160d26d",
+        "nickname": "postyka"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7Be7b8eb28-54aa-4b61-b083-6ed659f986e1%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "max.synenko",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7B6aa9630d-5dc4-4937-94d8-acb168738ef2%7D"
+          },
+          "avatar": {
+            "href": "https://secure.gravatar.com/avatar/2bccef2f478df17b5a43d5646051d5bc?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FM-3.png"
+          },
+          "html": { "href": "https://bitbucket.org/%7B6aa9630d-5dc4-4937-94d8-acb168738ef2%7D/" }
+        },
+        "type": "user",
+        "uuid": "{6aa9630d-5dc4-4937-94d8-acb168738ef2}",
+        "account_id": "712020:61562773-f0cf-4935-bb94-652ec6360e7e",
+        "nickname": "max.synenko"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7B6aa9630d-5dc4-4937-94d8-acb168738ef2%7D"
+        }
+      }
+    },
+    {
+      "type": "workspace_membership",
+      "user": {
+        "display_name": "Volodymyr Komiachko",
+        "links": {
+          "self": {
+            "href": "https://api.bitbucket.org/2.0/users/%7Ba9e930ec-07c0-4afa-8c02-f9909d2fbebe%7D"
+          },
+          "avatar": {
+            "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/712020:e670d9f9-2ac4-47af-8f78-189cb38de960/29fb3a18-282d-4413-810a-8af1648a91a1/128"
+          },
+          "html": { "href": "https://bitbucket.org/%7Ba9e930ec-07c0-4afa-8c02-f9909d2fbebe%7D/" }
+        },
+        "type": "user",
+        "uuid": "{a9e930ec-07c0-4afa-8c02-f9909d2fbebe}",
+        "account_id": "712020:e670d9f9-2ac4-47af-8f78-189cb38de960",
+        "nickname": "Volodymyr Komiachko"
+      },
+      "workspace": {
+        "type": "workspace",
+        "uuid": "{3160f824-2d65-40b9-8cd7-27aed513cbf8}",
+        "name": "bonliva",
+        "slug": "bonliva",
+        "links": {
+          "avatar": { "href": "https://bitbucket.org/workspaces/bonliva/avatar/?ts=1771834968" },
+          "html": { "href": "https://bitbucket.org/bonliva/" },
+          "self": { "href": "https://api.bitbucket.org/2.0/workspaces/bonliva" }
+        }
+      },
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/workspaces/bonliva/members/%7Ba9e930ec-07c0-4afa-8c02-f9909d2fbebe%7D"
+        }
+      }
+    }
+  ],
+  "pagelen": 100,
+  "size": 9,
+  "page": 1
+}

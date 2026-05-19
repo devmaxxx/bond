@@ -1,0 +1,41 @@
+{
+  "users": [
+    {
+      "name": "Daniel Khoroshko",
+      "email": "Daniel.Khoroshko@bonliva.se",
+      "upn": "Daniel.Khoroshko@bonliva.se",
+      "role": "developer",
+      "jobTitle": "Tech lead",
+      "department": "IT",
+      "company": "Bonliva AB",
+      "mobile": "+380930214661"
+    },
+    {
+      "name": "Dmytro Shcherbyna",
+      "email": "dmytro.shcherbyna@bonliva.dev",
+      "upn": "dmytro.shcherbyna@bonliva.dev",
+      "role": "qa",
+      "jobTitle": "QA",
+      "department": "IT",
+      "company": "Riseapps"
+    },
+    {
+      "name": "Denys Postyka",
+      "email": "denys.postyka@bonliva.dev",
+      "upn": "denys.postyka@bonliva.dev",
+      "role": "developer",
+      "jobTitle": "Software developer",
+      "department": "IT",
+      "company": "Riseapps"
+    },
+    {
+      "name": "Volodymyr Komiachko",
+      "email": "volodymyr.komiachko@bonliva.dev",
+      "upn": "volodymyr.komiachko@bonliva.dev",
+      "role": "developer",
+      "jobTitle": "Utvecklare",
+      "department": "IT",
+      "company": "Riseapps"
+    }
+  ]
+}

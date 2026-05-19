@@ -6,9 +6,9 @@ description: Open the Bitbucket PR creation page for the current branch
 
 Creates a Bitbucket pull request from the current branch into `main` using the Bitbucket MCP server (`bond-bitbucket`).
 
-Usage: `/open-pr [--draft]`
+Usage: `/open-pr`
 
-Pass `--draft` to create the PR as a draft (not ready for review).
+PRs are **always** created as drafts (not ready for review). The author publishes the draft when it is ready for review.
 
 ## Steps
 
@@ -63,7 +63,12 @@ Omit the Jira section if no ticket IDs were found.
 
 ### 4. Resolve reviewers
 
-Use `mcp__bond-bitbucket__get_effective_default_reviewers` with the resolved workspace and repo slug to fetch all default reviewers. Collect their `uuid` values and pass them as the `reviewers` array when creating the PR.
+Check for a configured default reviewer list at `$HOME/.bond/pr-reviewers.json` (managed by `/bond:set-reviewers`):
+
+- **File exists with a non-empty `reviewers` array** → use those `uuid` values.
+- **File missing or empty** → fall back to `mcp__bond-bitbucket__get_effective_default_reviewers` with the resolved workspace and repo slug, and collect the returned `uuid` values.
+
+Pass the resolved `uuid` values as the `reviewers` array when creating the PR.
 
 ### 5. Push the branch
 
@@ -77,7 +82,7 @@ First, use `mcp__bond-bitbucket__get_pull_requests` (state `OPEN`) to check whet
 
 Otherwise, create a new PR (this also covers the case where a previous PR was declined — Bitbucket does not support reopening declined PRs):
 
-If `--draft` was passed, use `mcp__bond-bitbucket__create_draft_pull_request`; otherwise use `mcp__bond-bitbucket__create_pull_request`. Both accept the same parameters:
+Always use `mcp__bond-bitbucket__create_draft_pull_request` to create the PR as a draft. It accepts these parameters:
 - `workspace`: resolved workspace (e.g. `bonliva`)
 - `repo_slug`: resolved repository slug (e.g. `bonliva-erp`)
 - `title`: built in step 3

@@ -18,7 +18,10 @@ Output the following table verbatim:
 | `/bond:implement`    | Fetch a Jira ticket, create a typed branch, plan, and code |
 | `/bond:log-plan`     | Generate a day/week/month time-log plan                    |
 | `/bond:open-pr`      | Open the Bitbucket PR creation page for the current branch |
-| `/bond:setup-mcp`    | Install the bond MCP servers (`bond-*`) into the user scope |
+| `/bond:request-review` | Post a Teams card inviting reviewers to review a PR      |
+| `/bond:set-reviewers`| Set or change the default reviewers added to PRs           |
+| `/bond:setup-plugin` | Set up the bond plugin: install MCP servers and configure env vars |
+| `/bond:teams-post`   | Post a message to a Teams channel via a Workflow webhook   |
 
 ### 2. Done
 

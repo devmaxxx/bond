@@ -1,0 +1,51 @@
+{
+  "_comment": "Teams Adaptive Card template for /bond:request-review. Tokens in {{...}} are substituted by the command. Replace the string \"{{MENTION_ENTITIES}}\" with a real JSON array. Drop the Jira action object if the PR has no Jira key.",
+  "type": "message",
+  "attachments": [
+    {
+      "contentType": "application/vnd.microsoft.card.adaptive",
+      "content": {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.5",
+        "msteams": { "width": "Full", "entities": "{{MENTION_ENTITIES}}" },
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "{{PR_TITLE}}",
+            "weight": "Bolder",
+            "size": "Medium",
+            "wrap": true
+          },
+          {
+            "type": "FactSet",
+            "facts": [
+              { "title": "Repo", "value": "{{REPO}}" },
+              { "title": "PR", "value": "#{{PR_ID}}" },
+              { "title": "Author", "value": "{{AUTHOR}}" },
+              { "title": "Branch", "value": "{{SOURCE_BRANCH}} → {{DEST_BRANCH}}" }
+            ]
+          },
+          {
+            "type": "TextBlock",
+            "text": "{{GREETING}}",
+            "wrap": true,
+            "spacing": "Medium"
+          }
+        ],
+        "actions": [
+          {
+            "type": "Action.OpenUrl",
+            "title": "📂 Open Pull Request",
+            "url": "{{PR_URL}}"
+          },
+          {
+            "type": "Action.OpenUrl",
+            "title": "🎫 View {{JIRA_KEY}}",
+            "url": "{{JIRA_URL}}"
+          }
+        ]
+      }
+    }
+  ]
+}
