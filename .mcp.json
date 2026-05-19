@@ -33,7 +33,7 @@
       "args": ["-y", "--package=outline-mcp-server@latest", "-c", "outline-mcp-server-stdio"],
       "env": {
         "OUTLINE_API_KEY": "${OUTLINE_API_KEY}",
-        "OUTLINE_API_URL": "${OUTLINE_API_URL:-https://app.getoutline.com/api}"
+        "OUTLINE_API_URL": "${OUTLINE_API_URL}"
       }
     }
   }

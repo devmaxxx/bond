@@ -34,11 +34,13 @@ export BITBUCKET_USERNAME="you@bonliva.dev"
 export BITBUCKET_TOKEN="…"
 export CLOCKIFY_API_KEY="…"
 export OUTLINE_API_KEY="…"
+export OUTLINE_API_URL="https://docs.bonliva.dev/api"
 ```
 
 `BITBUCKET_WORKSPACE` defaults to `https://bitbucket.org` — override if needed.
-`OUTLINE_API_URL` defaults to `https://app.getoutline.com/api` — override for a
-self-hosted Outline instance.
+`OUTLINE_API_URL` has no default — `/setup-mcp` prompts for it. Use
+`https://docs.bonliva.dev/api` for the Bonliva instance, or
+`https://app.getoutline.com/api` for Outline cloud.
 
 `bond-teams` has no env vars. After `/setup-mcp`, authenticate it once with a
 Microsoft Graph OAuth flow:

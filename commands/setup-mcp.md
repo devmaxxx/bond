@@ -110,7 +110,7 @@ Only applies to stdio servers. For each env key being added, prefer in order:
 | `BITBUCKET_TOKEN` | Bitbucket API token — get it at https://id.atlassian.com/manage-profile/security/api-tokens. ⚠️ Use a **scoped** token, not a global one. When creating the token, select specific scopes (e.g. Repositories: Read, Pull requests: Read/Write). Global tokens without explicit scopes do not work with this MCP server. |
 | `CLOCKIFY_API_KEY` | Clockify API key — generate at https://app.clockify.me/user/settings (under "API") |
 | `OUTLINE_API_KEY` | Outline API token — create one under Settings → API Tokens in your Outline instance |
-| `OUTLINE_API_URL` | Outline API base URL — defaults to `https://app.getoutline.com/api`; override only for a self-hosted instance |
+| `OUTLINE_API_URL` | Outline REST API base URL — must end in `/api`. For Bonliva use `https://docs.bonliva.dev/api`; for Outline cloud use `https://app.getoutline.com/api`. Has no template default, so it is always prompted unless exported. |
 | `BONLIVA_MCP_TOKEN` | Bearer JWT for the bonliva-erp MCP server |
 
 For variables not in the table, ask generically: "Value for `${VAR_NAME}`".
