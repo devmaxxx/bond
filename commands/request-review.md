@@ -68,9 +68,9 @@ Never mention the PR author.
 
 ### 5. Build the greeting
 
-A short invitation naming the reviewers in an exalted, aristocratic register. Keep it to one brief sentence. For example:
+A very short invitation. For example:
 
-> Honourable `<at>Daniel Khoroshko</at>`, `<at>Denys Postyka</at>` and `<at>Volodymyr Komiachko</at>` — pray grace PR #444 with your review 🎩
+> Honourable `<at>Daniel Khoroshko</at>`, `<at>Denys Postyka</at>` and `<at>Volodymyr Komiachko</at>` — review please 🎩
 
 ### 6. Fill the template
 
@@ -80,7 +80,6 @@ Read `${CLAUDE_PLUGIN_ROOT}/data/pr-review-card.json` and substitute every `{{TO
 |-------|-------|
 | `{{PR_TITLE}}` | PR title |
 | `{{REPO}}` | `<workspace>/<repo_slug>` |
-| `{{PR_ID}}` | pull request id |
 | `{{AUTHOR}}` | PR author |
 | `{{SOURCE_BRANCH}}` / `{{DEST_BRANCH}}` | branches |
 | `{{PR_URL}}` | the Bitbucket PR URL |

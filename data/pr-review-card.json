@@ -8,20 +8,18 @@
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.5",
-        "msteams": { "width": "Full", "entities": "{{MENTION_ENTITIES}}" },
+        "msteams": { "entities": "{{MENTION_ENTITIES}}" },
         "body": [
           {
             "type": "TextBlock",
             "text": "{{PR_TITLE}}",
             "weight": "Bolder",
-            "size": "Medium",
             "wrap": true
           },
           {
             "type": "FactSet",
             "facts": [
               { "title": "Repo", "value": "{{REPO}}" },
-              { "title": "PR", "value": "#{{PR_ID}}" },
               { "title": "Author", "value": "{{AUTHOR}}" },
               { "title": "Branch", "value": "{{SOURCE_BRANCH}} → {{DEST_BRANCH}}" }
             ]
@@ -30,7 +28,8 @@
             "type": "TextBlock",
             "text": "{{GREETING}}",
             "wrap": true,
-            "spacing": "Medium"
+            "spacing": "Small",
+            "isSubtle": true
           }
         ],
         "actions": [
