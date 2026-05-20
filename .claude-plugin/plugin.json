@@ -1,7 +1,7 @@
 {
   "name": "bond",
-  "version": "0.11.1",
-  "description": "Bonliva dev workflow commands and MCP integrations: help, implement, log-plan, open-pr, request-review, set-reviewers, setup-plugin, teams-post",
+  "version": "0.12.0",
+  "description": "Bonliva dev workflow commands and MCP integrations: help, fix-qa, implement, log-plan, open-pr, request-review, set-reviewers, setup-plugin, teams-post, track-pr",
   "author": {
     "name": "Max Synenko",
     "email": "syn.max.13@gmail.com"

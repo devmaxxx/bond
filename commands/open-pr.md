@@ -102,14 +102,3 @@ For each ticket ID extracted in step 3 (if any):
 3. Find the transition whose `name` contains "review" (case-insensitive).
 4. If found, call `mcp__bond-atlassian__transitionJiraIssue` with `cloudId`, `issueIdOrKey`, and that transition ID.
 5. Report success or skip silently if no matching transition exists.
-
-### 8. Send the review request to Teams
-
-After the PR exists (whether newly created or pre-existing), invoke `/bond:request-review`
-with the PR URL from step 6 to post a review-invite card to the Teams channel.
-
-- Follow the `/bond:request-review` flow as written — including its "show before
-  sending" confirmation step.
-- If `BOND_TEAMS_WEBHOOK_URL` is not configured, skip this step with a note
-  (`Skipped Teams review request — webhook not set; run /bond:setup-plugin`).
-  A missing webhook must not fail `/open-pr`.

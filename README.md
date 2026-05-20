@@ -7,6 +7,7 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | Command         | Purpose                                                    |
 | --------------- | ---------------------------------------------------------- |
 | `/help`         | List all bond plugin commands with their descriptions      |
+| `/fix-qa`       | Read QA failure feedback from a Jira ticket and re-run implementation to fix it |
 | `/implement`    | Fetch a Jira ticket, create a typed branch, plan, and code |
 | `/log-plan`     | Generate a day/week/month time-log plan                    |
 | `/open-pr`      | Open the Bitbucket PR creation page for the current branch |
@@ -14,6 +15,7 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | `/set-reviewers`| Set or change the default reviewers added to PRs           |
 | `/setup-plugin`    | Set up the bond plugin: install MCP servers and configure env vars |
 | `/teams-post`   | Post a message to a Teams channel via a Workflow webhook   |
+| `/track-pr`     | Watch a PR pipeline and push a desktop notification on finish |
 
 ## MCP Servers
 

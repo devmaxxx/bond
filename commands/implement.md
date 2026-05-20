@@ -51,6 +51,18 @@ Extract from the response:
 
 If any ticket is not found or the tool returns an error, report which ticket failed and **abort**.
 
+### 2b. Transition tickets to In Progress
+
+Before creating the branch, move every parsed ticket to **In Progress** so Jira reflects that work has started.
+
+For each ticket ID:
+
+1. Use `mcp__bond-atlassian__getTransitionsForJiraIssue` with the `cloudId` from step 2 and `issueIdOrKey` to fetch available transitions.
+2. Find the transition whose `name` contains "in progress" (case-insensitive). If none matches, fall back to a transition whose `name` contains "progress" or "start".
+3. If found, call `mcp__bond-atlassian__transitionJiraIssue` with `cloudId`, `issueIdOrKey`, and that transition ID.
+4. Report success per ticket. If the ticket is already In Progress (no matching transition available because it is the current status), skip silently.
+5. If the transition call fails, surface the error but **do not abort** — continue with branch creation.
+
 ### 3. Determine branch name
 
 **Prefix rule:**
