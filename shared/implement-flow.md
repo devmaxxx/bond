@@ -38,9 +38,33 @@ Resolve the Atlassian `cloudId` once via
 - `fields.description` — Atlassian Document Format; render as plain text
 - if `WITH_COMMENTS`: `fields.comment.comments` — full list with author,
   created, body
+- `fields.attachment` — for resolving the images referenced below
 
 If any ticket is not found or the tool errors, report which ticket failed and
 **abort**.
+
+### Images in the description / comments
+
+Jira embeds images as ADF `media` / `mediaSingle` / `mediaInline` nodes that
+reference an entry in `fields.attachment` (match by `id`/`filename`; keep only
+`mimeType` `image/*`). For **every** image referenced by the description or, when
+`WITH_COMMENTS`, the comments, view it and capture what it shows — mockups, error
+screenshots, and diagrams usually carry implementation-critical detail that the
+text omits.
+
+To view an image:
+
+1. Prefer reading the attachment's `content` URL directly if the tooling can
+   fetch it.
+2. Jira attachment URLs require the logged-in session, so if a direct fetch
+   isn't possible, open it in the **Chrome MCP** (`bond-chrome-devtools`, the
+   debuggable logged-in Chrome from `/bond:chrome-debug`): `navigate_page` to the
+   `content` URL, then `take_screenshot`, and read the screenshot. If that MCP
+   isn't connected, tell the user to run `/bond:chrome-debug` and continue with a
+   text-only note for that image rather than blocking.
+
+Hold each image's description (and which ticket/comment it came from) for the
+plan's per-ticket **Images** field.
 
 ## Procedure: Transition to In Progress
 
@@ -129,6 +153,8 @@ For each ticket:
 - **<ID>: <summary>** (`<type>` · `<status>` · `<priority>`)
   - Description: <full plain-text body>
   - Acceptance criteria: <extracted from description>
+  - Images: <for each image in the description/comments — `<filename>`: what it
+    shows and the detail relevant to implementation; omit the field if none>
   - Open questions: <ambiguities or decisions flagged>
 
 ## Files to change

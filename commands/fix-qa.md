@@ -99,6 +99,10 @@ Run these shared procedures in order:
    - [<created>] <author>: <verbatim body>
    - …
 
+   ### Images
+   - `<filename>` (<comment author/date>): <what the screenshot shows and the
+     detail relevant to the fix> — omit this subsection if no images.
+
    ### Files to change
    - `<path/to/file>` — <reason tied to a specific QA item>
 
