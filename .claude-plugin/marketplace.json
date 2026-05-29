@@ -9,7 +9,7 @@
       "name": "bond",
       "source": "./",
       "description": "Bonliva dev workflow commands and MCP integrations",
-      "version": "0.12.0"
+      "version": "0.13.0"
     }
   ]
 }

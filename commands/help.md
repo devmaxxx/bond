@@ -17,6 +17,8 @@ Output the following table verbatim:
 | `/bond:help`           | List all bond plugin commands with their descriptions                                           |
 | `/bond:chrome-debug`   | Set up/open a debuggable Chrome (LaunchAgent) and install the chrome-devtools MCP pointed at it |
 | `/bond:fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it                 |
+| `/bond:fix-pr`         | Diagnose why a PR's pipeline failed, fix the root causes, and push                              |
+| `/bond:fix-pr-review`  | Multiselect a PR's review comments to fix, implement, push, and resolve them                    |
 | `/bond:implement`      | Fetch a Jira ticket, create a typed branch, plan, and code                                      |
 | `/bond:log-plan`       | Generate a day/week/month time-log plan                                                         |
 | `/bond:open-pr`        | Open the Bitbucket PR creation page for the current branch                                      |

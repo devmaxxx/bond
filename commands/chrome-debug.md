@@ -29,17 +29,19 @@ Both are driven by `${CLAUDE_PLUGIN_ROOT}/scripts/chrome-debug.sh`. macOS only.
 | Subcommand        | Effect                                                                 |
 | ----------------- | ---------------------------------------------------------------------- |
 | `setup` (default) | Install/refresh the LaunchAgent, start it, **and** install the MCP.    |
-| `open [URL]`      | Ensure it's running, open `URL` (default `about:blank`), focus Chrome. |
+| `open [URL]`      | Ensure it's running; open `URL` in a new tab if given (else just focus). |
 | `status`          | Show plist path, load state, port reachability, Chrome version.        |
 | `install-mcp`     | Only (re)install the `bond-chrome-devtools` user-scope MCP server.     |
 | `restart`         | Reload the LaunchAgent and wait for the port.                          |
 | `stop`            | Unload the LaunchAgent (Chrome stays quit until next login).           |
 | `uninstall`       | Stop and delete the LaunchAgent plist (profile dir is kept).           |
+| `desktop-icon`    | Drop a double-clickable launcher (Chrome+bug icon) on the Desktop.     |
 
 Optional env overrides the user can export (the script reads them):
 `BOND_CHROME_DEBUG_PORT` (default `9222`), `BOND_CHROME_DEBUG_PROFILE`
 (default `~/.chrome-debug`), `BOND_CHROME_BIN`, `BOND_CHROME_DEBUG_KEEPALIVE`
-(`1` = relaunch on quit), `BOND_CHROME_MCP_NAME` (default `bond-chrome-devtools`).
+(`1` = relaunch on quit), `BOND_CHROME_MCP_NAME` (default `bond-chrome-devtools`),
+`BOND_CHROME_DESKTOP_LAUNCHER` (default `~/Desktop/Chrome Debug.command`).
 
 ## Steps
 
@@ -55,6 +57,11 @@ The script is idempotent: re-running `setup` rewrites the plist, reloads the
 agent, and re-adds the MCP server (overwriting the same-named one). It needs the
 `claude` CLI on PATH to install the MCP; if it is missing, it prints the exact
 `claude mcp add-json …` command to run instead — relay that to the user.
+
+`desktop-icon` writes to `~/Desktop`, which macOS guards with a privacy (TCC)
+prompt. Claude's own sandboxed shell is denied there, so for this subcommand have
+the **user** run it in their own Terminal (suggest `! …/chrome-debug.sh
+desktop-icon`); the first run may surface a macOS permission prompt to approve.
 
 ### 2. Report
 

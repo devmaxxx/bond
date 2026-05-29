@@ -1,5 +1,5 @@
 ---
-description: Watch a Bitbucket PR pipeline and push a desktop notification when it finishes
+description: Watch a Bitbucket PR pipeline, push a desktop notification when it finishes, and (on success) trigger the review request by default
 ---
 
 # /bond:track-pr
@@ -14,6 +14,11 @@ stopped, or error). Self-paced — the command schedules its own wake-ups via th
 `$ARGUMENTS` — a PR number (e.g. `444`) or a full Bitbucket PR URL
 (`https://bitbucket.org/<ws>/<repo>/pull-requests/<id>`). If empty, ask the user
 which PR before doing anything else.
+
+Optional flag:
+
+- `--no-review` — do **not** trigger the review request when the pipeline passes
+  (step 6). By default, a passing pipeline chains into `/bond:request-review`.
 
 ## Steps
 
@@ -79,7 +84,22 @@ message. Examples:
 If `PushNotification` is unavailable in the current session, fall back to printing
 the message inline and surface the limitation.
 
-### 6. Report and stop the loop
+### 6. Trigger the review request on success (default)
+
+If the final state is **`success`** and the user did **not** pass `--no-review`:
+
+1. Invoke the `/bond:request-review <PR>` command for the same PR — reuse the
+   resolved coordinates (or pass the original `$ARGUMENTS`).
+2. That command resolves pending reviewers, builds the Teams card, and **asks for
+   confirmation before posting** — so this chain never sends an invite silently.
+3. If a request-review prerequisite is missing (e.g. `BOND_TEAMS_WEBHOOK_URL` is
+   not set), surface it and continue — the pipeline notification has already gone
+   out.
+
+On **`failed`**, skip this step — a red pipeline is not ready for review. If
+`--no-review` was passed, skip regardless of outcome (mention it was skipped).
+
+### 7. Report and stop the loop
 
 After the notification:
 

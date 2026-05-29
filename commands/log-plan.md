@@ -1,5 +1,5 @@
 ---
-description: Generate a day/week/month time-log plan markdown by gathering commits, PRs, and recurring entries across all Bonliva repos
+description: Generate a day/week/month time-log plan markdown by gathering commits, PRs, Teams calls/meetings (via Chrome MCP), and recurring entries across all Bonliva repos
 ---
 
 # /log-plan
@@ -86,11 +86,39 @@ For each repo, call `mcp__bond-bitbucket__get_pull_requests` filtered by author 
 
 If the Bitbucket MCP isn't configured, skip and note in the output.
 
-### 5. Ask user for inputs the tools can't provide
+### 5. Gather Teams calls & calendar meetings (Chrome DevTools MCP)
+
+Pull calls and meetings automatically from the user's signed-in Microsoft Teams web app via the Chrome DevTools MCP, so the user only has to confirm/supplement in step 6 rather than recall everything from memory.
+
+**Connect to the right browser.** More than one `chrome-devtools` MCP server may be configured. Use the namespace whose `list_pages` returns the user's real signed-in tabs (their dev app, Jira, etc.) — that server is attached to the local Chrome launched with `--remote-debugging-port=9222` (profile `~/.chrome-debug`). If a namespace's `list_pages` returns nothing, or only an `about:blank` that immediately closes, it spawned its own empty browser — switch to the other namespace. Do **not** launch a fresh browser; only the signed-in profile has the Teams session. (You can confirm the debug instance and its tabs with `curl -s http://127.0.0.1:9222/json`.)
+
+**Calls history:**
+
+1. `navigate_page` an existing tab to `https://teams.cloud.microsoft/` (the profile is already signed in). `wait_for` `Chat` / `Calendar`.
+2. Click the **Calls (⌃ ⇧ 5)** app-bar button; `wait_for` `History`.
+3. `take_snapshot` — save to a file via `filePath` under the repo root (the snapshot routinely exceeds the inline token limit), then `grep`. Each call row exposes an accessible name like:
+   `"... <Contact Name>, Incoming, Call duration of 12 minutes 12 seconds, Call time/date is Tuesday ..."`
+4. Parse per row: **contact**, **direction** (`Incoming` / `Outgoing` / `Missed incoming`), **duration** (`X minutes Y seconds`, `1 hour 5 minutes`), **date**. Resolve relative dates (`Tuesday`, `Yesterday`) against today.
+5. Drop **Missed** and **0m 0s** rows (no time spent); keep the rest.
+
+**Calendar meetings:**
+
+1. Click the **Calendar (⌃ ⇧ 4)** app-bar button. The calendar renders inside an **Outlook iframe** (`outlook.office.com/.../calendar`), so events appear under that frame in the snapshot.
+2. Ensure the visible range covers `[START, END)` — switch to Month or Week view and page to the right month(s) if needed.
+3. `take_snapshot` (to a file, then `grep`). Each event is a button named like:
+   `"Product demo, 9:15 AM to 10:30 AM, Friday, May 8, 2026, By <Organizer Name>, Tentative, Recurring event"`
+4. Parse per event: **title**, **start→end** (compute duration), **date**, **organizer**, **status**.
+5. **Skip**: titles starting with `Canceled:`, status `Free`, and any event already allocated elsewhere — **Dev Stand-up / Standup** (covered by CRMDEV-1393) and **PR review** (CRMDEV-1367). Do not double-count those. Keep real working meetings: product demos, catch-ups, design/architecture syncs, customer meetings, etc.
+
+**Filter & map.** Keep only calls/meetings whose date falls within `[START, END)`. Each becomes a candidate **CRMDEV-1366** entry using the rounding rules in step 6 (round **up** to nearest 30 min, min 30 min), with the contact/title carried through as the comment.
+
+If the Chrome MCP isn't available, the browser isn't signed in, or Teams won't load, skip this step and note it — step 6 still gathers the same info by asking the user.
+
+### 6. Ask user for inputs the tools can't provide
 
 Use `AskUserQuestion` for:
 
-- **Calls & meetings log** — list each call/meeting (date, person/topic, raw duration); rounded to nearest 30 min under **CRMDEV-1366**. Always ask: "Any **additional calls or meetings** (Teams, phone, ad-hoc, demos, design syncs, customer meetings) not in the merged PRs / commits?" The user often has these that don't show up in code/PRs — they're easy to forget and must be captured here. **Examples that go under CRMDEV-1366:**
+- **Calls & meetings log** — present the list already pulled from Teams in step 5 (date, person/topic, raw duration, rounded), each under **CRMDEV-1366**, for the user to confirm or edit. Then always ask: "Any **additional calls or meetings** (personal phone calls, in-person/ad-hoc meetings, demos, design syncs, customer meetings) not captured from Teams or in the merged PRs / commits?" Some don't surface in Teams or code and must be added here. **Examples that go under CRMDEV-1366:**
   - Phone/Teams calls (rounded up to nearest 30 min)
   - **Product demos** (e.g. Apr 8 — 1.0h product demo)
   - Customer / sales meetings
@@ -108,14 +136,14 @@ For each call or meeting, gather:
 | Field        | Example                                                                            |
 | ------------ | ---------------------------------------------------------------------------------- |
 | Date         | `2026-04-13`                                                                       |
-| Person/topic | `Daniel` / `Product demo` / `Design sync`                                          |
+| Person/topic | `<colleague>` / `Product demo` / `Design sync`                                     |
 | Raw length   | `50m23s` / `1h` / `outgoing` (no duration available)                               |
 | Rounded      | `1h` (round **up** to nearest 30 min; minimum 30 min)                              |
-| Comment      | `Call Daniel (50m23s, rounded)` / `Product demo` / `Design sync — onboarding flow` |
+| Comment      | `Call <colleague> (50m23s, rounded)` / `Product demo` / `Design sync — onboarding flow` |
 
 Each call/meeting becomes a **separate worklog** under CRMDEV-1366 so audits are traceable. Product demos, customer meetings, and ad-hoc syncs all use the same ticket and the same per-entry comment style — only the comment text differs.
 
-### 6. Build the markdown file
+### 7. Build the markdown file
 
 Render the canonical structure (the prior `april-2026-time-log.md` shows the full month template):
 
@@ -139,7 +167,7 @@ For each working day, allocate:
 
 If a day has no clear ticket attribution, flag it with `⚠ NEEDS REVIEW` and ask the user.
 
-### 7. Write file and prettier
+### 8. Write file and prettier
 
 Write to `<repo-root>/docs/time-logs/<filename>` (see Output table) and run:
 
@@ -147,7 +175,7 @@ Write to `<repo-root>/docs/time-logs/<filename>` (see Output table) and run:
 pnpm exec prettier --write --ignore-unknown <file>
 ```
 
-### 8. Offer to post worklogs
+### 9. Offer to post worklogs
 
 After the markdown is written, ask the user (`AskUserQuestion`):
 
@@ -159,9 +187,9 @@ After the markdown is written, ask the user (`AskUserQuestion`):
 
 For each worklog: call `mcp__bond-atlassian__addWorklogToJiraIssue` with `cloudId` (resolve once via `mcp__bond-atlassian__getAccessibleAtlassianResources`), `issueIdOrKey`, `timeSpent`, `started` (ISO UTC, see CEST→UTC table in `docs/time-logs/log.md`), and `comment`. Strip `-2`/`-3` branch suffixes — log to the base ticket with `comment: "Follow-up (branch X-2)"`.
 
-Report each post inline: `✓ CRMDEV-1366 30m on 2026-04-15 — Call Daniel`. Continue past failures.
+Report each post inline: `✓ CRMDEV-1366 30m on 2026-04-15 — Call <colleague>`. Continue past failures.
 
-### 9. Summary
+### 10. Summary
 
 Print:
 
@@ -178,3 +206,4 @@ Print:
 - Strip `-2`/`-3` suffixes from branch names when matching to ticket keys (`feature/CRMDEV-6335-2` → `CRMDEV-6335`).
 - Each day must total exactly 8h after recurring entries; if remainders don't fit cleanly, ask the user how to split.
 - For CET months (Nov–Mar), adjust the CEST/UTC conversion table accordingly.
+- Teams calls/meetings (step 5) are read from the **signed-in** Teams web app via the Chrome DevTools MCP attached to the local debug Chrome (`--remote-debugging-port=9222`). If that browser isn't running or signed in, the step is skipped gracefully and step 6 falls back to asking the user. Teams calendar events live inside an Outlook iframe, and durations/dates come from each event's accessibility label — not from any API.
