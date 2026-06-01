@@ -4,7 +4,7 @@ description: Generate a day/week/month time-log plan markdown by gathering commi
 
 # /log-plan
 
-Generate a time-log plan file (e.g. `2026-04-15-day-log.md`, `2026-W15-week-log.md`, `april-2026-time-log.md`) by aggregating commits, merged PRs, calls, and meetings across all Bonliva repos. Follows the conventions documented in `docs/time-logs/log.md`.
+Generate a time-log plan file (e.g. `2026-04-15-day-log.md`, `2026-W15-week-log.md`, `april-2026-time-log.md`) by aggregating commits, merged PRs, calls, and meetings across all Bonliva repos.
 
 ## Arguments
 
@@ -50,21 +50,28 @@ Parse `$ARGUMENTS` to derive `SPAN` (`day`/`week`/`month`) and a date range:
 - **week**: `START` = Monday 00:00 of the ISO week, `END` = following Monday (exclusive).
 - **month**: `START` = `${YEAR}-${MONTH:02d}-01`, `END` = first day of the following month.
 
-Compute working days: Mon–Fri inside the range, minus Swedish bank holidays. Ask the user to confirm holidays/PTO if any fall in the range. (For `day`, working-day count is 0 or 1.)
+Compute working days: Mon–Fri inside the range, minus Polish public holidays. For each Polish public holiday that lands on a weekday in the range, ask the user (multi-select, in step 6) whether they **worked that day** — days they worked count as normal 8h working days; days they didn't are excluded from the working-day count. Also confirm any PTO. (For `day`, working-day count is 0 or 1.)
 
-### 2. Read conventions from `docs/time-logs/log.md`
+### 2. Conventions
 
-Resolve the repo root via `git rev-parse --show-toplevel`, then read `<repo-root>/docs/time-logs/log.md` to load:
+These conventions are baked into this command — no external file is required:
 
-- Recurring tickets (`CRMDEV-1393` standup, `CRMDEV-1367` PR review, `CRMDEV-1366` calls)
-- Workday template (9:00–9:15 standup, 4:30–5:00 PR review, 8h target)
-- Repo list
+- **Recurring tickets** — `CRMDEV-1393` standup (0.25h), `CRMDEV-1367` PR review (0.5h), `CRMDEV-1366` calls/meetings (per item)
+- **Workday template** — **9:00–18:00 with a 1h lunch (13:00–14:00, unlogged) = 8h logged**; 9:00–9:15 standup (CRMDEV-1393), 17:30–18:00 PR review (CRMDEV-1367)
+- **Repos** — see step 3
 
-If `docs/time-logs/log.md` is missing, abort and tell the user to create it.
+Resolve the repo root via `git rev-parse --show-toplevel` — used for the output location (step 8).
 
 ### 3. Gather commits across all repos
 
-For each repo path listed in `docs/time-logs/log.md` section 1, run in parallel:
+**Resolve the projects to track (per-user config — never hardcode paths in this command).** In priority order:
+
+1. **Config file** — `$HOME/.bond/projects.json`, a JSON object with a `projects` array of absolute repo paths (`{ "projects": ["/abs/path", ...] }`). This is the per-user list of projects to track, written by `/bond:setup-plugin` and editable by hand; to add or drop a project, edit this file.
+2. **Auto-discovery fallback** — if that file is absent, glob `bonliva-*` git repos in the parent of the current repo root: `ls -d "$(dirname "$(git rev-parse --show-toplevel)")"/bonliva-*/.git | sed 's,/.git,,'`.
+
+If neither yields anything, tell the user to run `/bond:setup-plugin` (which configures the projects to track) and abort.
+
+Run in parallel for each resolved repo that exists on disk:
 
 ```sh
 git -C <repo-path> log \
@@ -73,7 +80,7 @@ git -C <repo-path> log \
   --pretty=format:"%h|%ad|%s" --date=short
 ```
 
-The repo list comes from `docs/time-logs/log.md` — do not hardcode paths here. For each entry, derive the project name from `<repo-path>/package.json#name` (so display names like `bonliva-erp`, `bonliva-consultant-portal`, `bonliva-crm-nx` come from each repo's manifest, not this command). If a path in `docs/time-logs/log.md` does not exist on disk, skip it and note the omission in the final summary.
+Derive the display name from `<repo-path>/package.json#name`. If a path does not exist on disk, skip it and note the omission in the final summary.
 
 Parse each commit:
 
@@ -110,7 +117,7 @@ Pull calls and meetings automatically from the user's signed-in Microsoft Teams 
 4. Parse per event: **title**, **start→end** (compute duration), **date**, **organizer**, **status**.
 5. **Skip**: titles starting with `Canceled:`, status `Free`, and any event already allocated elsewhere — **Dev Stand-up / Standup** (covered by CRMDEV-1393) and **PR review** (CRMDEV-1367). Do not double-count those. Keep real working meetings: product demos, catch-ups, design/architecture syncs, customer meetings, etc.
 
-**Filter & map.** Keep only calls/meetings whose date falls within `[START, END)`. Each becomes a candidate **CRMDEV-1366** entry using the rounding rules in step 6 (round **up** to nearest 30 min, min 30 min), with the contact/title carried through as the comment.
+**Filter & map.** Keep only calls/meetings whose date falls within `[START, END)`. Each becomes a candidate **CRMDEV-1366** entry using the rounding rules in step 6 (round **up** to nearest 30 min, min 30 min). Carry the contact/title through as the comment, prefixed **`Call:`** for calls and **`Meeting:`** for meetings (e.g. `Call: Daniel`, `Meeting: Product demo`).
 
 If the Chrome MCP isn't available, the browser isn't signed in, or Teams won't load, skip this step and note it — step 6 still gathers the same info by asking the user.
 
@@ -125,7 +132,7 @@ Use `AskUserQuestion` for:
   - Design syncs, architecture reviews, ad-hoc 1:1s
   - Onboarding sessions, knowledge transfers
 - **One-offs** — non-Jira commits (e.g. iframe fix) and ad-hoc code work without a ticket — assign to an existing ticket or skip
-- **Holidays / PTO** — confirm working-day count
+- **Polish public holidays / PTO** — for each Polish public holiday on a weekday in the range, **multi-select which of those days the user actually worked** (worked → counts as a normal 8h working day; not worked → excluded from the working-day count). Then confirm any additional PTO.
 
 If the user has already prepared a notes file (e.g. `log-plan-inputs.md`), accept that path instead.
 
@@ -135,37 +142,41 @@ For each call or meeting, gather:
 
 | Field        | Example                                                                            |
 | ------------ | ---------------------------------------------------------------------------------- |
-| Date         | `2026-04-13`                                                                       |
+| Date         | `2026-05-13`                                                                       |
 | Person/topic | `<colleague>` / `Product demo` / `Design sync`                                     |
 | Raw length   | `50m23s` / `1h` / `outgoing` (no duration available)                               |
-| Rounded      | `1h` (round **up** to nearest 30 min; minimum 30 min)                              |
-| Comment      | `Call <colleague> (50m23s, rounded)` / `Product demo` / `Design sync — onboarding flow` |
+| Rounded      | `0.5h` (round **up** to nearest 30 min; minimum 30 min)                            |
+| Comment      | `Call: <colleague>` / `Meeting: Product demo` / `Meeting: Design sync — onboarding flow` |
 
-Each call/meeting becomes a **separate worklog** under CRMDEV-1366 so audits are traceable. Product demos, customer meetings, and ad-hoc syncs all use the same ticket and the same per-entry comment style — only the comment text differs.
+Each call/meeting becomes a **separate worklog** under CRMDEV-1366 so audits are traceable. Product demos, customer meetings, and ad-hoc syncs all use the same ticket and the same per-entry comment style — only the comment text differs. Comments are prefixed **`Call:`** (phone/Teams calls) or **`Meeting:`** (demos, syncs, catch-ups) so the daily log reads consistently.
 
 ### 7. Build the markdown file
 
-Render the canonical structure (the prior `april-2026-time-log.md` shows the full month template):
+Render the canonical structure (the latest `may-2026-time-log.md` shows the full month template):
 
-1. **Header** — `# <Span label> — Time Log (max.synenko / msynEfisco)` (e.g. `# 2026-04-15 — Day Log`, `# 2026-W15 — Week Log`, `# April 2026 — Time Log`)
-2. **Recurring daily entries** — convention block + ticket list
-3. **Logged calls** — table under CRMDEV-1366
-4. **One-off** — table
-5. **Merged tickets** — table with PR + ticket + branch
-6. **Calendar log** — depends on span:
-   - `day` — single day table; **must total exactly 8h**
-   - `week` — one table for the ISO week (Mon–Fri rows); **each working day must total exactly 8h**
-   - `month` — week-by-week tables; **each working day must total exactly 8h**
-7. **Totals** — bucket summary
+1. **Header** — `# <Span label> — Time Log (max.synenko / msynEfisco)` (e.g. `# 2026-05-15 — Day Log`, `# 2026-W19 — Week Log`, `# May 2026 — Time Log`), followed by a summary blockquote: `> Period: **<label>** · Working days: **<N>** (<holidays excluded>) · Logged: **<H>h**`
+2. **Working day** — convention block. A table of recurring entries: CRMDEV-1393 standup `0.25h` @ 9:00–9:15, CRMDEV-1367 PR review `0.5h` @ 17:30–18:00, CRMDEV-1366 calls/meetings `per item`, and `_Lunch_` `1h` @ 13:00–14:00 (unlogged). State the day shape: **each working day runs 9:00–18:00 with a 1h lunch (13:00–14:00) = 8h logged**, and that calls/meetings are overhead prefixed `Call:` / `Meeting:`. If any tickets were capped (see below), add a `> Note:` line listing them.
+3. **Calls & meetings (CRMDEV-1366)** — aggregate table (Date, Topic, Hours) ending in a **Total** line; Topic carries the `Call:` / `Meeting:` prefix
+4. **One-off** — table (only if there are non-ticket items)
+5. **Merged tickets** — table with PR + ticket + merged date + branch
+6. **Daily log** — depends on span:
+   - `day` — single day table; **must total exactly 8h logged**
+   - `week` — week section (Mon–Fri), one table per day; **each working day must total exactly 8h logged**
+   - `month` — week-by-week sections (`### Week 19 (May 4–8)`), one table per day; **each working day must total exactly 8h logged**
 
-For each working day, allocate:
+   Each day starts with a one-line header naming the tickets worked + any cap notes, e.g. `**2026-05-04 (Mon)** — ERP-152, ERP-249 (capped 1h); fill ERP-137/180.` Then a table with columns **Ticket | Hours | Note**, where Note is the Jira ticket title (calls/meetings/standup prefixed `Call:` / `Meeting:`). Insert a `_Lunch_ | — | 13:00–14:00` row at the midday boundary.
+7. **Totals** — bucket summary: standup (N × 0.25), PR review (N × 0.5), calls/meetings, ticket work, **Total logged**, and a separate `_Lunch (N × 1h, not logged)_` line. Close with the working-day count and the list of capped tickets.
 
-- 0.25h CRMDEV-1393 standup (9:00–9:15)
-- 0.5h CRMDEV-1367 PR review (4:30–5:00)
-- Sum of calls (CRMDEV-1366) for that day, if any
+For each working day, allocate (everything inside 9:00–18:00 minus the 13:00–14:00 lunch = 8h logged):
+
+- 0.25h CRMDEV-1393 standup (9:00–9:15) — Note `Meeting: Daily standup`
+- 0.5h CRMDEV-1367 PR review (17:30–18:00) — Note `PR review`
+- Sum of calls/meetings (CRMDEV-1366) for that day, if any — each a **separate row**, Note prefixed `Call:` / `Meeting:`
 - **Remainder** distributed to the day's tickets (inferred from commits/PRs merged that day, or the active feature branch)
 
-If a day has no clear ticket attribution, flag it with `⚠ NEEDS REVIEW` and ask the user.
+**Per-worklog 1h cap.** Some tickets are capped at **1h per worklog** (typically small admin / Claude-command / config tickets). When a ticket is capped, log at most 1h against it that day and **reallocate the freed hours to other tickets worked the same day** so the day still totals 8h. Mark every capped ticket in the day-header line with `(capped 1h)` and list them all in the totals section's cap note. If it isn't obvious which tickets to cap, ask the user.
+
+If a day has no clear ticket attribution, flag it with `⚠ NEEDS REVIEW` and ask the user. Tickets that are inaccessible/locked in Jira keep their row with a `(ticket inaccessible in Jira)` note.
 
 ### 8. Write file and prettier
 
@@ -175,21 +186,37 @@ Write to `<repo-root>/docs/time-logs/<filename>` (see Output table) and run:
 pnpm exec prettier --write --ignore-unknown <file>
 ```
 
-### 9. Offer to post worklogs
+Before rebalancing and posting (steps 9–10), verify:
 
-After the markdown is written, ask the user (`AskUserQuestion`):
+- [ ] Each working day sums to **exactly 8h logged** (lunch excluded)
+- [ ] Every ticket key exists in Jira — look up any unfamiliar/suspicious key first
+- [ ] Polish holidays / PTO excluded from the working-day count (except days the user confirmed they worked)
+- [ ] One-offs accounted for in totals
+- [ ] No commit left dangling without a ticket key
 
-> "Plan written. Post worklogs to Jira now?" — Yes / No / Calls only
+### 9. Rebalance pass
 
-- **Yes** — post every row in the calendar log (skip rows without a Jira ticket, flag them).
-- **No** — stop here.
-- **Calls only** — post just the CRMDEV-1366 call entries (handy when ticket work is already logged but additional calls were added later).
+Before posting anything, give the user a chance to **rebalance ticket time**. Print the per-ticket hour totals for the span (and, for `day`, the single-day breakdown), then ask (`AskUserQuestion`, free-text notes enabled):
 
-For each worklog: call `mcp__bond-atlassian__addWorklogToJiraIssue` with `cloudId` (resolve once via `mcp__bond-atlassian__getAccessibleAtlassianResources`), `issueIdOrKey`, `timeSpent`, `started` (ISO UTC, see CEST→UTC table in `docs/time-logs/log.md`), and `comment`. Strip `-2`/`-3` branch suffixes — log to the base ticket with `comment: "Follow-up (branch X-2)"`.
+> "Rebalance any ticket time before posting? (move hours between tickets, cap/uncap a ticket, merge follow-ups, drop a row)"
 
-Report each post inline: `✓ CRMDEV-1366 30m on 2026-04-15 — Call <colleague>`. Continue past failures.
+Apply whatever the user asks, then **re-verify** each working day still totals exactly 8h logged (lunch excluded) and update the markdown file + totals section accordingly. **Every working day must always total exactly 8h after each rebalance** — if a change leaves a day above or below 8h, do not accept it as-is: redistribute the difference across that day's other tickets (or ask the user where it should go) so the day lands back on 8h before moving on. **After every change, re-print the updated per-ticket totals and ask the rebalance question again** — keep looping until the user explicitly says the balances are fine (or declines on the first prompt). Only then continue to step 10 (and never with a day that isn't exactly 8h).
 
-### 10. Summary
+### 10. Confirm, then post to Clockify + Jira
+
+Once balances are confirmed, ask (`AskUserQuestion`):
+
+> "Balances confirmed. Post time entries now?" — **Both (Clockify + Jira)** / **Jira only** / **Clockify only** / **No**
+
+If **No**, stop here (plan only). Otherwise lay out each day's rows contiguously from **9:00**, skipping the **13:00–14:00 lunch**, to derive a `start`/`end` for every entry (calls/meetings sit at their scheduled time when known; standup 9:00–9:15, PR review 17:30–18:00). Skip rows without a Jira ticket key and flag them.
+
+**Clockify** (`create-clockify-time-entry`): resolve workspace + project/task once via `list-clockify-workspaces`, `get-clockify-user`, `list-clockify-projects`, `list-clockify-tasks`. Post one entry per row with the derived `start`/`end` (local offset, no UTC conversion) and a **short description** — ticket key + a few words, e.g. `ERP-152 Claude commands`, `Call: Daniel`, `Daily standup`.
+
+**Jira timesheet** (`addWorklogToJiraIssue`): resolve `cloudId` once via `mcp__bond-atlassian__getAccessibleAtlassianResources`, then post `issueIdOrKey`, `timeSpent` (Jira format: `"15m"`, `"30m"`, `"1h"`, `"3h 15m"`, `"7h 15m"`), `started` (local wall-clock timestamp with its local offset, e.g. `2026-05-13T09:00:00.000+02:00` — do **not** convert to UTC), and `comment` (the row's short note). Issue keys must match `^[A-Z][A-Z0-9_]+-\d+$`; strip `-2`/`-3` branch suffixes (`feature/CRMDEV-6335-2` → `CRMDEV-6335`, otherwise rejected) — log to the base ticket with `comment: "Follow-up (branch X-2)"`.
+
+Report each post inline, tagged by target: `✓ Jira CRMDEV-1366 30m on 2026-05-13 — Call: Daniel`, `✓ Clockify ERP-152 1h on 2026-05-04`. Continue past failures.
+
+### 11. Summary
 
 Print:
 
@@ -197,13 +224,18 @@ Print:
 - Span + resolved date range
 - Total working days, total hours
 - Count of calls, one-offs, merged PRs
-- Worklogs posted (count + first/last id), or "(plan only, not posted)"
+- Rebalance edits applied (if any)
+- Clockify entries posted + Jira worklogs posted (counts), or "(plan only, not posted)"
 - Any `NEEDS REVIEW` rows
 
 ## Notes
 
-- This command does **not** post to Jira automatically — it writes a markdown plan, then offers to post.
+- This command does **not** post automatically — it writes a markdown plan, lets the user rebalance ticket time, then asks for confirmation before posting to **Clockify** (short descriptions) and the **Jira timesheet**.
 - Strip `-2`/`-3` suffixes from branch names when matching to ticket keys (`feature/CRMDEV-6335-2` → `CRMDEV-6335`).
-- Each day must total exactly 8h after recurring entries; if remainders don't fit cleanly, ask the user how to split.
-- For CET months (Nov–Mar), adjust the CEST/UTC conversion table accordingly.
+- The workday is **9:00–18:00 with a 1h unlogged lunch (13:00–14:00) = 8h logged**. Lunch is shown as a `_Lunch_` row but never counts toward the 8h. Each day must total exactly 8h logged after recurring entries; if remainders don't fit cleanly, ask the user how to split.
+- **Per-worklog 1h cap:** small admin / Claude-command / config tickets are capped at 1h per worklog; reallocate freed hours to other same-day tickets and list the capped tickets in the day header and totals cap note.
+- Calls and meetings are overhead, logged under CRMDEV-1366 as separate rows with `Call:` / `Meeting:` prefixes (standup is `Meeting: Daily standup`).
+- Worklog `started` timestamps are posted in **local wall-clock time with the local offset** (no UTC conversion).
+- Working days exclude **Polish** public holidays, except holidays the user confirms they worked (asked as a multi-select in step 6).
+- **Jira MCP can only create worklogs — not update or delete them.** If a worklog is posted with the wrong time/date, fix it manually in the Jira UI; re-running won't overwrite it.
 - Teams calls/meetings (step 5) are read from the **signed-in** Teams web app via the Chrome DevTools MCP attached to the local debug Chrome (`--remote-debugging-port=9222`). If that browser isn't running or signed in, the step is skipped gracefully and step 6 falls back to asking the user. Teams calendar events live inside an Outlook iframe, and durations/dates come from each event's accessibility label — not from any API.

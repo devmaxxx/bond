@@ -4,10 +4,11 @@ description: Set up the bond plugin — install its MCP servers into the user-sc
 
 # /setup-plugin
 
-Set up the bond plugin for this user. This does two things:
+Set up the bond plugin for this user. This does three things:
 
 1. **Install the bond MCP servers** into the **user scope** (global) MCP config so they are available across **all** projects — not just the current repo.
 2. **Configure plugin env vars** that bond commands need but that are not MCP server config — currently the `BOND_TEAMS_WEBHOOK_URL` used by `/bond:teams-post` and `/bond:request-review` (see step 6c).
+3. **Write per-user data files** that bond commands read — default PR reviewers (`$HOME/.bond/pr-reviewers.json`, step 6b) and the list of projects to track (`$HOME/.bond/projects.json`, step 6d), used by `/bond:log-plan`.
 
 Use the bond plugin's bundled `.mcp.json` (at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`) as the canonical template for the MCP servers.
 
@@ -29,7 +30,7 @@ Run this after installing the plugin, after a plugin update introduces new serve
 
 ## Arguments
 
-`$ARGUMENTS` — optional reset flags. With no arguments the command runs in its normal additive mode (never overwrites existing env values).
+`$ARGUMENTS` — optional reset flags. With no arguments the command first asks (multi-select) what the user wants to set up or change (step 0), then runs additively (never overwrites existing env values unless an item is explicitly chosen for re-entry).
 
 - `--reset` — **reset all variables.** Re-prompt for every env var of every bond stdio server in the template, plus `BOND_TEAMS_WEBHOOK_URL`, and overwrite the existing values, even if they are already set. Use this to rotate all tokens at once.
 - `--reset <VAR_NAME> [<VAR_NAME> ...]` — **reset specific variables.** Re-prompt only for the named env vars (e.g. `--reset BITBUCKET_TOKEN` or `--reset BOND_TEAMS_WEBHOOK_URL`) and overwrite just those, leaving every other existing value untouched.
@@ -39,6 +40,23 @@ Run this after installing the plugin, after a plugin update introduces new serve
 Reset mode never touches `command`, `args`, server names, or non-`bond-` servers — it only re-resolves the targeted env values.
 
 ## Steps
+
+### 0. Choose what to configure
+
+If the user passed explicit `--reset` flags, honor those and skip this question (the flags already scope the work). Otherwise ask (`AskUserQuestion`, **multi-select**):
+
+> What do you want to set up or change?
+
+- **Everything (full setup)** — run the whole flow (recommended on first run or after a plugin update).
+- **MCP servers** — install/update the bond MCP servers (steps 1–5, 7).
+- **Bitbucket credentials** — (re-)enter `BITBUCKET_USERNAME` / `BITBUCKET_TOKEN`.
+- **Clockify API key** — (re-)enter `CLOCKIFY_API_KEY`.
+- **Outline API** — (re-)enter `OUTLINE_API_KEY` / `OUTLINE_API_URL`.
+- **Teams webhook** — configure `BOND_TEAMS_WEBHOOK_URL` (step 6c).
+- **PR reviewers** — set default PR reviewers (step 6b).
+- **Projects to track** — configure the projects `/bond:log-plan` scans (step 6d).
+
+Then run only the steps that map to the selection — always do step 1 (locate the template); only run step 7 if "MCP servers" or a server-specific credential was chosen. If **Everything** is selected — or it's the first run with no existing user-scope bond config — run every step. For a chosen credential item, treat it as an implicit `--reset` of those keys: re-prompt and overwrite the existing value.
 
 ### 1. Locate the template
 
@@ -184,6 +202,43 @@ This is optional — skipping it never blocks the rest of setup. If skipped, not
 user can set it later with `/setup-plugin --reset BOND_TEAMS_WEBHOOK_URL` or by
 exporting the variable in their shell profile.
 
+### 6d. Configure the projects to track
+
+`/bond:log-plan` aggregates commits and PRs across the user's projects. The list is
+read from `$HOME/.bond/projects.json` — a JSON object with a `projects` array of
+absolute repo paths. This makes the list per-user; nothing is hardcoded in the command.
+
+```json
+{
+  "projects": [
+    "/Users/<you>/projects/bonliva-erp",
+    "/Users/<you>/projects/bonliva-consultant-portal"
+  ]
+}
+```
+
+If `$HOME/.bond/projects.json` already exists and `--reset` was **not** passed, skip —
+mention: "Projects to track already set — edit `$HOME/.bond/projects.json` to change it."
+
+Otherwise auto-discover candidates and confirm with the user:
+
+1. Determine a projects root: the parent of the current repo root,
+   `dirname "$(git rev-parse --show-toplevel)"`. If not inside a git repo, ask the user
+   for their projects directory.
+2. Glob `bonliva-*` directories under that root that are git repos:
+   ```sh
+   ls -d "$PROJECTS_ROOT"/bonliva-*/.git 2>/dev/null | sed 's,/.git,,'
+   ```
+3. Present the discovered paths via `AskUserQuestion` (multi-select) for the user to
+   confirm which to include, and invite them to add any others (e.g. repos cloned
+   elsewhere).
+4. Write the chosen absolute paths to `$HOME/.bond/projects.json` as
+   `{ "projects": [ ... ] }` (pretty-printed). Create `$HOME/.bond/` if it does not exist.
+
+This is optional — skipping it means `/log-plan` falls back to its own auto-discovery
+and otherwise aborts asking the user to configure the list. With bare `--reset`,
+re-run discovery and overwrite the file.
+
 ### 7. Install / update servers in the user scope
 
 For each server to install or update, write it with `claude mcp add-json` at user scope. The template key `<name>` is already `bond-` prefixed and is used as-is. Build the full per-server JSON object (the value from `template.mcpServers.<name>`, with env values resolved from step 6) and run:
@@ -208,6 +263,7 @@ Run `claude mcp list --scope user` to confirm, then print one of:
   ✓ Installed server (user scope): bond-bitbucket (env prompted)
   ✓ Reset env values: BITBUCKET_TOKEN on bond-bitbucket
   ✓ Configured BOND_TEAMS_WEBHOOK_URL in ~/.claude/settings.json
+  ✓ Wrote projects to track (4 projects) to ~/.bond/projects.json
   ```
   Then remind the user:
   - **Restart Claude Code** to reload MCP servers.
