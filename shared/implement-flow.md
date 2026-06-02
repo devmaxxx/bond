@@ -61,11 +61,30 @@ the Jira issue page**:
 1. `navigate_page` to the Jira **issue page** itself
    (`<JIRA_BASE_URL>/browse/<KEY>`), where the screenshots/diagrams are embedded
    and rendered by the logged-in session.
-2. Locate the embedded image (the `media` node from the description, or the
-   thumbnail under the relevant comment). `take_snapshot` to find it, `click` to
-   open it full-size in Jira's media viewer if needed, then `take_screenshot` and
-   read it.
-3. If the Chrome MCP isn't connected, tell the user to run `/bond:chrome-debug`
+2. `take_snapshot` to locate the embedded image (the `media` node from the
+   description, or the thumbnail under the relevant comment). The snapshot's
+   `img` element exposes the **blob link** as its `url`/`src` — a
+   `media-cdn.atlassian.com` URL ending in the
+   `#media-blob-url=true&id=<MEDIA_ID>&clientId=<CLIENT_ID>…` fragment, e.g.:
+
+   ```
+   https://media-cdn.atlassian.com/file/<MEDIA_ID>/image/cdn?…&client=<CLIENT_ID>&token=<TOKEN>&width=…#media-blob-url=true&id=<MEDIA_ID>&clientId=<CLIENT_ID>&contextId=&collection=
+   ```
+
+3. **Open that blob link directly in a new tab** — `new_page` with the exact
+   `src` read from the snapshot. The CDN serves the full image straight away (it
+   redirects to a signed CDN URL), so there is no need to click through Jira's
+   media viewer. Bump the trailing `width=`/`height=` query params up (e.g.
+   `width=1387`) if the default render is too small to read. Note: the bare
+   `blob:<JIRA_BASE_URL>/<uuid>#…` object URL is document-scoped and will **not**
+   resolve in a fresh tab — always open the `media-cdn.atlassian.com` `src`,
+   which is the fetchable form of the same blob (same `id`/`clientId`/token).
+4. `take_screenshot` of the opened image and read it. Then `close_page` the new
+   tab.
+5. If the snapshot `src` can't be opened directly (missing/expired token), fall
+   back to `click`ing the thumbnail to open Jira's media viewer and
+   `take_screenshot` there.
+6. If the Chrome MCP isn't connected, tell the user to run `/bond:chrome-debug`
    and continue with a text-only note for that image rather than blocking.
 
 Hold each image's description (and which ticket/comment it came from) for the
