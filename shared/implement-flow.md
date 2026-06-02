@@ -52,16 +52,21 @@ reference an entry in `fields.attachment` (match by `id`/`filename`; keep only
 screenshots, and diagrams usually carry implementation-critical detail that the
 text omits.
 
-To view an image:
+To view an image, use the **Chrome MCP** (`bond-chrome-devtools`, the debuggable
+logged-in Chrome from `/bond:chrome-debug`). Do **not** navigate to the
+attachment's `content` URL directly — that forces a file download which the
+browser aborts, yielding no viewable image. Instead, view the image **inline on
+the Jira issue page**:
 
-1. Prefer reading the attachment's `content` URL directly if the tooling can
-   fetch it.
-2. Jira attachment URLs require the logged-in session, so if a direct fetch
-   isn't possible, open it in the **Chrome MCP** (`bond-chrome-devtools`, the
-   debuggable logged-in Chrome from `/bond:chrome-debug`): `navigate_page` to the
-   `content` URL, then `take_screenshot`, and read the screenshot. If that MCP
-   isn't connected, tell the user to run `/bond:chrome-debug` and continue with a
-   text-only note for that image rather than blocking.
+1. `navigate_page` to the Jira **issue page** itself
+   (`<JIRA_BASE_URL>/browse/<KEY>`), where the screenshots/diagrams are embedded
+   and rendered by the logged-in session.
+2. Locate the embedded image (the `media` node from the description, or the
+   thumbnail under the relevant comment). `take_snapshot` to find it, `click` to
+   open it full-size in Jira's media viewer if needed, then `take_screenshot` and
+   read it.
+3. If the Chrome MCP isn't connected, tell the user to run `/bond:chrome-debug`
+   and continue with a text-only note for that image rather than blocking.
 
 Hold each image's description (and which ticket/comment it came from) for the
 plan's per-ticket **Images** field.
