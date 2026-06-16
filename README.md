@@ -125,6 +125,10 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 
 `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project).
 
+## Skills
+
+- **stop-slop** — removes predictable AI writing patterns from prose. Auto-triggers when drafting, editing, or reviewing text. Bundled under `skills/stop-slop/`.
+
 ## Installation
 
 ### From a marketplace (recommended)
@@ -152,6 +156,8 @@ bond/
 │   ├── plugin.json         # plugin manifest
 │   └── marketplace.json    # marketplace entry (single-plugin repo)
 ├── commands/               # slash commands
+├── skills/
+│   └── stop-slop/          # prose-cleanup skill bundled with the plugin
 ├── shared/
 │   └── implement-flow.md   # shared procedures used by /implement and /fix-qa
 ├── data/

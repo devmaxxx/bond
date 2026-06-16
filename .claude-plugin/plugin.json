@@ -1,7 +1,7 @@
 {
   "name": "bond",
-  "version": "0.14.2",
-  "description": "Bonliva dev workflow commands and MCP integrations: help, chrome-debug, fix-qa, fix-pr, fix-pr-review, implement, log-plan, open-pr, request-review, set-reviewers, setup-plugin, teams-post, track-pr",
+  "version": "0.15.0",
+  "description": "Bonliva dev workflow commands and MCP integrations: help, chrome-debug, fix-qa, fix-pr, fix-pr-review, implement, log-plan, open-pr, request-review, set-reviewers, setup-plugin, teams-post, track-pr; bundles the stop-slop skill",
   "author": {
     "name": "Max Synenko",
     "email": "syn.max.13@gmail.com"
@@ -10,5 +10,6 @@
   "repository": "https://github.com/devmaxxx/bond",
   "license": "MIT",
   "keywords": ["bonliva", "workflow", "jira", "bitbucket", "mcp", "commands"],
-  "commands": "./commands/"
+  "commands": "./commands/",
+  "skills": "./skills/"
 }
