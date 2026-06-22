@@ -25,6 +25,7 @@ Output the following table verbatim:
 | `/bond:request-review` | Post a Teams card inviting reviewers to review a PR                                             |
 | `/bond:set-reviewers`  | Set or change the default reviewers added to PRs                                                |
 | `/bond:setup-plugin`   | Set up the bond plugin: install MCP servers and configure env vars                              |
+| `/bond:start`          | Create a new Jira issue and check out a fresh typed branch to start work on it                  |
 | `/bond:teams-post`     | Post a message to a Teams channel via a Workflow webhook                                        |
 | `/bond:track-pr`       | Watch a PR pipeline and push a desktop notification on finish                                   |
 

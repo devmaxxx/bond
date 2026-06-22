@@ -16,6 +16,7 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | `/request-review` | Post a Teams card inviting reviewers to review a PR                                           |
 | `/set-reviewers`  | Set or change the default reviewers added to PRs                                              |
 | `/setup-plugin`   | Set up the bond plugin: install MCP servers and configure env vars                            |
+| `/start`          | Create a new Jira issue and check out a fresh typed branch to start work on it                |
 | `/teams-post`     | Post a message to a Teams channel via a Workflow webhook                                      |
 | `/track-pr`       | Watch a PR pipeline and push a desktop notification on finish                                 |
 
