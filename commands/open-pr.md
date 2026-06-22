@@ -4,9 +4,11 @@ description: Open the Bitbucket PR creation page for the current branch
 
 # /open-pr
 
-Creates a Bitbucket pull request from the current branch into `main` using the Bitbucket MCP server (`bond-bitbucket`).
+Creates a Bitbucket pull request from the current branch into a base branch (`main` by default) using the Bitbucket MCP server (`bond-bitbucket`).
 
-Usage: `/open-pr`
+Usage: `/open-pr [base-branch]`
+
+`$ARGUMENTS` — an optional **base branch** to target the PR at. If omitted, the base is resolved **per repo** (step 2). Examples: `/open-pr`, `/open-pr develop`, `/open-pr release/2.0`. Call this base `<base>` throughout the steps below.
 
 PRs are **always** created as drafts (not ready for review). The author publishes the draft when it is ready for review.
 
@@ -28,12 +30,21 @@ git remote get-url origin
 
 - `git@bitbucket.org:bonliva/bonliva-erp.git` → workspace `bonliva`, repository `bonliva-erp`
 
+Resolve `<base>`: if `$ARGUMENTS` named a base branch, use it. Otherwise pick the repo's default base from the `repo_slug` (case-insensitive):
+
+| Repo slug contains | Default base |
+| ------------------ | ------------ |
+| `erp`              | `main`       |
+| `crm`              | `dev`        |
+| `async`            | `master`     |
+| anything else      | `dev`        |
+
 ### 3. Build title and description
 
-Get commits not yet in `main`:
+Get commits not yet in the base branch:
 
 ```sh
-git log origin/main..<branch> --oneline
+git log origin/<base>..<branch> --oneline
 ```
 
 Extract ticket IDs matching `[A-Z]+-\d+` from the branch name.
@@ -88,17 +99,17 @@ Always use `mcp__bond-bitbucket__create_draft_pull_request` to create the PR as 
 - `title`: built in step 3
 - `description`: built in step 3
 - `source_branch`: current branch name
-- `destination_branch`: `main`
+- `destination_branch`: `<base>` (resolved in step 2)
 - `reviewers`: UUIDs resolved in step 4 (omit if none)
 
 On success, print the PR URL. On failure, report the error and stop.
 
 ### 7. Transition Jira ticket to In Review
 
-For each ticket ID extracted in step 3 (if any):
-
-1. Resolve `cloudId` once via `mcp__bond-atlassian__getAccessibleAtlassianResources`.
-2. Use `mcp__bond-atlassian__getTransitionsForJiraIssue` with `cloudId` and `issueIdOrKey` to fetch available transitions.
-3. Find the transition whose `name` contains "review" (case-insensitive).
-4. If found, call `mcp__bond-atlassian__transitionJiraIssue` with `cloudId`, `issueIdOrKey`, and that transition ID.
-5. Report success or skip silently if no matching transition exists.
+For each ticket ID extracted in step 3 (if any), run the **transition** procedure
+in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In Review**. It
+resolves `cloudId` and walks the linear status chain (`Todo → In Progress → In
+Review → QA`) one hop at a time, so a ticket sitting at `Todo` is stepped through
+`In Progress` to `In Review` rather than skipped. Report per ticket; skip
+silently if already at or beyond In Review; if a transition call fails, surface
+the error but do not fail the command.

@@ -30,8 +30,9 @@ plan confirmation (see the Implementation plan procedure). Neither is a
 
 Resolve the Atlassian `cloudId` once via
 `mcp__bond-atlassian__getAccessibleAtlassianResources` (the resource matching
-`bonliva.atlassian.net`). For each ticket ID call
-`mcp__bond-atlassian__getJiraIssue({ cloudId, issueIdOrKey })` and extract:
+`bonliva.atlassian.net`). For each ticket ID, run the **get** procedure in
+`${CLAUDE_PLUGIN_ROOT}/commands/jira.md` — the single place issues are read —
+requesting these fields:
 
 - `fields.summary`, `fields.issuetype.name`, `fields.status.name`,
   `fields.priority.name`, `fields.assignee.displayName`
@@ -94,21 +95,36 @@ plan's per-ticket **Images** field.
 
 **Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
 
-For each ticket ID:
+For each ticket ID, run the **transition** procedure in
+`${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In Progress** — it
+walks the linear status chain (`Todo → In Progress → In Review → QA`) one hop at
+a time, so a ticket already past In Progress is left where it is. Report per
+ticket. Skip silently if already at or beyond In Progress. If a transition call
+fails, surface the error but **do not abort**.
 
-1. `mcp__bond-atlassian__getTransitionsForJiraIssue({ cloudId, issueIdOrKey })`.
-2. Pick the transition whose `name` contains "in progress" (case-insensitive);
-   else one containing "progress" or "start".
-3. If found, call `mcp__bond-atlassian__transitionJiraIssue({ cloudId,
-   issueIdOrKey, transition })`.
-4. Report per ticket. Skip silently if already In Progress (no matching
-   transition because it is the current status).
-5. If the transition call fails, surface the error but **do not abort**.
+## Procedure: Default base branch
+
+The base branch a feature branch is cut from / a PR targets differs per repo.
+When the caller did not pass an explicit base, resolve it from the repo slug
+(`basename "$(git rev-parse --show-toplevel)"`, or the Bitbucket `repo_slug`),
+case-insensitive:
+
+| Repo slug contains | Default base |
+| ------------------ | ------------ |
+| `erp`              | `main`       |
+| `crm`              | `dev`        |
+| `async`            | `master`     |
+| anything else      | `dev`        |
+
+An explicit `--base <branch>` (or a base argument to `/bond:open-pr`) always
+overrides this table.
 
 ## Procedure: Set up the branch
 
-**Inputs:** `BRANCH_NAME`; `BRANCH_SOURCE` = `new` (cut off `origin/main`) or
-`existing` (attach to an already-pushed branch); `WORKTREE_SUFFIX` (empty for
+**Inputs:** `BRANCH_NAME`; `BRANCH_SOURCE` = `new` (cut off `origin/<BASE_BRANCH>`)
+or `existing` (attach to an already-pushed branch); `BASE_BRANCH` (the branch a
+`new` branch is cut from — when the caller leaves it unset, resolve it via the
+**Default base branch** procedure above); `WORKTREE_SUFFIX` (empty for
 `/implement`, `-qa` for `/fix-qa`); mode = worktree (default) or in-place
 (`--no-worktree`).
 
@@ -123,8 +139,8 @@ Do **not** require a clean working tree.
    needs both.
 4. `git fetch origin`.
 5. Create the worktree:
-   - `BRANCH_SOURCE=new`: `git worktree add -b <BRANCH_NAME> <path> origin/main`.
-     Abort if the path or branch already exists.
+   - `BRANCH_SOURCE=new`: `git worktree add -b <BRANCH_NAME> <path>
+     origin/<BASE_BRANCH>`. Abort if the path or branch already exists.
    - `BRANCH_SOURCE=existing`: `git worktree add <path> <BRANCH_NAME>` when a
      local branch exists, or `git worktree add -b <BRANCH_NAME> <path>
      origin/<BRANCH_NAME>` when only a remote branch exists. Abort on
@@ -132,7 +148,7 @@ Do **not** require a clean working tree.
 6. `cd` into the worktree. All later procedures run inside it.
 7. `BRANCH_SOURCE=existing` only: `git pull --ff-only origin <BRANCH_NAME>` to
    fast-forward. Abort on failure — do not auto-merge or rebase. (`new` is
-   already at the `origin/main` tip.)
+   already at the `origin/<BASE_BRANCH>` tip.)
 8. Confirm: worktree path, branch name, short SHA of the tip.
 
 ### In-place mode (`--no-worktree`)
@@ -140,8 +156,8 @@ Do **not** require a clean working tree.
 1. `git status --porcelain` must be clean — otherwise tell the user to commit or
    stash and **abort** (do not auto-stash).
 2. Sync and switch:
-   - `BRANCH_SOURCE=new`: `git fetch origin && git checkout main && git pull
-     --rebase origin main`, then `git checkout -b <BRANCH_NAME>`.
+   - `BRANCH_SOURCE=new`: `git fetch origin && git checkout <BASE_BRANCH> && git
+     pull --rebase origin <BASE_BRANCH>`, then `git checkout -b <BRANCH_NAME>`.
    - `BRANCH_SOURCE=existing`: `git fetch origin && git checkout <BRANCH_NAME> &&
      git pull --ff-only origin <BRANCH_NAME>`.
    Abort on failure.
@@ -256,13 +272,17 @@ Tell the user:
 
 ## Procedure: Ship + PR  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
 
-**Inputs:** `PR_HANDLING` = `create` or `update`.
+**Inputs:** `PR_HANDLING` = `create` or `update`; `BASE_BRANCH` (PR target —
+the same value passed to **Set up the branch**; when unset, the **Default base
+branch** procedure resolves it).
 
 Commit and push happen here automatically — do not ask the user first.
 
 1. Run `/bonliva-dev:ship` to validate, commit, and push the branch.
 2. Then, by `PR_HANDLING`:
-   - `create` → invoke `/bond:open-pr` to create the Bitbucket PR.
+   - `create` → invoke `/bond:open-pr <BASE_BRANCH>` to create the Bitbucket PR
+     targeting the base branch (pass the resolved `BASE_BRANCH` explicitly so it
+     matches the branch the work was cut from).
    - `update` → the ship push updates the existing PR. Check for an existing PR
      for this source branch via `mcp__bond-bitbucket__get_pull_requests`. If one
      exists, print its URL and do **not** invoke `/bond:open-pr`. If none exists,

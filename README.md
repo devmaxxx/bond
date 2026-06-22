@@ -9,7 +9,8 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | `/help`           | List all bond plugin commands with their descriptions                                         |
 | `/chrome-debug`   | Set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it |
 | `/fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it               |
-| `/implement`      | Fetch a Jira ticket, create a typed branch, plan, and code                                    |
+| `/implement`      | Fetch (or create) a Jira ticket, create a typed branch, plan, and code                        |
+| `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/log-plan`       | Generate a day/week/month time-log plan                                                       |
 | `/open-pr`        | Open the Bitbucket PR creation page for the current branch                                    |
 | `/request-review` | Post a Teams card inviting reviewers to review a PR                                           |
@@ -128,6 +129,11 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 ## Skills
 
 - **stop-slop** — removes predictable AI writing patterns from prose. Auto-triggers when drafting, editing, or reviewing text. Bundled under `skills/stop-slop/`.
+- **single-pass-iteration** — collapses repeated iterations over the same collection (multiple `.reduce()`, `.filter().map()` chains, duplicate loops) into a single pass. Triggers on cleanup/optimize/refactor requests and during code review. Bundled under `skills/single-pass-iteration/`.
+- **always-use-braces** — wraps every `if`/`else`/`for`/`while` body in curly braces, even one-liners and guard clauses. Triggers when writing or reviewing JS/TS control flow. Bundled under `skills/always-use-braces/`.
+- **readable-code-structure** — splits long functions into small named ones and replaces awkward/clever control flow (search loops, N+1 in loops, nested ternaries, flag params) with plain expressions. Triggers on clean-up/refactor/"make this readable" requests and during review. Bundled under `skills/readable-code-structure/`.
+- **testing-behavior** — writes tests that pin the caller's contract, not the current implementation; refuses change-detector tests and tautologies, and stops to ask before enshrining suspicious behaviour. Triggers when adding, editing, or reviewing tests. Bundled under `skills/testing-behavior/`.
+- **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
 
 ## Installation
 
@@ -157,7 +163,12 @@ bond/
 │   └── marketplace.json    # marketplace entry (single-plugin repo)
 ├── commands/               # slash commands
 ├── skills/
-│   └── stop-slop/          # prose-cleanup skill bundled with the plugin
+│   ├── stop-slop/          # prose-cleanup skill bundled with the plugin
+│   ├── single-pass-iteration/  # merge redundant array passes into one
+│   ├── always-use-braces/  # brace every if/else/for/while body
+│   ├── readable-code-structure/  # small named functions + plain control flow
+│   ├── testing-behavior/   # test the contract, not the implementation
+│   └── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
 ├── shared/
 │   └── implement-flow.md   # shared procedures used by /implement and /fix-qa
 ├── data/

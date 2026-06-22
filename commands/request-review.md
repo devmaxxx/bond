@@ -108,18 +108,13 @@ On confirmation:
 
 ### 9. Transition Jira ticket to In Review
 
-If a Jira key was extracted from the PR title in step 3:
-
-1. Resolve `cloudId` once via `mcp__bond-atlassian__getAccessibleAtlassianResources`
-   (use the resource matching `bonliva.atlassian.net`).
-2. Call `mcp__bond-atlassian__getTransitionsForJiraIssue` with `cloudId` and
-   `issueIdOrKey` to fetch available transitions.
-3. Find the transition whose `name` contains "review" (case-insensitive).
-4. If found, call `mcp__bond-atlassian__transitionJiraIssue` with `cloudId`,
-   `issueIdOrKey`, and that transition ID. Report success.
-5. If no matching transition exists (e.g. the ticket is already In Review), skip
-   silently. If the transition call fails, surface the error but do not fail the
-   command — the Teams card has already been posted.
+If a Jira key was extracted from the PR title in step 3, run the **transition**
+procedure in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In
+Review**. It resolves `cloudId` and walks the linear status chain
+(`Todo → In Progress → In Review → QA`) one hop at a time, so a ticket behind In
+Review is stepped forward rather than skipped. Report success; skip silently if
+already at or beyond In Review; if the transition call fails, surface the error
+but do not fail the command — the Teams card has already been posted.
 
 ### 10. Report
 
