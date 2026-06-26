@@ -135,6 +135,7 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 - **readable-code-structure** — splits long functions into small named ones and replaces awkward/clever control flow (search loops, N+1 in loops, nested ternaries, flag params) with plain expressions. Triggers on clean-up/refactor/"make this readable" requests and during review. Bundled under `skills/readable-code-structure/`.
 - **testing-behavior** — writes tests that pin the caller's contract, not the current implementation; refuses change-detector tests and tautologies, and stops to ask before enshrining suspicious behaviour. Triggers when adding, editing, or reviewing tests. Bundled under `skills/testing-behavior/`.
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
+- **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 
 ## Installation
 
@@ -169,9 +170,11 @@ bond/
 │   ├── always-use-braces/  # brace every if/else/for/while body
 │   ├── readable-code-structure/  # small named functions + plain control flow
 │   ├── testing-behavior/   # test the contract, not the implementation
-│   └── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
+│   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
+│   └── pr-template/         # one shared PR title + description format
 ├── shared/
-│   └── implement-flow.md   # shared procedures used by /implement and /fix-qa
+│   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
+│   └── pr-template.md      # single source of truth for PR title + description
 ├── data/
 │   ├── bb-members.json     # Bitbucket workspace member list (reviewer candidates)
 │   ├── teams-users.json    # Teams users → email (mention ids for /request-review)

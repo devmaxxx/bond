@@ -1,7 +1,7 @@
 {
   "name": "bond",
-  "version": "0.17.0",
-  "description": "Bonliva dev workflow commands and MCP integrations: help, chrome-debug, fix-qa, fix-pr, implement, jira, log-plan, open-pr, request-review, set-reviewers, setup-plugin, start, teams-post, track-pr; bundles the stop-slop, single-pass-iteration, always-use-braces, readable-code-structure, testing-behavior, and vertical-horizontal-review skills",
+  "version": "0.18.0",
+  "description": "Bonliva dev workflow commands and MCP integrations: help, chrome-debug, fix-qa, fix-pr, implement, jira, log-plan, open-pr, request-review, set-reviewers, setup-plugin, start, teams-post, track-pr; bundles the stop-slop, single-pass-iteration, always-use-braces, readable-code-structure, testing-behavior, vertical-horizontal-review, and pr-template skills",
   "author": {
     "name": "Max Synenko",
     "email": "syn.max.13@gmail.com"

@@ -41,36 +41,16 @@ Resolve `<base>`: if `$ARGUMENTS` named a base branch, use it. Otherwise pick th
 
 ### 3. Build title and description
 
-Get commits not yet in the base branch:
+Build the title and description from the **shared PR template** in
+`${CLAUDE_PLUGIN_ROOT}/shared/pr-template.md` — the single source of truth for
+PR formatting. Read that file and set its inputs:
 
-```sh
-git log origin/<base>..<branch> --oneline
-```
+- `<branch>` — current branch (step 1).
+- `<base>` — resolved base (step 2).
+- `<commits>` — `git log origin/<base>..<branch> --oneline`.
+- `<tickets>` — ticket IDs matching `[A-Z]+-\d+` from the branch name.
 
-Extract ticket IDs matching `[A-Z]+-\d+` from the branch name.
-
-**Title:** `<TICKET_IDs>: <short description from commits>`
-
-**Description:**
-
-```markdown
-## Summary
-
-<1-3 bullet points from the commit messages>
-
-## Jira
-
-<For each ticket: - ERP-123: https://bonliva.atlassian.net/browse/ERP-123>
-
-## Test plan
-
-- [ ] <golden path>
-- [ ] <edge case>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
-
-Omit the Jira section if no ticket IDs were found.
+Then produce the title and description exactly as the template defines them.
 
 ### 4. Resolve reviewers
 
