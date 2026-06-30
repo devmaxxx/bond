@@ -133,6 +133,7 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 - **single-pass-iteration** — collapses repeated iterations over the same collection (multiple `.reduce()`, `.filter().map()` chains, duplicate loops) into a single pass. Triggers on cleanup/optimize/refactor requests and during code review. Bundled under `skills/single-pass-iteration/`.
 - **always-use-braces** — wraps every `if`/`else`/`for`/`while` body in curly braces, even one-liners and guard clauses. Triggers when writing or reviewing JS/TS control flow. Bundled under `skills/always-use-braces/`.
 - **readable-code-structure** — splits long functions into small named ones and replaces awkward/clever control flow (search loops, N+1 in loops, nested ternaries, flag params) with plain expressions. Triggers on clean-up/refactor/"make this readable" requests and during review. Bundled under `skills/readable-code-structure/`.
+- **comment-hygiene** — comments the *why*, deletes comments that restate the code, strips ticket IDs, and handles tool directives / TODOs / dead code / license headers. Triggers on writing or reviewing comments and on clean-up/"remove comments" requests. Bundled under `skills/comment-hygiene/`.
 - **testing-behavior** — writes tests that pin the caller's contract, not the current implementation; refuses change-detector tests and tautologies, and stops to ask before enshrining suspicious behaviour. Triggers when adding, editing, or reviewing tests. Bundled under `skills/testing-behavior/`.
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
@@ -169,6 +170,7 @@ bond/
 │   ├── single-pass-iteration/  # merge redundant array passes into one
 │   ├── always-use-braces/  # brace every if/else/for/while body
 │   ├── readable-code-structure/  # small named functions + plain control flow
+│   ├── comment-hygiene/    # comment the why, delete the what
 │   ├── testing-behavior/   # test the contract, not the implementation
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
 │   └── pr-template/         # one shared PR title + description format

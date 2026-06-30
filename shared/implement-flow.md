@@ -128,6 +128,19 @@ or `existing` (attach to an already-pushed branch); `BASE_BRANCH` (the branch a
 `/implement`, `-qa` for `/fix-qa`); mode = worktree (default) or in-place
 (`--no-worktree`).
 
+### Ensure a fresh branch name (`BRANCH_SOURCE=new` only)
+
+A `new` branch must be brand new — never reuse or abort on a name already taken.
+Before creating it, check whether `BRANCH_NAME` already exists **locally**
+(`git rev-parse --verify --quiet refs/heads/<BRANCH_NAME>`) **or on `origin`**
+(`git ls-remote --exit-code --heads origin <BRANCH_NAME>`) after `git fetch
+origin`. If either exists, append `-2` to `BRANCH_NAME`; if that also exists,
+`-3`, and so on, until a name free both locally and on `origin` is found. Use
+that resolved name for everything below (branch ref, slug, worktree path), and
+log the rename under `## Decisions` (e.g. *"branch `feat/ERP-135` existed; used
+`feat/ERP-135-2`"*). This makes name collisions a non-event — the flow never
+stops for one.
+
 ### Worktree mode (default)
 
 Do **not** require a clean working tree.
@@ -140,7 +153,9 @@ Do **not** require a clean working tree.
 4. `git fetch origin`.
 5. Create the worktree:
    - `BRANCH_SOURCE=new`: `git worktree add -b <BRANCH_NAME> <path>
-     origin/<BASE_BRANCH>`. Abort if the path or branch already exists.
+     origin/<BASE_BRANCH>` using the fresh name resolved above. If the worktree
+     **path** is still taken (a leftover from an earlier run), append the same
+     `-N` suffix to the path slug until it is free — do not abort.
    - `BRANCH_SOURCE=existing`: `git worktree add <path> <BRANCH_NAME>` when a
      local branch exists, or `git worktree add -b <BRANCH_NAME> <path>
      origin/<BRANCH_NAME>` when only a remote branch exists. Abort on
@@ -157,7 +172,8 @@ Do **not** require a clean working tree.
    stash and **abort** (do not auto-stash).
 2. Sync and switch:
    - `BRANCH_SOURCE=new`: `git fetch origin && git checkout <BASE_BRANCH> && git
-     pull --rebase origin <BASE_BRANCH>`, then `git checkout -b <BRANCH_NAME>`.
+     pull --rebase origin <BASE_BRANCH>`, then `git checkout -b <BRANCH_NAME>`
+     using the fresh name resolved above.
    - `BRANCH_SOURCE=existing`: `git fetch origin && git checkout <BRANCH_NAME> &&
      git pull --ff-only origin <BRANCH_NAME>`.
    Abort on failure.
