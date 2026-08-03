@@ -16,6 +16,7 @@ Output the following table verbatim:
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `/bond:help`           | List all bond plugin commands with their descriptions                                           |
 | `/bond:chrome-debug`   | Set up/open a debuggable Chrome (LaunchAgent) and install the chrome-devtools MCP pointed at it |
+| `/bond:disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones           |
 | `/bond:fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it                 |
 | `/bond:fix-pr`         | Diagnose why a PR's pipeline failed, fix the root causes, and push                              |
 | `/bond:implement`      | Fetch (or create) a Jira ticket, create a typed branch, plan, and code                          |
@@ -23,6 +24,7 @@ Output the following table verbatim:
 | `/bond:log-plan`       | Generate a day/week/month time-log plan                                                         |
 | `/bond:publish-timelog`| Publish an existing time-log md to Jira + Clockify (1 entry/day) and reconcile the totals        |
 | `/bond:open-pr`        | Open the Bitbucket PR creation page for the current branch                                      |
+| `/bond:projects`       | Manage the projects tracked by `/log-plan` (add, remove, discover, clear)                       |
 | `/bond:request-review` | Post a Teams card inviting reviewers to review a PR                                             |
 | `/bond:set-reviewers`  | Set or change the default reviewers added to PRs                                                |
 | `/bond:setup-plugin`   | Set up the bond plugin: install MCP servers and configure env vars                              |

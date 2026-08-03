@@ -7,7 +7,7 @@ description: Set up the bond plugin — install its MCP servers into the user-sc
 Set up the bond plugin for this user. This does three things:
 
 1. **Install the bond MCP servers** into the **user scope** (global) MCP config so they are available across **all** projects — not just the current repo.
-2. **Configure plugin env vars** that bond commands need but that are not MCP server config — currently the `BOND_TEAMS_WEBHOOK_URL` used by `/bond:teams-post` and `/bond:request-review` (see step 6c).
+2. **Configure plugin env vars** that bond commands need but that are not MCP server config — the `BOND_TEAMS_WEBHOOK_URL` used by `/bond:teams-post` and `/bond:request-review` (step 6c), and `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` for the `woodpecker-cli` binary (step 6e).
 3. **Write per-user data files** that bond commands read — default PR reviewers (`$HOME/.bond/pr-reviewers.json`, step 6b) and the list of projects to track (`$HOME/.bond/projects.json`, step 6d), used by `/bond:log-plan`.
 
 Use the bond plugin's bundled `.mcp.json` (at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`) as the canonical template for the MCP servers.
@@ -32,10 +32,10 @@ Run this after installing the plugin, after a plugin update introduces new serve
 
 `$ARGUMENTS` — optional reset flags. With no arguments the command first asks (multi-select) what the user wants to set up or change (step 0), then runs additively (never overwrites existing env values unless an item is explicitly chosen for re-entry).
 
-- `--reset` — **reset all variables.** Re-prompt for every env var of every bond stdio server in the template, plus `BOND_TEAMS_WEBHOOK_URL`, and overwrite the existing values, even if they are already set. Use this to rotate all tokens at once.
+- `--reset` — **reset all variables.** Re-prompt for every env var of every bond stdio server in the template, plus `BOND_TEAMS_WEBHOOK_URL`, `WOODPECKER_SERVER`, and `WOODPECKER_TOKEN`, and overwrite the existing values, even if they are already set. Use this to rotate all tokens at once.
 - `--reset <VAR_NAME> [<VAR_NAME> ...]` — **reset specific variables.** Re-prompt only for the named env vars (e.g. `--reset BITBUCKET_TOKEN` or `--reset BOND_TEAMS_WEBHOOK_URL`) and overwrite just those, leaving every other existing value untouched.
 
-`--reset` with no variable names means "all"; `--reset` followed by one or more `[A-Z_]+` tokens means just those. A named variable must be either an env key of a bond template server or `BOND_TEAMS_WEBHOOK_URL`; otherwise report it and **abort** before changing anything.
+`--reset` with no variable names means "all"; `--reset` followed by one or more `[A-Z_]+` tokens means just those. A named variable must be either an env key of a bond template server, `BOND_TEAMS_WEBHOOK_URL`, `WOODPECKER_SERVER`, or `WOODPECKER_TOKEN`; otherwise report it and **abort** before changing anything.
 
 Reset mode never touches `command`, `args`, server names, or non-`bond-` servers — it only re-resolves the targeted env values.
 
@@ -55,6 +55,7 @@ If the user passed explicit `--reset` flags, honor those and skip this question 
 - **Teams webhook** — configure `BOND_TEAMS_WEBHOOK_URL` (step 6c).
 - **PR reviewers** — set default PR reviewers (step 6b).
 - **Projects to track** — configure the projects `/bond:log-plan` scans (step 6d).
+- **Woodpecker CI** — install/check `woodpecker-cli` and set `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` (step 6e).
 
 Then run only the steps that map to the selection — always do step 1 (locate the template); only run step 7 if "MCP servers" or a server-specific credential was chosen. If **Everything** is selected — or it's the first run with no existing user-scope bond config — run every step. For a chosen credential item, treat it as an implicit `--reset` of those keys: re-prompt and overwrite the existing value.
 
@@ -218,7 +219,7 @@ absolute repo paths. This makes the list per-user; nothing is hardcoded in the c
 ```
 
 If `$HOME/.bond/projects.json` already exists and `--reset` was **not** passed, skip —
-mention: "Projects to track already set — edit `$HOME/.bond/projects.json` to change it."
+mention: "Projects to track already set — run `/bond:projects` to change it."
 
 Otherwise auto-discover candidates and confirm with the user:
 
@@ -237,7 +238,61 @@ Otherwise auto-discover candidates and confirm with the user:
 
 This is optional — skipping it means `/log-plan` falls back to its own auto-discovery
 and otherwise aborts asking the user to configure the list. With bare `--reset`,
-re-run discovery and overwrite the file.
+re-run discovery and overwrite the file. After setup, the list is managed by
+`/bond:projects` (`show` / `add` / `remove` / `clear`).
+
+### 6e. Configure the Woodpecker CI CLI
+
+`WOODPECKER_SERVER` and `WOODPECKER_TOKEN` are read by the `woodpecker-cli` binary
+(see the bundled `woodpecker-cli` skill). Like `BOND_TEAMS_WEBHOOK_URL` these are
+**not** MCP server env vars — they are plain environment variables for Bash tool
+calls, so they are stored in the user-scope Claude settings.
+
+Check whether the CLI is installed:
+
+```sh
+command -v woodpecker-cli || command -v woodpecker
+```
+
+If it is missing, offer to install it (`brew install woodpecker-cli` on macOS,
+otherwise `go install go.woodpecker-ci.org/woodpecker/v3/cmd/cli@latest`). A
+declined install skips the rest of this step — do not write credentials for a
+binary that is not there.
+
+Then check whether the credentials are already configured, in this order:
+
+1. Process environment — `$WOODPECKER_SERVER` / `$WOODPECKER_TOKEN` set and non-empty.
+2. `~/.claude/settings.json` — `env.WOODPECKER_SERVER` / `env.WOODPECKER_TOKEN`.
+3. `~/.config/woodpecker/config.json` — written by `woodpecker-cli login`.
+
+Decide:
+
+- **Already set (any source) and not in the `--reset` scope** → skip; mention
+  "Woodpecker CLI already configured — change it with `/setup-plugin --reset WOODPECKER_TOKEN`."
+- **Missing, or in the `--reset` scope** → ask via `AskUserQuestion`, one question each:
+
+  > Woodpecker CI server URL, e.g. `https://ci.example.com` — base URL only, no
+  > trailing slash and no `/api` suffix. Skip if you don't use Woodpecker.
+
+  > Woodpecker personal access token — copy it from the server UI under user
+  > settings → "CLI usage". Treat it as a secret.
+
+Offer `woodpecker-cli login` as the alternative to pasting the token: it opens a
+browser and persists credentials to `~/.config/woodpecker/config.json`, which also
+works outside Claude Code. If the user picks that, run nothing here beyond telling
+them the command — do not write `WOODPECKER_TOKEN` to settings as well.
+
+If the user provides values, write them to `~/.claude/settings.json` under the
+top-level `env` object, preserving every other key (same read-modify-write as step
+6c). They take effect for Bash tool calls after the next Claude Code restart.
+
+Verify with a single call and report the result:
+
+```sh
+woodpecker-cli info
+```
+
+This step is optional — skipping it never blocks the rest of setup.
 
 ### 7. Install / update servers in the user scope
 
@@ -264,6 +319,7 @@ Run `claude mcp list --scope user` to confirm, then print one of:
   ✓ Reset env values: BITBUCKET_TOKEN on bond-bitbucket
   ✓ Configured BOND_TEAMS_WEBHOOK_URL in ~/.claude/settings.json
   ✓ Wrote projects to track (4 projects) to ~/.bond/projects.json
+  ✓ Configured WOODPECKER_SERVER / WOODPECKER_TOKEN in ~/.claude/settings.json
   ```
   Then remind the user:
   - **Restart Claude Code** to reload MCP servers.

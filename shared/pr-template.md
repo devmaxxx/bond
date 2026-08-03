@@ -40,3 +40,17 @@ If no ticket IDs were found, drop the prefix and use just the short description.
 ```
 
 Omit the `## Jira` section entirely if `<tickets>` is empty.
+
+## Reviewers
+
+Every PR is created with default reviewers attached. Resolve them in this order:
+
+1. **`$HOME/.bond/pr-reviewers.json`** (managed by `/bond:set-reviewers`) — if it
+   exists and its `reviewers` array is non-empty, use those `uuid` values.
+2. **Bitbucket effective default reviewers** — otherwise call
+   `mcp__bond-bitbucket__get_effective_default_reviewers` with the workspace and
+   repo slug, and collect the returned `uuid` values.
+
+Pass the resolved UUIDs as the `reviewers` array on
+`create_draft_pull_request` / `create_pull_request`. Omit the parameter if both
+sources yield nothing. Never invent reviewers or carry them over from an old PR.

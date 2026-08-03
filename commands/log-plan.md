@@ -1,5 +1,5 @@
 ---
-description: Generate a day/week/month time-log plan markdown by gathering commits, PRs, Teams calls/meetings (via Chrome MCP), and recurring entries across all Bonliva repos
+description: Generate a day/week/month time-log plan markdown by gathering commits, PRs, Teams calls/meetings (via claude-in-chrome), and recurring entries across all Bonliva repos
 ---
 
 # /log-plan
@@ -63,6 +63,8 @@ Parse `$ARGUMENTS` to derive `SPAN` (`day`/`week`/`month`) and a date range:
 
 Compute working days: Mon–Fri inside the range, minus Polish public holidays. For each Polish public holiday that lands on a weekday in the range, ask the user (multi-select, in step 6) whether they **worked that day** — days they worked count as normal 8h working days; days they didn't are excluded from the working-day count. Also confirm any PTO. (For `day`, working-day count is 0 or 1.)
 
+If commits or merged PRs (steps 3–4) land on a **Saturday or Sunday**, don't fold them into an adjacent weekday and don't silently add the weekend day as a working day — ask the user (step 6) whether to include it as a logged (compensatory) day.
+
 ### 2. Conventions
 
 These conventions are baked into this command — no external file is required:
@@ -79,17 +81,23 @@ Resolve the repo root via `git rev-parse --show-toplevel` — used for the outpu
 
 **Resolve the projects to track (per-user config — never hardcode paths in this command).** In priority order:
 
-1. **Config file** — `$HOME/.bond/projects.json`, a JSON object with a `projects` array of absolute repo paths (`{ "projects": ["/abs/path", ...] }`). This is the per-user list of projects to track, written by `/bond:setup-plugin` and editable by hand; to add or drop a project, edit this file.
+1. **Config file** — `$HOME/.bond/projects.json`, a JSON object with a `projects` array of absolute repo paths (`{ "projects": ["/abs/path", ...] }`). This is the per-user list of projects to track, written by `/bond:setup-plugin` and managed by `/bond:projects`; to add or drop a project, run `/bond:projects add <name>` / `/bond:projects remove <name>`.
 2. **Auto-discovery fallback** — if that file is absent, glob `bonliva-*` git repos in the parent of the current repo root: `ls -d "$(dirname "$(git rev-parse --show-toplevel)")"/bonliva-*/.git | sed 's,/.git,,'`.
 
 If neither yields anything, tell the user to run `/bond:setup-plugin` (which configures the projects to track) and abort.
 
-Run in parallel for each resolved repo that exists on disk:
+Run in parallel for each resolved repo that exists on disk. `fetch` first so
+branches merged elsewhere but not yet pulled locally aren't silently missed, use
+`--all` so commits reachable only from a branch other than the currently
+checked-out one aren't dropped, and give `--since`/`--until` an explicit
+`00:00:00` — bare `YYYY-MM-DD` dates are parsed inconsistently by git and can
+silently drop same-day commits at the range boundary:
 
 ```sh
-git -C <repo-path> log \
+git -C <repo-path> fetch --all -q
+git -C <repo-path> log --all \
   --author="$(git -C <repo-path> config user.email)" \
-  --since="${START}" --until="${END}" \
+  --since="${START} 00:00:00" --until="${END} 00:00:00" \
   --pretty=format:"%h|%ad|%s" --date=short
 ```
 
@@ -116,33 +124,35 @@ Collect the **full set of ticket keys** seen across commits (step 3) and merged 
 
 If the Jira MCP isn't available, fall back to the branch/commit text for the note and flag that titles are unresolved.
 
-### 5. Gather Teams calls & calendar meetings (Chrome DevTools MCP)
+### 5. Gather Teams calls & calendar meetings (claude-in-chrome)
 
-Pull calls and meetings automatically from the user's signed-in Microsoft Teams web app via the Chrome DevTools MCP, so the user only has to confirm/supplement in step 6 rather than recall everything from memory.
+Pull calls and meetings automatically from the user's signed-in Microsoft Teams web app via the **`claude-in-chrome`** MCP, so the user only has to confirm/supplement in step 6 rather than recall everything from memory. `claude-in-chrome` drives the user's real, already-signed-in Chrome through the browser extension — no separate debug profile or LaunchAgent to stand up first (unlike the CDP-based `chrome-devtools` MCP): the Teams SSO session is already there.
 
-**Connect to the right browser.** More than one `chrome-devtools` MCP server may be configured. Use the namespace whose `list_pages` returns the user's real signed-in tabs (their dev app, Jira, etc.) — that server is attached to the local Chrome launched with `--remote-debugging-port=9222` (profile `~/.chrome-debug`). If a namespace's `list_pages` returns nothing, or only an `about:blank` that immediately closes, it spawned its own empty browser — switch to the other namespace. Do **not** launch a fresh browser; only the signed-in profile has the Teams session. (You can confirm the debug instance and its tabs with `curl -s http://127.0.0.1:9222/json`.)
+If the `mcp__claude-in-chrome__*` tools are deferred, load the core set first: `ToolSearch` with `select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__read_page,mcp__claude-in-chrome__tabs_create_mcp,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__find`.
+
+**Connect.** Call `tabs_context_mcp` first. Create a **new** tab for this session (`tabs_create_mcp`) rather than reusing an unrelated existing tab, unless the user explicitly asks to reuse one.
 
 **Calls history:**
 
-1. `navigate_page` an existing tab to `https://teams.cloud.microsoft/` (the profile is already signed in). `wait_for` `Chat` / `Calendar`.
-2. Click the **Calls (⌃ ⇧ 5)** app-bar button; `wait_for` `History`.
-3. `take_snapshot` — save to a file via `filePath` under the repo root (the snapshot routinely exceeds the inline token limit), then `grep`. Each call row exposes an accessible name like:
+1. `navigate` the new tab to `https://teams.cloud.microsoft/`. Give it a moment to load, then `read_page` (filter `"interactive"`) to confirm it landed on the signed-in app (`Chat` / `Calendar` / `Calls` nav present) rather than a Microsoft login page.
+2. Use `find` (or `read_page`) to locate the **Calls** app-bar button (⌃ ⇧ 5) and `computer` `left_click` it (by `ref` if `find`/`read_page` returned one, else by coordinate from a screenshot); then locate and click **History**.
+3. `read_page` (filter `"all"`, generous `max_chars`) to capture the call list. If it's too large, narrow with `ref_id` on the call-list container, or fall back to `get_page_text`. Each call row exposes an accessible name like:
    `"... <Contact Name>, Incoming, Call duration of 12 minutes 12 seconds, Call time/date is Tuesday ..."`
 4. Parse per row: **contact**, **direction** (`Incoming` / `Outgoing` / `Missed incoming`), **duration** (`X minutes Y seconds`, `1 hour 5 minutes`), **date**. Resolve relative dates (`Tuesday`, `Yesterday`) against today.
 5. Drop **Missed** and **0m 0s** rows (no time spent); keep the rest.
 
 **Calendar meetings:**
 
-1. Click the **Calendar (⌃ ⇧ 4)** app-bar button. The calendar renders inside an **Outlook iframe** (`outlook.office.com/.../calendar`), so events appear under that frame in the snapshot.
+1. Click the **Calendar** app-bar button (⌃ ⇧ 4). The calendar renders inside an **Outlook iframe** (`outlook.office.com/.../calendar`), so events appear nested under that frame in `read_page`'s output.
 2. Ensure the visible range covers `[START, END)` — switch to Month or Week view and page to the right month(s) if needed.
-3. `take_snapshot` (to a file, then `grep`). Each event is a button named like:
+3. `read_page` (filter `"all"`, generous `max_chars`, or narrowed via `ref_id`). Each event is a button named like:
    `"Product demo, 9:15 AM to 10:30 AM, Friday, May 8, 2026, By <Organizer Name>, Tentative, Recurring event"`
 4. Parse per event: **title**, **start→end** (compute duration), **date**, **organizer**, **status**.
 5. **Skip**: titles starting with `Canceled:`, status `Free`, and any event already allocated elsewhere — **Dev Stand-up / Standup** (covered by CRMDEV-1393) and **PR review** (CRMDEV-1367). Do not double-count those. Keep real working meetings: product demos, catch-ups, design/architecture syncs, customer meetings, etc.
 
 **Filter & map.** Keep only calls/meetings whose date falls within `[START, END)`. Each becomes a candidate **CRMDEV-1366** entry using the rounding rules in step 6 (round **up** to nearest 30 min, min 30 min). Carry the contact/title through as the comment, prefixed **`Call:`** for calls and **`Meeting:`** for meetings (e.g. `Call: Daniel`, `Meeting: Product demo`).
 
-If the Chrome MCP isn't available, the browser isn't signed in, or Teams won't load, skip this step and note it — step 6 still gathers the same info by asking the user.
+If a Microsoft sign-in page appears instead of the signed-in app, **do not enter a password** — that's a prohibited action. Skip this step, note it, and let step 6 gather the same info by asking the user. Likewise skip gracefully if `claude-in-chrome` isn't available or Teams won't load.
 
 ### 6. Ask user for inputs the tools can't provide
 
@@ -154,8 +164,9 @@ Use `AskUserQuestion` for:
   - Customer / sales meetings
   - Design syncs, architecture reviews, ad-hoc 1:1s
   - Onboarding sessions, knowledge transfers
-- **One-offs** — non-Jira commits (e.g. iframe fix) and ad-hoc code work without a ticket — assign to an existing ticket or skip
+- **One-offs** — non-Jira commits (e.g. iframe fix) and ad-hoc code work without a ticket, and any ticket key referenced in a commit/branch that doesn't resolve in Jira — assign to an existing ticket, or ask (`AskUserQuestion`) whether to **create a Jira issue** for it now via `mcp__bond-atlassian__createJiraIssue` (same project, sensible issue type — `Task`/`Bug`/`Chore` — and a short summary derived from the commit messages), or skip it as untracked
 - **Polish public holidays / PTO** — for each Polish public holiday on a weekday in the range, **multi-select which of those days the user actually worked** (worked → counts as a normal 8h working day; not worked → excluded from the working-day count). Then confirm any additional PTO.
+- **Weekend activity** — if step 1 found commits/PRs on a Saturday or Sunday, list those dates and ask (multi-select) which to **include as a logged working day**. Included days get no standup/PR review (see step 7) and log a full 8h to that day's tickets; excluded days are dropped from the plan entirely (their commits aren't folded into a neighboring weekday).
 
 If the user has already prepared a notes file (e.g. `log-plan-inputs.md`), accept that path instead.
 
@@ -199,6 +210,8 @@ For each working day, allocate (everything inside 9:00–18:00 minus the 13:00�
 - Sum of calls/meetings (CRMDEV-1366) for that day, if any — each a **separate row**, Note prefixed `Call:` / `Meeting:`
 - **Remainder** distributed to the day's tickets (inferred from commits/PRs merged that day, or the active feature branch)
 
+A **weekend day** included per step 6 has no standup/PR review row (no ceremony runs Sat/Sun) — reallocate the freed 0.75h to that day's tickets so it still totals 8h, and note `no standup/PR review` in the day header.
+
 **Per-worklog 1h cap.** Some tickets are capped at **1h per worklog** (typically small admin / Claude-command / config tickets). When a ticket is capped, log at most 1h against it that day and **reallocate the freed hours to other tickets worked the same day** so the day still totals 8h. Mark every capped ticket in the day-header line with `(capped 1h)` and list them all in the totals section's cap note. If it isn't obvious which tickets to cap, ask the user.
 
 If a day has no clear ticket attribution, flag it with `⚠ NEEDS REVIEW` and ask the user. Tickets that are inaccessible/locked in Jira keep their row with a `(ticket inaccessible in Jira)` note.
@@ -214,7 +227,7 @@ pnpm exec prettier --write --ignore-unknown <file>
 Before rebalancing and posting (steps 9–10), verify:
 
 - [ ] Each working day sums to **exactly 8h logged** (lunch excluded)
-- [ ] Every ticket key exists in Jira — look up any unfamiliar/suspicious key first
+- [ ] Every ticket key exists in Jira — look up any unfamiliar/suspicious key first; if it doesn't exist, it should already have been resolved in step 6 (created or logged as a one-off) — don't leave an unresolved key in the plan
 - [ ] Every ticket `Note` is the **full Jira title** (step 4b) — no `feature` / `fix` / placeholder left behind
 - [ ] Polish holidays / PTO excluded from the working-day count (except days the user confirmed they worked)
 - [ ] One-offs accounted for in totals
@@ -260,6 +273,7 @@ Print:
 - **Always clarify span + period first** (step 0) — ask the month number / ISO week / date+weekday for anything `$ARGUMENTS` left ambiguous, and echo back the resolved date range before doing work.
 - **Ticket `Note` = full Jira title.** Resolve every ticket key's `summary` via the Jira MCP (step 4b) and use it verbatim in both the daily-log `Note` column and the **Ticket titles** reference section — never `feature` / `fix` / a paraphrase.
 - Strip `-2`/`-3` suffixes from branch names when matching to ticket keys (`feature/CRMDEV-6335-2` → `CRMDEV-6335`).
+- **Missing Jira issues:** never silently drop or leave "(untracked)" a ticket key that doesn't resolve in Jira, or ad-hoc work with no key at all — ask the user (step 6) whether to create the issue via `mcp__bond-atlassian__createJiraIssue` before it goes into the plan.
 - The workday is **9:00–18:00 with a 1h unlogged lunch (13:00–14:00) = 8h logged**. Lunch is shown as a `_Lunch_` row but never counts toward the 8h. Each day must total exactly 8h logged after recurring entries; if remainders don't fit cleanly, ask the user how to split.
 - **Per-worklog 1h cap:** small admin / Claude-command / config tickets are capped at 1h per worklog; reallocate freed hours to other same-day tickets and list the capped tickets in the day header and totals cap note.
 - Calls and meetings are overhead, logged under CRMDEV-1366 as separate rows with `Call:` / `Meeting:` prefixes (standup is `Meeting: Daily standup`).
@@ -267,4 +281,4 @@ Print:
 - Worklog `started` timestamps are posted in **local wall-clock time with the local offset** (no UTC conversion).
 - Working days exclude **Polish** public holidays, except holidays the user confirms they worked (asked as a multi-select in step 6).
 - **Jira MCP can only create worklogs — not update or delete them.** If a worklog is posted with the wrong time/date, fix it manually in the Jira UI; re-running won't overwrite it.
-- Teams calls/meetings (step 5) are read from the **signed-in** Teams web app via the Chrome DevTools MCP attached to the local debug Chrome (`--remote-debugging-port=9222`). If that browser isn't running or signed in, the step is skipped gracefully and step 6 falls back to asking the user. Teams calendar events live inside an Outlook iframe, and durations/dates come from each event's accessibility label — not from any API.
+- Teams calls/meetings (step 5) are read from the **signed-in** Teams web app via `claude-in-chrome`, driving the user's real Chrome through the browser extension. If Teams isn't signed in (a Microsoft login page appears — never enter a password) or the browser isn't reachable, the step is skipped gracefully and step 6 falls back to asking the user. Teams calendar events live inside an Outlook iframe, and durations/dates come from each event's accessibility label — not from any API.

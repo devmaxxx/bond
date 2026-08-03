@@ -53,18 +53,22 @@ reference an entry in `fields.attachment` (match by `id`/`filename`; keep only
 screenshots, and diagrams usually carry implementation-critical detail that the
 text omits.
 
-To view an image, use the **Chrome MCP** (`bond-chrome-devtools`, the debuggable
-logged-in Chrome from `/bond:chrome-debug`). Do **not** navigate to the
-attachment's `content` URL directly — that forces a file download which the
-browser aborts, yielding no viewable image. Instead, view the image **inline on
-the Jira issue page**:
+To view an image, use **`claude-in-chrome`** — it drives the user's real,
+already-signed-in Chrome via the browser extension, so the Jira session is
+already there. If its tools are deferred, load the core set first: `ToolSearch`
+with `select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__read_page,mcp__claude-in-chrome__tabs_create_mcp,mcp__claude-in-chrome__computer`.
+Do **not** navigate to the attachment's `content` URL directly — that forces a
+file download which the browser aborts, yielding no viewable image. Instead,
+view the image **inline on the Jira issue page**:
 
-1. `navigate_page` to the Jira **issue page** itself
-   (`<JIRA_BASE_URL>/browse/<KEY>`), where the screenshots/diagrams are embedded
-   and rendered by the logged-in session.
-2. `take_snapshot` to locate the embedded image (the `media` node from the
-   description, or the thumbnail under the relevant comment). The snapshot's
-   `img` element exposes the **blob link** as its `url`/`src` — a
+1. Call `tabs_context_mcp`, then `tabs_create_mcp` for a fresh tab (or reuse one
+   only if the user already has the issue open).
+2. `navigate` to the Jira **issue page** itself (`<JIRA_BASE_URL>/browse/<KEY>`),
+   where the screenshots/diagrams are embedded and rendered by the logged-in
+   session.
+3. `read_page` (filter `"all"`) to locate the embedded image (the `media` node
+   from the description, or the thumbnail under the relevant comment). The
+   returned `img` element exposes the **blob link** as its `url`/`src` — a
    `media-cdn.atlassian.com` URL ending in the
    `#media-blob-url=true&id=<MEDIA_ID>&clientId=<CLIENT_ID>…` fragment, e.g.:
 
@@ -72,21 +76,22 @@ the Jira issue page**:
    https://media-cdn.atlassian.com/file/<MEDIA_ID>/image/cdn?…&client=<CLIENT_ID>&token=<TOKEN>&width=…#media-blob-url=true&id=<MEDIA_ID>&clientId=<CLIENT_ID>&contextId=&collection=
    ```
 
-3. **Open that blob link directly in a new tab** — `new_page` with the exact
-   `src` read from the snapshot. The CDN serves the full image straight away (it
-   redirects to a signed CDN URL), so there is no need to click through Jira's
-   media viewer. Bump the trailing `width=`/`height=` query params up (e.g.
-   `width=1387`) if the default render is too small to read. Note: the bare
-   `blob:<JIRA_BASE_URL>/<uuid>#…` object URL is document-scoped and will **not**
-   resolve in a fresh tab — always open the `media-cdn.atlassian.com` `src`,
-   which is the fetchable form of the same blob (same `id`/`clientId`/token).
-4. `take_screenshot` of the opened image and read it. Then `close_page` the new
-   tab.
-5. If the snapshot `src` can't be opened directly (missing/expired token), fall
-   back to `click`ing the thumbnail to open Jira's media viewer and
-   `take_screenshot` there.
-6. If the Chrome MCP isn't connected, tell the user to run `/bond:chrome-debug`
-   and continue with a text-only note for that image rather than blocking.
+4. **Open that blob link directly in a new tab** — `tabs_create_mcp` then
+   `navigate` with the exact `src` read from the snapshot. The CDN serves the
+   full image straight away (it redirects to a signed CDN URL), so there is no
+   need to click through Jira's media viewer. Bump the trailing
+   `width=`/`height=` query params up (e.g. `width=1387`) if the default render
+   is too small to read. Note: the bare `blob:<JIRA_BASE_URL>/<uuid>#…` object
+   URL is document-scoped and will **not** resolve in a fresh tab — always open
+   the `media-cdn.atlassian.com` `src`, which is the fetchable form of the same
+   blob (same `id`/`clientId`/token).
+5. `computer` (`action: "screenshot"`) the opened image and read it. Then
+   `tabs_close_mcp` the new tab.
+6. If the `src` can't be opened directly (missing/expired token), fall back to
+   `computer` `left_click`ing the thumbnail to open Jira's media viewer and
+   screenshotting there.
+7. If `claude-in-chrome` isn't available or isn't signed into Jira, continue
+   with a text-only note for that image rather than blocking.
 
 Hold each image's description (and which ticket/comment it came from) for the
 plan's per-ticket **Images** field.

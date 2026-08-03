@@ -13,6 +13,7 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/log-plan`       | Generate a day/week/month time-log plan                                                       |
 | `/open-pr`        | Open the Bitbucket PR creation page for the current branch                                    |
+| `/projects`       | Manage the projects tracked by `/log-plan` (add, remove, discover, clear)                     |
 | `/request-review` | Post a Teams card inviting reviewers to review a PR                                           |
 | `/set-reviewers`  | Set or change the default reviewers added to PRs                                              |
 | `/setup-plugin`   | Set up the bond plugin: install MCP servers and configure env vars                            |
@@ -136,7 +137,8 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 - **comment-hygiene** — comments the *why*, deletes comments that restate the code, strips ticket IDs, and handles tool directives / TODOs / dead code / license headers. Triggers on writing or reviewing comments and on clean-up/"remove comments" requests. Bundled under `skills/comment-hygiene/`.
 - **testing-behavior** — writes tests that pin the caller's contract, not the current implementation; refuses change-detector tests and tautologies, and stops to ask before enshrining suspicious behaviour. Triggers when adding, editing, or reviewing tests. Bundled under `skills/testing-behavior/`.
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
-- **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
+- **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
+- **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
 
 ## Installation
 
@@ -173,7 +175,8 @@ bond/
 │   ├── comment-hygiene/    # comment the why, delete the what
 │   ├── testing-behavior/   # test the contract, not the implementation
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
-│   └── pr-template/         # one shared PR title + description format
+│   ├── pr-template/         # one shared PR title + description + reviewers
+│   └── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
 │   └── pr-template.md      # single source of truth for PR title + description

@@ -54,12 +54,11 @@ Then produce the title and description exactly as the template defines them.
 
 ### 4. Resolve reviewers
 
-Check for a configured default reviewer list at `$HOME/.bond/pr-reviewers.json` (managed by `/bond:set-reviewers`):
-
-- **File exists with a non-empty `reviewers` array** → use those `uuid` values.
-- **File missing or empty** → fall back to `mcp__bond-bitbucket__get_effective_default_reviewers` with the resolved workspace and repo slug, and collect the returned `uuid` values.
-
-Pass the resolved `uuid` values as the `reviewers` array when creating the PR.
+Follow the **Reviewers** section of `${CLAUDE_PLUGIN_ROOT}/shared/pr-template.md`:
+`$HOME/.bond/pr-reviewers.json` first (managed by `/bond:set-reviewers`), falling
+back to `mcp__bond-bitbucket__get_effective_default_reviewers` for the workspace
+and repo slug resolved in step 2. Pass the resulting `uuid` values as the
+`reviewers` array when creating the PR.
 
 ### 5. Push the branch
 
