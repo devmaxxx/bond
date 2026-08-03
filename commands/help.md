@@ -21,6 +21,7 @@ Output the following table verbatim:
 | `/bond:implement`      | Fetch (or create) a Jira ticket, create a typed branch, plan, and code                          |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
 | `/bond:log-plan`       | Generate a day/week/month time-log plan                                                         |
+| `/bond:publish-timelog`| Publish an existing time-log md to Jira + Clockify (1 entry/day) and reconcile the totals        |
 | `/bond:open-pr`        | Open the Bitbucket PR creation page for the current branch                                      |
 | `/bond:request-review` | Post a Teams card inviting reviewers to review a PR                                             |
 | `/bond:set-reviewers`  | Set or change the default reviewers added to PRs                                                |

@@ -42,6 +42,17 @@ If the file already exists, ask the user whether to overwrite or merge.
 
 ## Steps
 
+### 0. Clarify span + period (ask first)
+
+Before resolving anything, **confirm the span and period with `AskUserQuestion`** unless `$ARGUMENTS` already fully specifies both. Ask only what's missing:
+
+- **Span** — `day` / `week` / `month` (if not given).
+- **Month** — span `month`, no month given: ask the **month number** (`1`–`12`) and year (default current year).
+- **ISO week** — span `week`, no week given: ask the **ISO week number** (and ISO year).
+- **Date / weekday** — span `day`, no date given: ask the **date** (`YYYY-MM-DD`) or **weekday**.
+
+Echo back the resolved span + concrete date range (e.g. "month 6 → June 2026, `2026-06-01` … `2026-06-30`") before continuing. **Skip the question only when `$ARGUMENTS` is unambiguous** (e.g. `/log-plan month 2026-06`, `/log-plan day 2026-06-15`).
+
 ### 1. Resolve span + date range
 
 Parse `$ARGUMENTS` to derive `SPAN` (`day`/`week`/`month`) and a date range:
@@ -58,6 +69,8 @@ These conventions are baked into this command — no external file is required:
 
 - **Recurring tickets** — `CRMDEV-1393` standup (0.25h), `CRMDEV-1367` PR review (0.5h), `CRMDEV-1366` calls/meetings (per item)
 - **Workday template** — **9:00–18:00 with a 1h lunch (13:00–14:00, unlogged) = 8h logged**; 9:00–9:15 standup (CRMDEV-1393), 17:30–18:00 PR review (CRMDEV-1367)
+- **Weekend / compensatory days have no standup and no PR review.** A day worked on a **Saturday or Sunday** (e.g. a day worked in place of a taken-off weekday) omits both the CRMDEV-1393 standup and the CRMDEV-1367 PR review rows — the team ceremonies don't run. The day still totals **8h logged**: reallocate the freed `0.75h` (0.25h standup + 0.5h PR review) onto that day's actual tickets. Drop the standup/PR-review rows from such days **and** exclude them from the per-day count in the **Totals** buckets (`Standup (N × 0.25)`, `PR review (N × 0.5)` use only the weekday count). Note `no standup/PR review` in the day header. If a weekend day did run a ceremony, confirm with the user before keeping it.
+- **Ticket titles** — the `Note` for every ticket row is the **full Jira issue title** (`summary`), fetched live via the Jira MCP — **never** a placeholder like `feature` / `fix` / `chore`, and never a hand-shortened paraphrase. Recurring overhead rows keep their `Call:` / `Meeting:` / `PR review` / `Daily standup` text. See step 4b.
 - **Repos** — see step 3
 
 Resolve the repo root via `git rev-parse --show-toplevel` — used for the output location (step 8).
@@ -92,6 +105,16 @@ Parse each commit:
 For each repo, call `mcp__bond-bitbucket__get_pull_requests` filtered by author + the resolved date range. Build the **Merged tickets** table: PR#, ticket key, merged date, branch.
 
 If the Bitbucket MCP isn't configured, skip and note in the output.
+
+### 4b. Resolve ticket titles (Jira MCP)
+
+Collect the **full set of ticket keys** seen across commits (step 3) and merged PRs (step 4), normalised (strip `-2`/`-3` branch suffixes; `^[A-Z][A-Z0-9_]+-\d+$`). Fetch every title in **one batched** `searchJiraIssuesUsingJql` call per project (`key in (ERP-…, CRMDEV-…)`, `fields: ["summary","issuetype"]`) — get the `cloudId` from `getAccessibleAtlassianResources` (or pass the site host directly).
+
+- Build a `key → { title, type }` map and use the **`summary` verbatim** as the `Note` for that ticket's rows in every daily table (step 7) and as the title in the **Ticket titles** reference section.
+- A key that returns nothing (not in Jira, e.g. an internal async-api branch) keeps a best-effort note from the branch/commit and is marked `(not tracked in Jira)`.
+- Recurring overhead keys (`CRMDEV-1393` / `CRMDEV-1367` / `CRMDEV-1366`) are **not** looked up — they use their fixed labels.
+
+If the Jira MCP isn't available, fall back to the branch/commit text for the note and flag that titles are unresolved.
 
 ### 5. Gather Teams calls & calendar meetings (Chrome DevTools MCP)
 
@@ -159,18 +182,20 @@ Render the canonical structure (the latest `may-2026-time-log.md` shows the full
 3. **Calls & meetings (CRMDEV-1366)** — aggregate table (Date, Topic, Hours) ending in a **Total** line; Topic carries the `Call:` / `Meeting:` prefix
 4. **One-off** — table (only if there are non-ticket items)
 5. **Merged tickets** — table with PR + ticket + merged date + branch
-6. **Daily log** — depends on span:
+6. **Ticket titles** — reference table(s) of every non-overhead ticket key worked in the span, grouped by project, with columns **Ticket | Type | Title** (full Jira `summary` from step 4b). Close with a one-line note mapping the overhead keys (CRMDEV-1393 standup · CRMDEV-1367 PR review · CRMDEV-1366 calls/meetings).
+7. **Daily log** — depends on span:
    - `day` — single day table; **must total exactly 8h logged**
    - `week` — week section (Mon–Fri), one table per day; **each working day must total exactly 8h logged**
    - `month` — week-by-week sections (`### Week 19 (May 4–8)`), one table per day; **each working day must total exactly 8h logged**
 
-   Each day starts with a one-line header naming the tickets worked + any cap notes, e.g. `**2026-05-04 (Mon)** — ERP-152, ERP-249 (capped 1h); fill ERP-137/180.` Then a table with columns **Ticket | Hours | Note**, where Note is the Jira ticket title (calls/meetings/standup prefixed `Call:` / `Meeting:`). Insert a `_Lunch_ | — | 13:00–14:00` row at the midday boundary.
-7. **Totals** — bucket summary: standup (N × 0.25), PR review (N × 0.5), calls/meetings, ticket work, **Total logged**, and a separate `_Lunch (N × 1h, not logged)_` line. Close with the working-day count and the list of capped tickets.
+   Each day starts with a one-line header naming the tickets worked + any cap notes, e.g. `**2026-05-04 (Mon)** — ERP-152, ERP-249 (capped 1h); fill ERP-137/180.` Then a table with columns **Ticket | Hours | Note**, where Note is the **full Jira ticket title** (`summary` from step 4b — never `feature` / `fix` / a paraphrase; calls/meetings/standup prefixed `Call:` / `Meeting:`). A capped row appends `(capped 1h)`, a continued row appends `(cont)`. Insert a `_Lunch_ | — | 13:00–14:00` row at the midday boundary.
+8. **Totals** — bucket summary: standup (N × 0.25), PR review (N × 0.5), calls/meetings, ticket work, **Total logged**, and a separate `_Lunch (N × 1h, not logged)_` line. Here **N for standup and PR review is the count of weekday working days only** (weekend/compensatory days have neither) — so this N can be lower than the total working-day count; lunch counts every worked day. Close with the working-day count and the list of capped tickets.
 
 For each working day, allocate (everything inside 9:00–18:00 minus the 13:00–14:00 lunch = 8h logged):
 
-- 0.25h CRMDEV-1393 standup (9:00–9:15) — Note `Meeting: Daily standup`
-- 0.5h CRMDEV-1367 PR review (17:30–18:00) — Note `PR review`
+- 0.25h CRMDEV-1393 standup (9:00–9:15) — Note `Meeting: Daily standup` — **weekday only; omit on Sat/Sun**
+- 0.5h CRMDEV-1367 PR review (17:30–18:00) — Note `PR review` — **weekday only; omit on Sat/Sun**
+- On a **weekend / compensatory day**, both rows above are omitted; reallocate the freed **0.75h** across that day's tickets so it still totals 8h.
 - Sum of calls/meetings (CRMDEV-1366) for that day, if any — each a **separate row**, Note prefixed `Call:` / `Meeting:`
 - **Remainder** distributed to the day's tickets (inferred from commits/PRs merged that day, or the active feature branch)
 
@@ -190,6 +215,7 @@ Before rebalancing and posting (steps 9–10), verify:
 
 - [ ] Each working day sums to **exactly 8h logged** (lunch excluded)
 - [ ] Every ticket key exists in Jira — look up any unfamiliar/suspicious key first
+- [ ] Every ticket `Note` is the **full Jira title** (step 4b) — no `feature` / `fix` / placeholder left behind
 - [ ] Polish holidays / PTO excluded from the working-day count (except days the user confirmed they worked)
 - [ ] One-offs accounted for in totals
 - [ ] No commit left dangling without a ticket key
@@ -231,10 +257,13 @@ Print:
 ## Notes
 
 - This command does **not** post automatically — it writes a markdown plan, lets the user rebalance ticket time, then asks for confirmation before posting to **Clockify** (short descriptions) and the **Jira timesheet**.
+- **Always clarify span + period first** (step 0) — ask the month number / ISO week / date+weekday for anything `$ARGUMENTS` left ambiguous, and echo back the resolved date range before doing work.
+- **Ticket `Note` = full Jira title.** Resolve every ticket key's `summary` via the Jira MCP (step 4b) and use it verbatim in both the daily-log `Note` column and the **Ticket titles** reference section — never `feature` / `fix` / a paraphrase.
 - Strip `-2`/`-3` suffixes from branch names when matching to ticket keys (`feature/CRMDEV-6335-2` → `CRMDEV-6335`).
 - The workday is **9:00–18:00 with a 1h unlogged lunch (13:00–14:00) = 8h logged**. Lunch is shown as a `_Lunch_` row but never counts toward the 8h. Each day must total exactly 8h logged after recurring entries; if remainders don't fit cleanly, ask the user how to split.
 - **Per-worklog 1h cap:** small admin / Claude-command / config tickets are capped at 1h per worklog; reallocate freed hours to other same-day tickets and list the capped tickets in the day header and totals cap note.
 - Calls and meetings are overhead, logged under CRMDEV-1366 as separate rows with `Call:` / `Meeting:` prefixes (standup is `Meeting: Daily standup`).
+- **Weekend / compensatory days carry no standup and no PR review** — drop both rows, reallocate the freed 0.75h to that day's tickets (still 8h), note `no standup/PR review` in the day header, and count only weekday days in the standup/PR-review totals buckets.
 - Worklog `started` timestamps are posted in **local wall-clock time with the local offset** (no UTC conversion).
 - Working days exclude **Polish** public holidays, except holidays the user confirms they worked (asked as a multi-select in step 6).
 - **Jira MCP can only create worklogs — not update or delete them.** If a worklog is posted with the wrong time/date, fix it manually in the Jira UI; re-running won't overwrite it.
