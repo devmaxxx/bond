@@ -60,9 +60,9 @@ If the selection is empty, note that no QA-failure comments were found and conti
 
 In `--no-auto` mode, ask *"Use this QA feedback as the fix scope? Reply with edits or **yes** to continue."* and wait. In auto mode, continue and note auto-confirm is enabled.
 
-### 4. Move the ticket to In Progress
+### 4. Claim the ticket and move it to In Progress
 
-Run the shared **Transition to In Progress** procedure with the one ticket ID.
+Run the shared **Claim unassigned ticket(s)** procedure with the one ticket ID (it becomes yours if nobody holds it), then the shared **Transition to In Progress** procedure with the same ID.
 
 ### 5. Locate the existing branch
 

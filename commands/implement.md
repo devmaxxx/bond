@@ -49,9 +49,9 @@ After stripping flags, look at the remaining tokens:
   3. Report the created issue (key + browse URL). Set `TICKET_IDS` = the single new key and continue.
 - **No tokens at all** → ask the user for a ticket ID or a summary to create, and stop.
 
-### 2. Resolve tickets and move them to In Progress
+### 2. Resolve tickets, claim them, and move them to In Progress
 
-Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs from step 1 and `WITH_COMMENTS=false`, then the **Transition to In Progress** procedure with the same IDs. (A freshly created ticket starts at `Todo`; the chain-walk moves it to In Progress.)
+Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs from step 1 and `WITH_COMMENTS=false`, then the **Claim unassigned ticket(s)** procedure (any ticket with no assignee becomes yours), then the **Transition to In Progress** procedure — all with the same IDs. (A freshly created ticket starts at `Todo`; the chain-walk moves it to In Progress.)
 
 ### 3. Determine the branch name
 

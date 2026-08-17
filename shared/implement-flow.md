@@ -96,6 +96,23 @@ view the image **inline on the Jira issue page**:
 Hold each image's description (and which ticket/comment it came from) for the
 plan's per-ticket **Images** field.
 
+## Procedure: Claim unassigned ticket(s)
+
+**Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
+
+Work you start is work you own. For each resolved ticket, read
+`fields.assignee`:
+
+- **Unassigned** (`null`) → run the **assign** procedure in
+  `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with the target set to **your**
+  `account_id` (`mcp__bond-atlassian__atlassianUserInfo`), and report
+  `claimed <KEY>`.
+- **Already assigned** — to you or to anyone else → leave it as is and report who
+  holds it. Never reassign a ticket away from another person; if the flow is
+  taking over someone else's ticket, that is the user's call to make explicitly.
+
+If an assign call fails, surface the error but **do not abort**.
+
 ## Procedure: Transition to In Progress
 
 **Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
