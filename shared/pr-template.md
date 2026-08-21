@@ -35,11 +35,11 @@ If no ticket IDs were found, drop the prefix and use just the short description.
 
 - [ ] <golden path>
 - [ ] <edge case>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-Omit the `## Jira` section entirely if `<tickets>` is empty.
+Omit the `## Jira` section entirely if `<tickets>` is empty. The description
+ends at the test plan: no "generated with" footer, no session link, no AI
+co-author line — the PR is owned by the human who opens it (`oleg-skills`).
 
 ## Reviewers
 

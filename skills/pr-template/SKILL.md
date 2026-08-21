@@ -41,3 +41,8 @@ Also apply its **Reviewers** section: resolve the UUIDs from
 `/bond:open-pr`.
 
 PRs are always created as **drafts**; the author publishes when ready.
+
+The title, description and every later PR comment follow `oleg-skills`: no
+"generated with" footer, no `Claude-Session:` link, no `Co-Authored-By`
+naming a tool — the PR is owned by the human who opens it. The plugin's
+`check-commit` hook blocks a `gh pr …` call that carries one.

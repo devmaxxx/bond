@@ -126,7 +126,8 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 
 ## Hooks
 
-`PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project).
+- `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
+- `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `oleg-skills` skill.
 
 ## Skills
 
@@ -140,6 +141,7 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 - **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
 
+- **oleg-skills** — commit, PR and document conventions: Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs. Backed by the `check-commit` / `check-doc` hooks. Triggers on "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/oleg-skills/`.
 ## Installation
 
 ### From a marketplace (recommended)
@@ -176,7 +178,8 @@ bond/
 │   ├── testing-behavior/   # test the contract, not the implementation
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
 │   ├── pr-template/         # one shared PR title + description + reviewers
-│   └── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
+│   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
+│   └── oleg-skills/         # commit/PR/doc conventions, no AI signatures
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
 │   └── pr-template.md      # single source of truth for PR title + description
@@ -189,7 +192,10 @@ bond/
 │   └── chrome-debug.sh     # manage a debuggable Chrome LaunchAgent + its MCP
 ├── hooks/
 │   ├── hooks.json
-│   └── format-file.sh
+│   ├── format-file.sh      # PostToolUse: prettier on the edited file
+│   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
+│   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
+│   └── check-doc.mjs       # PostToolUse: flag a written md/txt with a signature
 ├── .mcp.json               # MCP server template (installed via /setup-plugin)
 ├── LICENSE
 └── README.md
