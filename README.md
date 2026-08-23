@@ -10,6 +10,7 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | `/chrome-debug`   | Set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it |
 | `/fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it               |
 | `/implement`      | Fetch (or create) a Jira ticket, create a typed branch, plan, and code                        |
+| `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/log-plan`       | Generate a day/week/month time-log plan                                                       |
 | `/open-pr`        | Open the Bitbucket PR creation page for the current branch                                    |
@@ -140,8 +141,8 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 - **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
-
 - **oleg-skills** — commit, PR and document conventions: Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs. Backed by the `check-commit` / `check-doc` hooks. Triggers on "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/oleg-skills/`.
+
 ## Installation
 
 ### From a marketplace (recommended)

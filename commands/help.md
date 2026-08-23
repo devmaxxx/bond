@@ -20,6 +20,7 @@ Output the following table verbatim:
 | `/bond:fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it                 |
 | `/bond:fix-pr`         | Diagnose why a PR's pipeline failed, fix the root causes, and push                              |
 | `/bond:implement`      | Fetch (or create) a Jira ticket, create a typed branch, plan, and code                          |
+| `/bond:investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc           |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
 | `/bond:log-plan`       | Generate a day/week/month time-log plan                                                         |
 | `/bond:publish-timelog`| Publish an existing time-log md to Jira + Clockify (1 entry/day) and reconcile the totals        |
