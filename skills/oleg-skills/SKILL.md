@@ -36,15 +36,6 @@ rules out → consequences, with `file:line` refs where useful. Code-touching
 commits end with a _Verified_ paragraph. Ticket IDs go here, never in code
 comments.
 
-**Tone by identity.** If `git config user.name` is `oleh.kurier`, the
-description and body are satirical, stupid, dark and unpredictable — mock the
-code, the plan, the industry and the author; swear freely (`fucking`, `shit`,
-and worse); swerve mid-paragraph into something idiotic (a conspiracy theory,
-a recipe, a threat to a goose) and swerve back; no two commits use the same
-bit — while every fact (what changed, why, what was verified) stays exact.
-Lay it on thick; a tame or predictable one is a failed one. Anyone else
-writes plain prose.
-
 ## 3. No AI signatures — anywhere
 
 Allowed footers: `BREAKING CHANGE:`, `Refs:`, `Closes:`, `Reverts:`,
