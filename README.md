@@ -204,19 +204,16 @@ node --test 'tests/**/*.test.mjs'
 
 ## Skills
 
-- **single-pass-iteration** — collapses repeated iterations over the same collection (multiple `.reduce()`, `.filter().map()` chains, duplicate loops) into a single pass. Triggers on cleanup/optimize/refactor requests and during code review. Bundled under `skills/single-pass-iteration/`.
-- **always-use-braces** — wraps every `if`/`else`/`for`/`while` body in curly braces, even one-liners and guard clauses. Triggers when writing or reviewing JS/TS control flow. Bundled under `skills/always-use-braces/`.
-- **readable-code-structure** — splits long functions into small named ones and replaces awkward/clever control flow (search loops, N+1 in loops, nested ternaries, flag params) with plain expressions. Triggers on clean-up/refactor/"make this readable" requests and during review. Bundled under `skills/readable-code-structure/`.
+- **readable-code-structure** — splits long functions into small named ones and replaces awkward/clever control flow (search loops, N+1 in loops, nested ternaries, flag params) with plain expressions. Triggers on clean-up/refactor/"make this readable" requests and during review. Also carries the two mechanical rules that share its trigger exactly: brace every control body (one-liners and guard clauses included), and collapse repeated passes over one collection. Bundled under `skills/readable-code-structure/`.
 - **comment-hygiene** — comments the *why*, deletes comments that restate the code, strips ticket IDs, and handles tool directives / TODOs / dead code / license headers. Triggers on writing or reviewing comments and on clean-up/"remove comments" requests. Bundled under `skills/comment-hygiene/`.
 - **testing-behavior** — writes tests that pin the caller's contract, not the current implementation; refuses change-detector tests and tautologies, and stops to ask before enshrining suspicious behaviour. Triggers when adding, editing, or reviewing tests. Bundled under `skills/testing-behavior/`.
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 - **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
-- **authorship-conventions** — commit, PR and document conventions: Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs. Backed by the `check-commit` / `check-doc` hooks. Triggers on "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/authorship-conventions/`.
+- **authorship-conventions** — naming and attribution for every git artefact: Conventional Branch `<type>/<description>`, Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs — plus the rename trap: renaming a branch after its PR is open closes the PR. Bonliva repos keep the `<prefix>/<KEY>` branch shape bond imposes; everywhere else the spec wins. Backed by the `check-commit` / `check-doc` hooks. Triggers on `checkout -b`, "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/authorship-conventions/`.
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/high by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
-- **naming-git-branches** — Conventional Branch `<type>/<description>`, the ticket-id rule, and the rename trap: renaming after a PR is open closes it. Bonliva repos keep the `<prefix>/<KEY>` shape bond imposes; everywhere else the spec wins. Triggers on `checkout -b` and before a PR. Bundled under `skills/naming-git-branches/`.
 - **switching-github-accounts** — two accounts are logged into `gh`; the active one decides which token pushes, and it is machine-global, so another session may have switched it. Check before every push or `gh` write. Triggers before `git push`, a PR, or any `gh` write. Bundled under `skills/switching-github-accounts/`.
 
 ## Agents
@@ -251,21 +248,19 @@ bond/
 │   └── marketplace.json    # marketplace entry (single-plugin repo)
 ├── commands/               # slash commands
 ├── skills/
-│   ├── single-pass-iteration/  # merge redundant array passes into one
-│   ├── always-use-braces/  # brace every if/else/for/while body
-│   ├── readable-code-structure/  # small named functions + plain control flow
+│   ├── readable-code-structure/  # small named functions, plain control flow, braces, one pass
 │   ├── comment-hygiene/    # comment the why, delete the what
 │   ├── testing-behavior/   # test the contract, not the implementation
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
 │   ├── pr-template/         # one shared PR title + description + reviewers
 │   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
-│   ├── authorship-conventions/  # commit/PR/doc conventions, no AI signatures
+│   ├── authorship-conventions/  # branch/commit/PR/doc naming + attribution
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
 │   ├── finishing-with-code-review/  # every code task ends with the review
-│   ├── naming-git-branches/  # Conventional Branch, and the rename-closes-PR trap
 │   └── switching-github-accounts/  # the right gh token before every push
 ├── agents/
+│   ├── DocsExplorer.md     # look up official docs before using a third-party API
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa

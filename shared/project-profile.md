@@ -90,7 +90,7 @@ the wrong one everywhere else. Applying it to a repo whose default branch is
 - `<tickets>` is empty, so `shared/pr-template.md` omits its `## Jira` section
   and the PR title carries no key prefix.
 - The branch description comes from the work itself:
-  `<type>/<short-hyphenated-description>` per the `naming-git-branches` skill,
+  `<type>/<short-hyphenated-description>` per the `authorship-conventions` skill,
   not the `<type>/<KEY>` shape bond imposes inside Bonliva.
 - A plan file is named after the branch description rather than the ticket.
 

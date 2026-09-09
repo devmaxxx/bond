@@ -72,9 +72,10 @@ matches neither side of the rule.
 ## Branch names — always on
 
 Branches are Conventional Branch: `<type>/<description>`, lowercase and
-hyphenated. Apply the `bond:naming-git-branches` skill before any `checkout -b`
-and before opening a PR — Bonliva repos keep the shape bond gives them, and a
-rename after the PR is open costs the PR.
+hyphenated. Apply the `bond:authorship-conventions` skill before any
+`checkout -b` and before opening a PR — it covers branch, commit, PR and doc
+alike. Bonliva repos keep the shape bond gives them, and a rename after the PR
+is open costs the PR.
 
 ## Code review at the end — always on
 

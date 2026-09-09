@@ -8,4 +8,4 @@ The rules below are adapted from Andrej Karpathy's CLAUDE.md and target the most
    `git config user.name`.
 2. Answer as briefly as possible: key information only, no filler, no long code
    fragments — point to the file and line instead.
-3. When working with any third-party library, look up official docs first to confirm current APIs. Use the DocsExplorer subagent for documentation lookup.
+3. When working with any third-party library, look up official docs first to confirm current APIs. Use the `bond:DocsExplorer` subagent for documentation lookup — it ships with the plugin, so it is available in every repo, not just this one.

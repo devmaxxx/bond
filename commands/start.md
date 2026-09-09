@@ -78,7 +78,7 @@ to `In Progress`.)
 - Name: `<prefix>/<KEY>` (e.g. `feat/ERP-135`, `fix/CRMDEV-6335`).
 - **`TRACKER=none`**: prefix from the work (`fix` with `--bug`, else `feat`),
   then three to five hyphenated lowercase words from the free text —
-  `feat/add-a-csv-export`. That is the `bond:naming-git-branches` shape; the
+  `feat/add-a-csv-export`. That is the `bond:authorship-conventions` shape; the
   `<prefix>/<KEY>` form exists only so the Jira-driven commands can find a branch
   by its key.
 

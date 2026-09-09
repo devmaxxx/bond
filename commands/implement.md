@@ -67,7 +67,7 @@ Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs 
 
 - Prefix: all tickets type `Bug` → `fix`; any `Story`/`Task`/other → `feat`.
 - Single ticket → `<prefix>/ERP-135`; multiple → `<prefix>/ERP-135_ERP-136` (underscore-separated, in the order given).
-- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `naming-git-branches` shape; the `<prefix>/<KEY>` shape exists only because `/bond:fix-qa` and `/bond:fix-pr` look a branch up by its Jira key, and outside Bonliva nothing does.
+- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because `/bond:fix-qa` and `/bond:fix-pr` look a branch up by its Jira key, and outside Bonliva nothing does.
 
 ### 4. Set up the branch
 
