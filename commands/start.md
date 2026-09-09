@@ -1,11 +1,13 @@
 ---
-description: Create a new Jira issue and check out a fresh typed branch to start work on it
+description: Check out a fresh typed branch to start work — creating the Jira issue first where the project has a tracker
 ---
 
 # /bond:start
 
 Spin up work in one step: **create a new Jira issue** from a free-text summary,
-then **check out a properly-named branch** for it. Stops there — no plan, no
+then **check out a properly-named branch** for it. Where the project profile
+resolves `TRACKER=none` there is no issue to create — the free text names the
+branch and that is the whole job. Stops there — no plan, no
 implementation. Use it when you want a ticket and a branch ready to start coding
 by hand; reach for `/bond:implement` when you also want the plan-and-code flow.
 
@@ -39,7 +41,8 @@ Examples:
 - `--task` — create the issue as a **Task** (default; branch prefix `feat`).
 - `--project <KEY>` — project for the new issue when it can't be inferred.
 - `--base <branch>` — cut the branch off `origin/<branch>`. When omitted, resolved
-  per repo via the shared **Default base branch** procedure.
+  per repo via the shared **Default base branch** procedure, which reads
+  `BASE_BRANCH` off the project profile.
 - `--worktree` — set the branch up in an isolated git worktree instead of checking
   out in the current tree. Default is **in-place** checkout.
 - `--no-start` — leave the issue at `Todo`. Default transitions it to
@@ -51,13 +54,19 @@ Strip all flags from `$ARGUMENTS` before reading the summary.
 
 ### 1. Create the ticket
 
-The remaining text after stripping flags is the issue **summary** (a blocker if
+Resolve the project profile first
+(`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Under **`TRACKER=none`**,
+skip this step and step 2 entirely: the free text is the branch description, and
+`--project` / `--no-start` are reported as ignored. Continue at step 3.
+
+The rest of this step is the `TRACKER=jira` path. The remaining text after
+stripping flags is the issue **summary** (a blocker if
 empty — ask for one and stop). Type = `Bug` if `--bug`, else `Task`. Project =
 `--project <KEY>`, else inferred per the **create** procedure in
 `${CLAUDE_PLUGIN_ROOT}/commands/jira.md`. Run that procedure (assignee defaults to
 you), capture the new key, and report it with its browse URL.
 
-### 2. Move to In Progress
+### 2. Move to In Progress  *(`TRACKER=jira` only)*
 
 Unless `--no-start`, run the shared **Transition to In Progress** procedure with
 the new key. (A freshly created ticket starts at `Todo`; the chain-walk moves it
@@ -67,6 +76,11 @@ to `In Progress`.)
 
 - Prefix: `Bug` → `fix`; `Task`/`Story`/other → `feat`.
 - Name: `<prefix>/<KEY>` (e.g. `feat/ERP-135`, `fix/CRMDEV-6335`).
+- **`TRACKER=none`**: prefix from the work (`fix` with `--bug`, else `feat`),
+  then three to five hyphenated lowercase words from the free text —
+  `feat/add-a-csv-export`. That is the `bond:naming-git-branches` shape; the
+  `<prefix>/<KEY>` form exists only so the Jira-driven commands can find a branch
+  by its key.
 
 ### 4. Check out the branch
 
@@ -77,8 +91,9 @@ in-place mode by default; use worktree mode when `--worktree` is passed.
 
 ### 5. Report
 
-Print the created issue (key + URL), the branch name, the base it was cut from,
-and — in worktree mode — the worktree path. Then stop. Do **not** analyse, plan,
+Print the created issue (key + URL) — omitted under `TRACKER=none`, where none
+was created — plus the branch name, the base it was cut from, and — in worktree
+mode — the worktree path. Then stop. Do **not** analyse, plan,
 implement, commit, push, or open a PR.
 
 ## Do NOT

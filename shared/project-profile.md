@@ -116,6 +116,57 @@ Nothing resolved ⇒ open the PR with no reviewers. Never invent one.
 project and stop, rather than posting a personal repo's work into a work
 channel.
 
+## Procedure: Resolve PR coordinates
+
+**Inputs:** the PR token a command was given — a number, a full URL, or nothing.
+
+A full URL names its own host, and that host **wins over the profile**: a
+Bitbucket URL is a Bitbucket PR even when run from a GitHub checkout.
+
+- `https://bitbucket.org/<ws>/<repo>/pull-requests/<id>` → Bitbucket, workspace
+  `<ws>`, slug `<repo>`, id `<id>`.
+- `https://github.com/<owner>/<repo>/pull/<id>` → GitHub, owner `<owner>`, slug
+  `<repo>`, id `<id>`.
+- A **bare number** takes `HOST`, `WORKSPACE`/`OWNER` and `REPO_SLUG` from the
+  profile — never a hardcoded workspace. Inside Bonliva that still resolves to
+  `bonliva`; elsewhere it resolves to the repo actually in front of you.
+- **Nothing** — on GitHub, `gh pr view --json number` resolves the PR for the
+  current branch; on Bitbucket, ask. Never guess a PR number.
+
+## Procedure: PR details and CI status
+
+**Inputs:** the coordinates above.
+
+**Bitbucket** — `mcp__bond-bitbucket__get_pull_request` for `title`, `state`
+(`MERGED`/`DECLINED` ⇒ nothing to do), `source_branch`, `destination_branch`,
+`source.commit.hash`. For CI, `get_commit_statuses` on that hash (newest
+`type == "build"` whose name starts with `Pipeline`), falling back to
+`list_pipeline_runs` on the source branch; then `get_pipeline_steps` and
+`get_pipeline_step_logs` for the failed steps.
+
+**GitHub** — `gh` throughout:
+
+```sh
+gh pr view <id> --json number,title,state,isDraft,headRefName,baseRefName,headRefOid,url
+gh pr checks <id> --json name,state,bucket,link,workflow
+```
+
+`state` on the PR is `OPEN` / `CLOSED` / `MERGED`. A check's `bucket` is the
+normalised one to read — `pass`, `fail`, `pending`, `skipping`, `cancel` — and
+`state` is the raw conclusion. For the failing logs, take the run id from the
+check's `link` (its last path segment) and read only the failed steps:
+
+```sh
+gh run view <run-id> --log-failed
+```
+
+`gh pr checks <id> --watch --fail-fast` blocks until the checks settle, which is
+the GitHub equivalent of polling a Bitbucket pipeline.
+
+Map both hosts onto one vocabulary before reporting: **running**, **passed**,
+**failed**. A command that branches on a host-specific status string anywhere
+except inside this procedure has leaked the host into its logic.
+
 ## Worked examples
 
 **`bonliva-erp`** — origin `git@bitbucket.org:bonliva/bonliva-erp.git` ⇒ host

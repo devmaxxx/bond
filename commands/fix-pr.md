@@ -15,9 +15,10 @@ resolution and pipeline diagnosis — lives here.
 
 ## Arguments
 
-`$ARGUMENTS` — a PR number (e.g. `444`) or a full Bitbucket PR URL
-(`https://bitbucket.org/<ws>/<repo>/pull-requests/<id>`), plus optional flags. If
-no PR is given, ask the user before doing anything else.
+`$ARGUMENTS` — a PR number (e.g. `444`) or a full PR URL on either host
+(`https://bitbucket.org/<ws>/<repo>/pull-requests/<id>`,
+`https://github.com/<owner>/<repo>/pull/<id>`), plus optional flags. If no PR is
+given, ask the user before doing anything else.
 
 ### Flags
 
@@ -29,34 +30,35 @@ the PR token.
 
 ### 1. Resolve the PR coordinates
 
-- **Full URL** — parse `workspace`, `repo_slug`, and `pull_request_id` from it.
-- **Bare number** — `workspace` is `bonliva`; derive `repo_slug` from
-  `git remote get-url origin` of the current repo; `pull_request_id` is the number.
+Run the **Resolve PR coordinates** procedure in
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`. A bare number takes its host
+and workspace from the project profile, so this works in a GitHub repo as well
+as a Bitbucket one.
 
 ### 2. Fetch PR details
 
-Call `mcp__bond-bitbucket__get_pull_request`. Extract `title`, `state`, `author`,
-`source_branch`, `destination_branch`, and `source.commit.hash`.
+Run the **PR details and CI status** procedure in the same file for `title`,
+`state`, `source_branch`, `destination_branch` and the head commit.
 
-- If `state` is `MERGED` or `DECLINED`, stop — there is nothing to fix.
-- Extract a Jira key from the title with `[A-Z]+-\d+` (used to name the plan file).
+- If the PR is merged or closed/declined, stop — there is nothing to fix.
+- Under `TRACKER=jira`, extract a ticket key from the title using the configured
+  project keys (see `shared/pr-template.md`) to name the plan file. Under
+  `TRACKER=none` there is no key: name the plan file after the source branch.
 
 ### 3. Diagnose the pipeline failure
 
-1. `mcp__bond-bitbucket__get_commit_statuses` with the commit hash → find the most
-   recent Bitbucket Pipelines status (`type == "build"`, name starts with
-   `Pipeline`). Capture its result and pipeline URL/UUID. If no build status is
-   present, fall back to `mcp__bond-bitbucket__list_pipeline_runs` on the source
-   branch (newest run whose `target.commit.hash` matches).
-2. If the pipeline is **still running**, say so and **stop** — wait for it to
-   finish (suggest `/bond:track-pr` to watch it). If the pipeline is **green**, say
-   so and **stop** — there is nothing to fix.
-3. For a **failed** run, call `mcp__bond-bitbucket__get_pipeline_steps` with the
-   pipeline UUID; select the step(s) whose state/result is `FAILED` / `ERROR`.
-4. For each failed step, call `mcp__bond-bitbucket__get_pipeline_step_logs`
-   (`step_uuid`). Read the tail and extract the concrete cause — failing test
-   names, type errors, lint rule + `file:line`, build/compile errors, or the failed
-   command and its exit code. Logs can be long; summarize, never echo them whole.
+1. Resolve the CI state through the **PR details and CI status** procedure. It
+   normalises both hosts to **running** / **passed** / **failed**, so the rest of
+   this step is the same whether the checks ran on Bitbucket Pipelines or GitHub
+   Actions.
+2. **running** — say so and **stop**; wait for it to finish (suggest
+   `/bond:track-pr` to watch it). **passed** — say so and **stop**, there is
+   nothing to fix.
+3. **failed** — pull the logs of the failed steps only: `get_pipeline_step_logs`
+   per failed step on Bitbucket, `gh run view <run-id> --log-failed` on GitHub.
+4. From each, extract the concrete cause — failing test names, type errors, lint
+   rule + `file:line`, build/compile errors, or the failed command and its exit
+   code. Logs can be long; summarize, never echo them whole.
 5. Produce one **root cause** entry per distinct failure (e.g. "Type error in
    `accommodations.service.ts:42`", "3 failing tests in `pricing.spec.ts`"), each
    carrying the step name and the key log excerpt. Print the diagnosis to the user.

@@ -1,19 +1,21 @@
 ---
-description: Watch a Bitbucket PR pipeline, push a desktop notification when it finishes, and (on success) trigger the review request by default
+description: Watch a PR's CI (Bitbucket Pipelines or GitHub Actions), push a desktop notification when it finishes, and (on success) trigger the review request where the project has one
 ---
 
 # /bond:track-pr
 
-Polls the Bitbucket pipeline attached to a pull request's latest commit and sends
-a desktop push notification when it transitions out of running (success, failure,
-stopped, or error). Self-paced — the command schedules its own wake-ups via the
-`loop` skill, so you can fire it once and walk away.
+Polls the CI attached to a pull request's latest commit and sends a desktop push
+notification when it transitions out of running (success, failure, stopped, or
+error). Self-paced — the command schedules its own wake-ups via the `loop` skill,
+so you can fire it once and walk away. The host comes from the project profile,
+so it watches Bitbucket Pipelines and GitHub Actions alike.
 
 ## Input
 
-`$ARGUMENTS` — a PR number (e.g. `444`) or a full Bitbucket PR URL
-(`https://bitbucket.org/<ws>/<repo>/pull-requests/<id>`). If empty, ask the user
-which PR before doing anything else.
+`$ARGUMENTS` — a PR number (e.g. `444`) or a full PR URL on either host
+(`https://bitbucket.org/<ws>/<repo>/pull-requests/<id>`,
+`https://github.com/<owner>/<repo>/pull/<id>`). If empty, ask the user which PR
+before doing anything else.
 
 Optional flag:
 
@@ -24,43 +26,26 @@ Optional flag:
 
 ### 1. Resolve the PR coordinates
 
-- **Full URL** — parse `workspace`, `repo_slug`, and `pull_request_id` from it.
-- **Bare number** — `workspace` is `bonliva`; derive `repo_slug` from
-  `git remote get-url origin` of the current repo; `pull_request_id` is the number.
+Run the **Resolve PR coordinates** procedure in
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`. A bare number takes its host
+and workspace from the project profile rather than assuming Bonliva.
 
 ### 2. Fetch PR details
 
-Call `mcp__bond-bitbucket__get_pull_request` with the resolved coordinates.
-Extract:
+Run the **PR details and CI status** procedure in the same file. Extract:
 
 - `title`
-- `state` — if `MERGED` or `DECLINED`, stop and tell the user there is nothing
-  to track.
-- `source.commit.hash` — the latest commit SHA on the source branch (used to
-  identify the pipeline run).
-- `source_branch`, `destination_branch` — only for the final report.
+- the PR state — if it is merged or closed/declined, stop and tell the user there
+  is nothing to track.
+- the head commit SHA, which identifies the CI run.
+- source and destination branch — only for the final report.
 
-### 3. Look up the pipeline status
+### 3. Look up the CI status
 
-Use `mcp__bond-bitbucket__get_commit_statuses` with `workspace`, `repo_slug`,
-and the commit hash from step 2.
-
-From the returned statuses, pick the most recent Bitbucket Pipelines status
-(`type == "build"` and `key`/`name` starts with `Pipeline`). If none exists,
-fall back to `mcp__bond-bitbucket__list_pipeline_runs` filtered by the source
-branch and take the newest run whose `target.commit.hash` matches.
-
-Map the result to a normalised state:
-
-| Status from API                 | Normalised |
-|---------------------------------|------------|
-| `INPROGRESS` / `PENDING` / `BUILDING` | `running` |
-| `SUCCESSFUL` / `COMPLETED` (with successful result) | `success` |
-| `FAILED` / `STOPPED` / `ERROR` / `COMPLETED` (with failed result) | `failed` |
-| no pipeline found yet           | `pending` |
-
-Capture the pipeline URL (`url` on the commit status, or built from the run UUID)
-for the notification.
+The same procedure normalises both hosts to **running** / **passed** / **failed**;
+treat "no run found yet" as `pending`. Capture the run's URL for the
+notification — the commit status `url` on Bitbucket, the check's `link` on
+GitHub.
 
 ### 4. Decide what to do next
 
@@ -70,23 +55,27 @@ for the notification.
      with `delaySeconds: 60`). Pass the same `/bond:track-pr <ARGS>` invocation
      back so the next firing repeats this command.
   3. Stop — the next firing will resume from step 1.
-- **`success` or `failed`** — go to step 5.
+- **`passed` or `failed`** — go to step 5.
 
 ### 5. Notify on completion
 
 Send a desktop notification via the `PushNotification` tool with a short, scannable
 message. Examples:
 
-- Success: `✅ PR #<id> pipeline passed — <title>` with the PR URL as the link.
-- Failure: `❌ PR #<id> pipeline failed — <title>` with the pipeline URL as the
-  link (the user wants to jump straight to logs).
+- Success: `✅ PR #<id> checks passed — <title>` with the PR URL as the link.
+- Failure: `❌ PR #<id> checks failed — <title>` with the run URL as the link
+  (the user wants to jump straight to logs).
 
 If `PushNotification` is unavailable in the current session, fall back to printing
 the message inline and surface the limitation.
 
 ### 6. Trigger the review request on success (default)
 
-If the final state is **`success`** and the user did **not** pass `--no-review`:
+Skipped entirely when the project profile resolves no `TEAMS_CHANNEL` — outside
+Bonliva there is no channel to invite anyone in. Say it was skipped rather than
+posting a personal repo's PR into a work channel.
+
+If the final state is **`passed`** and the user did **not** pass `--no-review`:
 
 1. Invoke the `/bond:request-review <PR>` command for the same PR — reuse the
    resolved coordinates (or pass the original `$ARGUMENTS`).
@@ -113,5 +102,7 @@ After the notification:
 - Do not vary the poll interval — always 60 seconds. Simple and predictable.
 - Do not send more than one notification per run — only the final state is worth
   a ping.
-- Do not start tracking a PR that is `MERGED` or `DECLINED` — there is no live
-  pipeline to watch.
+- Do not start tracking a PR that is merged or closed — there is no live run to
+  watch.
+- Do not branch on a host-specific status string outside the shared procedure —
+  that is how the Bitbucket assumption got baked in the first time.

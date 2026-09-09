@@ -4,6 +4,12 @@ description: Generate a day/week/month time-log plan markdown by gathering commi
 
 # /log-plan
 
+> **Bonliva time-logging.** The repos it walks come from `$HOME/.bond/projects.json`
+> (see `/bond:projects`, whose discovery glob is configurable); the ticket titles
+> and merged PRs come from Jira and Bitbucket. Outside a profile with a Jira
+> tracker it can still summarise commits, but say plainly which sections are
+> empty and why rather than emitting a plan with blank ticket titles.
+
 Generate a time-log plan file (e.g. `2026-04-15-day-log.md`, `2026-W15-week-log.md`, `april-2026-time-log.md`) by aggregating commits, merged PRs, calls, and meetings across all Bonliva repos.
 
 ## Arguments

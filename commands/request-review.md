@@ -4,6 +4,12 @@ description: Post a Teams card inviting reviewers to review a Bitbucket pull req
 
 # /bond:request-review
 
+> **Needs a Teams channel.** Resolve the project profile
+> (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) first. With no
+> `TEAMS_CHANNEL`, report that the project has no review channel and stop:
+> posting a personal repo's PR into a work channel invites people who cannot
+> open it. The PR itself is read on whichever host the profile resolved.
+
 Posts a formatted Adaptive Card to the Teams channel webhook that invites a pull
 request's pending reviewers to review it. Reviewers are **@mentioned** when their
 Teams identity is known.
@@ -29,9 +35,9 @@ Workflow webhook (README → "Teams channel webhook") and export its URL.
 
 ### 2. Resolve the PR coordinates
 
-- **Full URL** — parse `workspace`, `repo_slug`, and `pull_request_id` from it.
-- **Bare number** — `workspace` is `bonliva`; derive `repo_slug` from
-  `git remote get-url origin` of the current repo; `pull_request_id` is the number.
+Run the **Resolve PR coordinates** procedure in
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` — a bare number takes its host
+and workspace from the project profile rather than assuming `bonliva`.
 
 ### 3. Fetch PR details
 

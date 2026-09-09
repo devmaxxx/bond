@@ -1,6 +1,7 @@
 # bond
 
-Bonliva dev workflow commands and MCP integrations for Claude Code.
+Dev workflow commands and MCP integrations for Claude Code. Built inside Bonliva,
+but every command resolves a per-repo profile, so they work outside it too.
 
 ## Commands
 
@@ -8,19 +9,22 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | `/help`           | List all bond plugin commands with their descriptions                                         |
 | `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
-| `/fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it               |
+| `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
+| `/fix-pr`         | Diagnose why a PR's CI failed (Bitbucket or GitHub), fix the root causes, and push             |
+| `/fix-qa`         | Re-run implementation against QA feedback — from a Jira ticket, or given as free text          |
 | `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/log-plan`       | Generate a day/week/month time-log plan                                                       |
 | `/open-pr`        | Open a draft PR for the current branch (GitHub or Bitbucket, resolved per repo)               |
 | `/projects`       | Manage the projects tracked by `/log-plan` (add, remove, discover, clear)                     |
+| `/publish-timelog`| Publish a time-log md to Jira + Clockify (one entry/day) and reconcile the totals              |
 | `/request-review` | Post a Teams card inviting reviewers to review a PR                                           |
 | `/set-reviewers`  | Set or change the default reviewers added to PRs                                              |
 | `/setup-plugin`   | Set up the bond plugin: install MCP servers and configure env vars                            |
-| `/start`          | Create a new Jira issue and check out a fresh typed branch to start work on it                |
+| `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
 | `/teams-post`     | Post a message to a Teams channel via a Workflow webhook                                      |
-| `/track-pr`       | Watch a PR pipeline and push a desktop notification on finish                                 |
+| `/track-pr`       | Watch a PR's CI (Bitbucket or GitHub) and push a desktop notification on finish                |
 
 ## MCP Servers
 
@@ -166,6 +170,21 @@ the reviewers are. A repo can state its own answers in `.bond/project.json`;
 otherwise they are inferred from the `origin` remote. Outside Bonliva the
 tracker resolves to `none`, and `/implement` takes a free-text task, cuts a
 `<type>/<description>` branch and opens a PR with no `## Jira` section.
+
+Every command reads that profile rather than assuming a host or a tracker:
+
+- **Host-flexible** — `/open-pr`, `/fix-pr`, `/track-pr` work against Bitbucket
+  Pipelines and GitHub Actions alike; the profile's *Resolve PR coordinates* and
+  *PR details and CI status* procedures normalise both to one vocabulary, so no
+  command branches on a host-specific status string.
+- **Tracker-flexible** — `/implement`, `/start` and `/fix-qa` take free text
+  where there is no Jira; `/fix-qa` applies it to the branch already checked out.
+- **Guarded, not faked** — `/jira`, `/request-review`, `/publish-timelog` and
+  `/log-plan` genuinely need Jira, a Teams channel or Clockify. They say which
+  prerequisite is missing and stop, rather than pretending to work.
+
+`/projects` discovery is no longer hardwired to `bonliva-*`: set
+`BOND_PROJECT_GLOB`, or `projectGlob` in `~/.bond/projects.json`.
 
 ## Hooks
 

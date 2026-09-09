@@ -4,6 +4,11 @@ description: Publish an existing time-log markdown into the Jira timesheet and C
 
 # /bond:publish-timelog
 
+> **Needs a Jira tracker and a Clockify project.** Both come from the project
+> profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Missing either,
+> name the one that is missing and stop — a timesheet posted to the wrong
+> workspace is worse than one not posted.
+
 Take an **already-written** time-log markdown (the output of `/bond:log-plan`) and post it to **Jira** (one worklog per ticket row) and **Clockify** (**one time entry per day**, every row folded into the description), then **compare the two dashboards' total time** and report any mismatch.
 
 This command does **not** generate or rebalance a plan — it only publishes an existing one. Use `/bond:log-plan` to produce/rebalance the markdown first.

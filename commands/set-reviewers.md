@@ -4,6 +4,12 @@ description: Set or change the default reviewers added to PRs by /open-pr
 
 # /set-reviewers
 
+> **Bonliva default reviewers.** This file backs the `REVIEWERS` field of the
+> project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`), which
+> reads it **only for Bonliva repos** — the people listed here cannot open a
+> personal repo's PR. A non-Bonliva repo sets its own reviewers in
+> `.bond/project.json`, or takes the host's defaults.
+
 Manage the **default PR reviewers** that `/bond:open-pr` adds to every pull request it creates.
 
 Reviewers are stored once, in the user's home directory, and reused across all repos. If no reviewers are configured, `/open-pr` falls back to the repository's Bitbucket **effective default reviewers**.

@@ -24,9 +24,15 @@ the procedure says; and the explicit `--no-auto` flag, which pauses once for
 plan confirmation (see the Implementation plan procedure). Neither is a
 "choose between options" prompt.
 
-## Procedure: Resolve Jira ticket(s)
+## Procedure: Resolve Jira ticket(s)  *(`TRACKER=jira` only)*
 
 **Inputs:** `TICKET_IDS` (one or more); `WITH_COMMENTS` (bool).
+
+Every procedure marked `TRACKER=jira` is skipped wholesale where the project
+profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) resolves
+`TRACKER=none`. A caller under that profile has no `TICKET_IDS` to pass. Skipping
+is silent and expected — it is not a degraded run, and it is not worth a warning
+on every command.
 
 Resolve the Atlassian `cloudId` once via
 `mcp__bond-atlassian__getAccessibleAtlassianResources` (the resource matching
@@ -96,7 +102,7 @@ view the image **inline on the Jira issue page**:
 Hold each image's description (and which ticket/comment it came from) for the
 plan's per-ticket **Images** field.
 
-## Procedure: Claim unassigned ticket(s)
+## Procedure: Claim unassigned ticket(s)  *(`TRACKER=jira` only)*
 
 **Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
 
@@ -113,7 +119,7 @@ Work you start is work you own. For each resolved ticket, read
 
 If an assign call fails, surface the error but **do not abort**.
 
-## Procedure: Transition to In Progress
+## Procedure: Transition to In Progress  *(`TRACKER=jira` only)*
 
 **Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
 
@@ -337,22 +343,27 @@ branch** procedure resolves it).
 
 Commit and push happen here automatically — do not ask the user first.
 
-1. Run `/bonliva-dev:ship` to validate, commit, and push the branch. Every
+1. Validate, commit, and push the branch. Inside Bonliva that is
+   `/bonliva-dev:ship`; where the profile is not Bonliva that command belongs to
+   a plugin the repo does not have, so run the repo's own checks (its test and
+   lint scripts) and then commit and push directly. Every
    commit message follows the `authorship-conventions` skill: Conventional Commits
    subject, prose *why* body, and no AI signature — no `Co-Authored-By`
    naming a tool, no `Claude-Session:` link, no "generated with" footer. The
    plugin's `check-commit` hook blocks a commit that breaks this; fix the
    message rather than bypassing the hook.
 2. Then, by `PR_HANDLING`:
-   - `create` → invoke `/bond:open-pr <BASE_BRANCH>` to create the Bitbucket PR
-     targeting the base branch (pass the resolved `BASE_BRANCH` explicitly so it
-     matches the branch the work was cut from).
-   - `update` → the ship push updates the existing PR. Check for an existing PR
-     for this source branch via `mcp__bond-bitbucket__get_pull_requests`. If one
-     exists, print its URL and do **not** invoke `/bond:open-pr`. If none exists,
-     invoke `/bond:open-pr` to create it. Do **not** re-ping reviewers on a QA
-     round — just tell the user they can run `/bond:request-review` if they want
-     to.
+   - `create` → invoke `/bond:open-pr <BASE_BRANCH>` to create the PR on
+     whichever host the profile resolved, targeting the base branch (pass the
+     resolved `BASE_BRANCH` explicitly so it matches the branch the work was cut
+     from).
+   - `update` → the push updates the existing PR. Look for an open PR on this
+     source branch — `mcp__bond-bitbucket__get_pull_requests` on Bitbucket,
+     `gh pr list --head <branch> --state open --json number,url` on GitHub. If
+     one exists, print its URL and do **not** invoke `/bond:open-pr`. If none
+     exists, invoke `/bond:open-pr` to create it. Do **not** re-ping reviewers on
+     a QA round — just tell the user they can run `/bond:request-review` if the
+     project has a channel for it.
 
 If either step fails, surface the error and stop — do not retry blindly, and do
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
@@ -364,15 +375,17 @@ Record the PR number or URL as `PR_REF` — the next two procedures need it.
 
 **Inputs:** `PR_REF` from Ship + PR.
 
-The push starts a pipeline. Nobody has to sit and watch it: hand it to
-`/bond:track-pr`, which self-paces its own wake-ups, and act on the verdict.
+The push starts CI — Bitbucket Pipelines or GitHub Actions, per the project
+profile. Nobody has to sit and watch it: hand it to `/bond:track-pr`, which
+self-paces its own wake-ups, and act on the verdict.
 
-1. Invoke `/bond:track-pr <PR_REF>` — it polls the pipeline on the PR's latest
-   commit and notifies when it leaves the running state. Do not poll the
-   pipeline yourself in parallel; one watcher per PR.
+1. Invoke `/bond:track-pr <PR_REF>` — it polls the checks on the PR's latest
+   commit and notifies when they leave the running state. Do not poll them
+   yourself in parallel; one watcher per PR.
 2. On **success** — run **Transition to In Review**, then Teardown. `track-pr`
-   chains into `/bond:request-review` by default; pass `--no-review` when the
-   work is not ready for reviewers (a QA round, a draft the user asked to hold).
+   chains into `/bond:request-review` where the profile has a Teams channel;
+   pass `--no-review` when the work is not ready for reviewers (a QA round, a
+   draft the user asked to hold). A repo with no channel simply skips it.
 3. On **failure**, **error** or **stopped** — invoke `/bond:fix-pr <PR_REF>`. It
    reads the failed step logs, fixes the root cause on the same branch, and
    pushes, which starts a fresh pipeline; go back to step 1 for that run.
@@ -381,11 +394,14 @@ The push starts a pipeline. Nobody has to sit and watch it: hand it to
    round changed and what still fails, and leave the branch and worktree in
    place. Do not transition the ticket.
 
-A failure that `/bond:fix-pr` cannot even diagnose (no pipeline found, the
-pipeline never started, credentials rejected) is not an autofix round — surface
-it and stop.
+A failure that `/bond:fix-pr` cannot even diagnose (no run found, CI never
+started, credentials rejected) is not an autofix round — surface it and stop.
 
-## Procedure: Transition to In Review
+A repo with no CI at all is not a failure: say the branch pushed with no checks
+configured, skip to **Transition to In Review** (where there is a tracker) and
+Teardown.
+
+## Procedure: Transition to In Review  *(`TRACKER=jira` only)*
 
 **Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
 

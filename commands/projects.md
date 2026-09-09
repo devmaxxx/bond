@@ -16,12 +16,15 @@ it is missing, `/bond:log-plan` falls back to auto-discovery and then aborts.
 - **Format:**
   ```json
   {
+    "projectGlob": "bonliva-*",
     "projects": [
-      "/Users/max/Documents/projects/bonliva-erp",
-      "/Users/max/Documents/projects/bonliva-crm-nx"
+      "<projects-root>/bonliva-erp",
+      "<projects-root>/bonliva-crm-nx"
     ]
   }
   ```
+  `projectGlob` is optional and only steers discovery; `projects` is the list
+  that counts.
 - Paths are **absolute repo roots**, pretty-printed, order preserved.
 
 ## Arguments
@@ -43,16 +46,21 @@ Used by the interactive mode and by `add` when resolving a bare name.
    dirname "$(git rev-parse --show-toplevel)"
    ```
    If not inside a git repo, ask the user for their projects directory.
-2. **Glob `bonliva-*` git repos** under that root:
+2. **Glob the tracked repos** under that root. The pattern is
+   `$BOND_PROJECT_GLOB` when set, else the `projectGlob` key in
+   `$HOME/.bond/projects.json`, else `bonliva-*` — the historical default, kept
+   so an existing setup keeps discovering the same repos:
    ```sh
-   ls -d "$PROJECTS_ROOT"/bonliva-*/.git 2>/dev/null | sed 's,/.git,,'
+   ls -d "$PROJECTS_ROOT"/${BOND_PROJECT_GLOB:-bonliva-*}/.git 2>/dev/null | sed 's,/.git,,'
    ```
+   A glob that matches nothing is not an error — report it and let the user name
+   paths directly, rather than insisting every project be called `bonliva-…`.
 3. **Drop worktrees.** `/bond:implement` creates sibling worktree directories
    (`bonliva-crm-nx-feat-CRMDEV-7108`, `…-qa`, …) that are checkouts of a repo
    already in the list, not separate projects. A worktree has `.git` as a **file**,
    a real clone has it as a **directory** — keep only the latter:
    ```sh
-   for d in "$PROJECTS_ROOT"/bonliva-*/; do [ -d "$d/.git" ] && echo "${d%/}"; done
+   for d in "$PROJECTS_ROOT"/${BOND_PROJECT_GLOB:-bonliva-*}/; do [ -d "$d/.git" ] && echo "${d%/}"; done
    ```
 
 ## Steps

@@ -4,6 +4,11 @@ description: Investigate a production/staging failure end to end (Temporal run, 
 
 # /bond:investigate
 
+> The investigation itself is project-agnostic. Only `--jira` needs a tracker:
+> where the project profile
+> (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) resolves `TRACKER=none`,
+> report the flag as ignored, still write the doc, and stop there.
+
 Something failed in a deployed environment and nobody knows why: a Temporal
 workflow ended with a useless message, a page shows a generic error, an activity
 returned `HTTP 4xx`, a job stopped producing output. This command runs the

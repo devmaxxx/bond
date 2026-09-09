@@ -4,6 +4,13 @@ description: Create, edit, assign, comment on, or transition a Jira issue — as
 
 # /bond:jira
 
+> **Needs a Jira tracker.** This command talks to Jira and nothing else, so it
+> applies where the project profile
+> (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) resolves `TRACKER=jira`.
+> Under `TRACKER=none`, say the repo has no tracker configured and stop — do not
+> offer to file the issue somewhere else. A repo that does have Jira but is not
+> Bonliva's states it in `.bond/project.json`.
+
 One command for working with Jira issues directly from the terminal: create a new
 issue, edit fields on an existing one, (re)assign it, add a comment, or move it
 through its workflow. It reads the intent from natural-language `$ARGUMENTS`,

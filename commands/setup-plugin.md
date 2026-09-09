@@ -7,7 +7,7 @@ description: Set up the bond plugin — install its MCP servers into the user-sc
 Set up the bond plugin for this user. This does three things:
 
 1. **Install the bond MCP servers** into the **user scope** (global) MCP config so they are available across **all** projects — not just the current repo.
-2. **Configure plugin env vars** that bond commands need but that are not MCP server config — the `BOND_TEAMS_WEBHOOK_URL` used by `/bond:teams-post` and `/bond:request-review` (step 6c), and `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` for the `woodpecker-cli` binary (step 6e).
+2. **Configure plugin env vars** that bond commands need but that are not MCP server config — `BOND_USER_NAME` and `BOND_JIRA_PROJECTS` (step 6a), the `BOND_TEAMS_WEBHOOK_URL` used by `/bond:teams-post` and `/bond:request-review` (step 6c), and `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` for the `woodpecker-cli` binary (step 6e).
 3. **Write per-user data files** that bond commands read — default PR reviewers (`$HOME/.bond/pr-reviewers.json`, step 6b) and the list of projects to track (`$HOME/.bond/projects.json`, step 6d), used by `/bond:log-plan`.
 
 Use the bond plugin's bundled `.mcp.json` (at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`) as the canonical template for the MCP servers.
@@ -35,7 +35,7 @@ Run this after installing the plugin, after a plugin update introduces new serve
 - `--reset` — **reset all variables.** Re-prompt for every env var of every bond stdio server in the template, plus `BOND_TEAMS_WEBHOOK_URL`, `WOODPECKER_SERVER`, and `WOODPECKER_TOKEN`, and overwrite the existing values, even if they are already set. Use this to rotate all tokens at once.
 - `--reset <VAR_NAME> [<VAR_NAME> ...]` — **reset specific variables.** Re-prompt only for the named env vars (e.g. `--reset BITBUCKET_TOKEN` or `--reset BOND_TEAMS_WEBHOOK_URL`) and overwrite just those, leaving every other existing value untouched.
 
-`--reset` with no variable names means "all"; `--reset` followed by one or more `[A-Z_]+` tokens means just those. A named variable must be either an env key of a bond template server, `BOND_TEAMS_WEBHOOK_URL`, `WOODPECKER_SERVER`, or `WOODPECKER_TOKEN`; otherwise report it and **abort** before changing anything.
+`--reset` with no variable names means "all"; `--reset` followed by one or more `[A-Z_]+` tokens means just those. A named variable must be either an env key of a bond template server, `BOND_USER_NAME`, `BOND_JIRA_PROJECTS`, `BOND_TEAMS_WEBHOOK_URL`, `WOODPECKER_SERVER`, or `WOODPECKER_TOKEN`; otherwise report it and **abort** before changing anything.
 
 Reset mode never touches `command`, `args`, server names, or non-`bond-` servers — it only re-resolves the targeted env values.
 
@@ -52,6 +52,7 @@ If the user passed explicit `--reset` flags, honor those and skip this question 
 - **Bitbucket credentials** — (re-)enter `BITBUCKET_USERNAME` / `BITBUCKET_TOKEN`.
 - **Clockify API key** — (re-)enter `CLOCKIFY_API_KEY`.
 - **Outline API** — (re-)enter `OUTLINE_API_KEY` / `OUTLINE_API_URL`.
+- **Name and tracker keys** — configure `BOND_USER_NAME` / `BOND_JIRA_PROJECTS` (step 6a).
 - **Teams webhook** — configure `BOND_TEAMS_WEBHOOK_URL` (step 6c).
 - **PR reviewers** — set default PR reviewers (step 6b).
 - **Projects to track** — configure the projects `/bond:log-plan` scans (step 6d).
@@ -155,6 +156,23 @@ For each env key being **reset** (in the `--reset` scope from step 5), always pr
 For variables not in the table, ask generically: "Value for `${VAR_NAME}`".
 
 If the user skips a prompt, **do not install** that stdio server this run (an unresolved placeholder in the user scope would break the server for every project). Note it and tell the user to re-run `/setup-plugin` once they have the value. SSE servers and servers whose env is fully resolved still get installed.
+
+### 6a. Configure the identity and tracker variables
+
+Both live in `~/.claude/settings.json` under the top-level `env` object, written
+the same way as the Teams webhook in step 6c — read, set the one key, write back,
+**preserving every other key**. Neither is a secret.
+
+- **`BOND_USER_NAME`** — the name replies open with, per the standing rules the
+  `SessionStart` hook prints. Unset, the hook falls back to `git config user.name`,
+  which is a commit identity and usually not what anyone wants to be called.
+  Already set and outside the `--reset` scope ⇒ skip and say so. Otherwise prompt,
+  defaulting to `git config user.name`.
+- **`BOND_JIRA_PROJECTS`** — comma- or space-separated Jira project keys, used to
+  decide whether a PR description needs its `## Jira` section. It **replaces** the
+  built-in `ERP, CRMDEV` rather than extending it, so include those if they still
+  apply. Only worth setting where a Jira tracker is in play; skip it otherwise
+  rather than prompting for keys that will never appear.
 
 ### 6b. Offer to set default PR reviewers
 
@@ -317,6 +335,7 @@ Run `claude mcp list --scope user` to confirm, then print one of:
   ✓ Removed superseded server: bond-jira
   ✓ Installed server (user scope): bond-bitbucket (env prompted)
   ✓ Reset env values: BITBUCKET_TOKEN on bond-bitbucket
+  ✓ Configured BOND_USER_NAME in ~/.claude/settings.json
   ✓ Configured BOND_TEAMS_WEBHOOK_URL in ~/.claude/settings.json
   ✓ Wrote projects to track (4 projects) to ~/.bond/projects.json
   ✓ Configured WOODPECKER_SERVER / WOODPECKER_TOKEN in ~/.claude/settings.json

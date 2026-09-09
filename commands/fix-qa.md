@@ -1,5 +1,5 @@
 ---
-description: Read QA failure feedback from a Jira ticket and re-run implementation to fix it
+description: Re-run implementation against QA failure feedback — read off the Jira ticket, or given as free text where the project has no tracker
 ---
 
 # /bond:fix-qa
@@ -16,28 +16,41 @@ Everything else is delegated to the shared procedures in `${CLAUDE_PLUGIN_ROOT}/
 
 ## Arguments
 
-`$ARGUMENTS` — a single Jira ticket ID (e.g. `ERP-135`) plus optional flags.
+`$ARGUMENTS` — a single Jira ticket ID (e.g. `ERP-135`), or free text describing
+what came back broken, plus optional flags.
 
 Examples:
 - `/bond:fix-qa ERP-135`
 - `/bond:fix-qa ERP-135 --no-auto`
 - `/bond:fix-qa ERP-135 --no-worktree`
+- `/bond:fix-qa the rename cache still misses on nested modules` — no tracker: the
+  text *is* the feedback, applied to the branch already checked out.
 
 ### Flags
 
-Same semantics as `/bond:implement` — `--no-auto` opts out of auto-confirm and auto-ship; `--no-worktree` works in the current tree. Strip flags before parsing the ticket ID. If no ticket ID remains, ask the user.
+Same semantics as `/bond:implement` — `--no-auto` opts out of auto-confirm and auto-ship; `--no-worktree` works in the current tree. Strip flags before parsing the ticket ID. If nothing remains, ask the user.
 
 ## Steps
 
 ### 1. Parse the ticket ID
 
-Exactly **one** token must remain after stripping flags, matching `^[A-Z]+-\d+$`. Otherwise report the problem and **abort**.
+Resolve the project profile first (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`).
 
-### 2. Resolve the ticket with comments
+Under **`TRACKER=none`** there is no ticket and no comment thread: the remaining
+text **is** the QA feedback. Take it verbatim as the feedback of step 3, work
+against the branch already checked out (a detached HEAD or the base branch is a
+blocker — say which branch you expected), and skip steps 2 and 4. Empty text is a
+blocker: there is nothing to fix without it.
+
+The rest of this step is the `TRACKER=jira` path. Exactly **one** token must remain after stripping flags, and it must be a configured project key followed by `-` and digits (see `shared/pr-template.md`). Otherwise report the problem and **abort**.
+
+### 2. Resolve the ticket with comments  *(`TRACKER=jira` only)*
 
 Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the one ID and `WITH_COMMENTS=true`.
 
 ### 3. Identify the QA failure feedback
+
+Under `TRACKER=none` this is the free text from step 1 — use it as-is and move on.
 
 From the comments, find what QA wants fixed:
 
@@ -60,11 +73,14 @@ If the selection is empty, note that no QA-failure comments were found and conti
 
 In `--no-auto` mode, ask *"Use this QA feedback as the fix scope? Reply with edits or **yes** to continue."* and wait. In auto mode, continue and note auto-confirm is enabled.
 
-### 4. Claim the ticket and move it to In Progress
+### 4. Claim the ticket and move it to In Progress  *(`TRACKER=jira` only)*
 
 Run the shared **Claim unassigned ticket(s)** procedure with the one ticket ID (it becomes yours if nobody holds it), then the shared **Transition to In Progress** procedure with the same ID.
 
 ### 5. Locate the existing branch
+
+Under `TRACKER=none` the branch is the one already checked out — there is no key
+to search by. Confirm it is not the base branch or a detached HEAD and continue.
 
 The ticket has been implemented before, so the branch likely exists. Candidates in order:
 
@@ -85,12 +101,14 @@ Pick the **most recently committed** match automatically; if several match, reco
 
 Run the shared **Set up the branch** procedure with `BRANCH_NAME` = the located branch, `BRANCH_SOURCE=existing`, and `WORKTREE_SUFFIX=-qa` (the suffix avoids clobbering an existing `/implement` worktree).
 
+Use **in-place mode** whenever `BRANCH_NAME` is the branch already checked out in the current tree — always the case under `TRACKER=none`, and possible under `TRACKER=jira` when the located branch happens to be the current one. `git worktree add` refuses a branch that is checked out elsewhere, so asking for a worktree there fails outright rather than degrading.
+
 ### 7. Analyse, plan, and fix
 
 Run these shared procedures in order:
 
 1. **Analyse the codebase** — `FOCUS` = the selected QA feedback items.
-2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_ID>.md`, `PLAN_MODE=append`, `CONFIRM_PROMPT` = *"Does this fix plan look correct? Reply with changes, or **yes** to start fixing."* The dated section to append:
+2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_ID>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=append`, `CONFIRM_PROMPT` = *"Does this fix plan look correct? Reply with changes, or **yes** to start fixing."* The dated section to append:
 
    ```
    ## QA fix round — <YYYY-MM-DD>
@@ -119,7 +137,7 @@ Run these shared procedures in order:
 
 3. **Implement** then **Test** — `SCOPE` = **only the new `## QA fix round` section**, not the whole plan.
 4. **Review and fix** — `/code-review` over the fix round at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update`, then **Track CI and autofix** (pass `--no-review` to `/bond:track-pr` — a QA round does not re-ping reviewers), then **Transition to In Review** (green pipeline only), then **Teardown**.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update`, then **Track CI and autofix** (pass `--no-review` to `/bond:track-pr` — a QA round does not re-ping reviewers), then **Transition to In Review** (green pipeline only; skipped under `TRACKER=none`, where there is no issue to move), then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `WORKTREE` = the `-qa` path + original repo dir recorded in step 6, or `none` under `--no-worktree`.
 
