@@ -297,8 +297,11 @@ Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
 
 **Inputs:** `SCOPE` (as above); `MODE`.
 
-Run `/code-review high --fix` from the worktree. It reviews the working-tree
-diff and applies its findings in place.
+Run `/code-review` from the worktree at the level `bond:routing-code-review`
+reads off the diff, `--fix` on, launched from the session and waited for. In
+`auto` mode the router cannot ask, so a max predicate runs at `high` and says
+`(escalation not asked)`. It reviews the working-tree diff and applies its
+findings in place.
 
 This runs in **both** modes — only Ship + PR and Teardown are auto-only — and it
 runs **after Test, before Report completion**, never later: `--fix` writes to

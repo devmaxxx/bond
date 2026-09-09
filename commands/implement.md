@@ -69,7 +69,7 @@ Run these shared procedures in order:
 1. **Analyse the codebase** — `FOCUS` = the ticket descriptions and acceptance criteria.
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
 3. **Implement** then **Test** — `SCOPE` = the whole plan.
-4. **Review and fix** — `/code-review high --fix` over the work, then re-run the tests.
+4. **Review and fix** — `/code-review` over the work at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
 5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Track CI and autofix**, then **Transition to In Review** (green pipeline only), then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.

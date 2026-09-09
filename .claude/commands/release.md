@@ -71,8 +71,6 @@ git add -A
 git commit -m "feat: vX.Y.Z — <summary>" -m "<changelog body>"
 ```
 
-End the commit message with the standard co-author trailer.
-
 ### 6. Tag and push
 
 Create an **annotated** tag with the changelog as its body, then push the branch and the tag:

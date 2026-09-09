@@ -163,7 +163,9 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 - **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
 - **authorship-conventions** — commit, PR and document conventions: Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs. Backed by the `check-commit` / `check-doc` hooks. Triggers on "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/authorship-conventions/`.
-- **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/xhigh by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
+- **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/high by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
+- **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
+- **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
 
 ## Agents
 
@@ -206,7 +208,9 @@ bond/
 │   ├── pr-template/         # one shared PR title + description + reviewers
 │   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
 │   ├── authorship-conventions/  # commit/PR/doc conventions, no AI signatures
-│   └── routing-model-and-effort/  # (model, effort) pair per task phase
+│   ├── routing-model-and-effort/  # (model, effort) pair per task phase
+│   ├── routing-code-review/  # /code-review level, target and flags per diff
+│   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
