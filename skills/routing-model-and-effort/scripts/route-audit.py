@@ -16,9 +16,17 @@ PROJECTS = os.path.expanduser("~/.claude/projects")
 
 ROUTE_RE = re.compile(r"route: tier=[^\n]*")
 SCAN_RE = re.compile(r"scan: files=[^\n]*")
+REVIEW_RE = re.compile(r"review-route: level=[^\n]*")
 TIER_RE = re.compile(r"tier=(\w+)")
 FIRED_RE = re.compile(r"tier=\w+\s*\(([^)]*)\)")
+LEVEL_RE = re.compile(r"level=(\w+)")
+LEVEL_FIRED_RE = re.compile(r"level=\w+\s*\(([^)]*)\)")
+TARGET_RE = re.compile(r"target=(.+?)(?:\s+flags=|\s+→|$)")
 ASK_RE = re.compile(r"route|escalat|tier|xhigh|fable|opus/high", re.I)
+# A review escalation is asked in its own words; widening ASK_RE itself would
+# re-attach those questions to the task routes and move numbers this audit is
+# meant to hold still.
+REVIEW_ASK_RE = re.compile(ASK_RE.pattern + r"|review|ultra|code-review", re.I)
 PAIR_RE = re.compile(r'"([^"]*)"="([^"]*)"')
 
 ANSWER_MARK = "Your questions have been answered:"
@@ -28,6 +36,7 @@ ANSWER_MARK = "Your questions have been answered:"
 MARKERS = (
     "route: tier=",
     "scan: files=",
+    "review-route: level=",
     "AskUserQuestion",
     ANSWER_MARK,
     '"Edit"',
@@ -38,6 +47,8 @@ MARKERS = (
 # The skill body quotes its own route template, and a session that reads or
 # echoes the skill would otherwise be counted as having routed.
 TEMPLATE_MARKS = ("<t>", "<matched predicate")
+REVIEW_TEMPLATE_MARKS = TEMPLATE_MARKS + ("<l>", "<kind>", "<fields")
+LEVELS = ("ultra", "max", "high", "medium", "low", "skip")
 
 
 def blocks(entry):
@@ -66,7 +77,9 @@ def scan_file(path):
         "session": os.path.basename(path)[: -len(".jsonl")],
         "routes": [],
         "scans": [],
+        "reviews": [],
         "asks": [],
+        "review_asks": [],
         "answers": [],
         "files": set(),
     }
@@ -112,6 +125,23 @@ def scan_file(path):
                         )
                     for m in SCAN_RE.finditer(text):
                         out["scans"].append({"ts": ts, "scan": m.group(0).strip()})
+                    for m in REVIEW_RE.finditer(text):
+                        raw = m.group(0)
+                        if any(t in raw for t in REVIEW_TEMPLATE_MARKS):
+                            continue
+                        level = LEVEL_RE.search(raw)
+                        if not level or level.group(1) not in LEVELS:
+                            continue
+                        fired = LEVEL_FIRED_RE.search(raw)
+                        target = TARGET_RE.search(raw)
+                        out["reviews"].append(
+                            {
+                                "ts": ts,
+                                "level": level.group(1),
+                                "fired": fired.group(1).strip() if fired else "",
+                                "target": target.group(1).strip() if target else "",
+                            }
+                        )
                 elif btype == "tool_use":
                     name = block.get("name")
                     inp = block.get("input") or {}
@@ -122,14 +152,17 @@ def scan_file(path):
                     elif name == "NotebookEdit" and inp.get("notebook_path"):
                         out["files"].add(inp["notebook_path"])
                     elif name == "AskUserQuestion":
-                        questions = inp.get("questions") or []
-                        hits = [
+                        questions = [
                             q.get("question", "")
-                            for q in questions
-                            if isinstance(q, dict) and ASK_RE.search(q.get("question", ""))
+                            for q in inp.get("questions") or []
+                            if isinstance(q, dict)
                         ]
+                        hits = [q for q in questions if ASK_RE.search(q)]
                         if hits:
                             out["asks"].append({"ts": ts, "questions": hits})
+                        review_hits = [q for q in questions if REVIEW_ASK_RE.search(q)]
+                        if review_hits:
+                            out["review_asks"].append({"ts": ts, "questions": review_hits})
                 elif btype == "tool_result" and kind == "user":
                     text = result_text(block)
                     if ANSWER_MARK in text:
@@ -158,9 +191,17 @@ def collect(project_filter):
         key = (project, data["session"])
         agg = sessions.setdefault(
             key,
-            {"routes": [], "scans": [], "asks": [], "answers": [], "files": set()},
+            {
+                "routes": [],
+                "scans": [],
+                "reviews": [],
+                "asks": [],
+                "review_asks": [],
+                "answers": [],
+                "files": set(),
+            },
         )
-        for field in ("routes", "scans", "asks", "answers"):
+        for field in ("routes", "scans", "reviews", "asks", "review_asks", "answers"):
             agg[field].extend(data[field])
         agg["files"] |= data["files"]
     return sessions
@@ -214,6 +255,34 @@ def build_rows(sessions, since):
     return rows
 
 
+def build_review_rows(sessions, since):
+    """One row per review-route line, carrying the task route that preceded it."""
+    rows = []
+    for (project, session), agg in sessions.items():
+        for field in ("routes", "reviews", "review_asks", "answers"):
+            agg[field].sort(key=lambda e: e["ts"])
+        for review in agg["reviews"]:
+            if since and review["ts"][:10] < since:
+                continue
+            route = latest_before(agg["routes"], review["ts"])
+            ask = latest_before(agg["review_asks"], review["ts"])
+            rows.append(
+                {
+                    "ts": review["ts"],
+                    "session": session,
+                    "project": project,
+                    "level": review["level"],
+                    "fired": review["fired"],
+                    "target": review["target"],
+                    "task_tier": route["tier"] if route else "",
+                    "asked": bool(ask),
+                    "answer": answer_for(ask, agg["answers"]) if ask else "",
+                }
+            )
+    rows.sort(key=lambda r: r["ts"])
+    return rows
+
+
 def report(rows):
     header = (
         f"{'date':10}  {'session':8}  {'project':28}  {'tier':6}  "
@@ -251,6 +320,26 @@ def report(rows):
         print(f"  {n:3d}  {text[:80]}")
 
 
+def report_reviews(rows):
+    header = (
+        f"{'date':10}  {'session':8}  {'project':22}  {'level':6}  "
+        f"{'fired':34}  {'target':20}  {'task':6}  {'ask':3}  answer"
+    )
+    print()
+    print(header)
+    print("-" * len(header))
+    for r in rows:
+        print(
+            f"{r['ts'][:10]:10}  {r['session'][:8]:8}  {r['project'][-22:]:22}  "
+            f"{r['level']:6}  {r['fired'][:34]:34}  {r['target'][:20]:20}  "
+            f"{r['task_tier']:6}  {'yes' if r['asked'] else 'no':3}  {r['answer'][:24]}"
+        )
+
+    levels = collections.Counter(r["level"] for r in rows)
+    print(f"\nREVIEWS: {len(rows)}")
+    print("LEVELS: " + " ".join(f"{l}={n}" for l, n in levels.most_common()))
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="route-audit.py",
@@ -265,18 +354,26 @@ def main():
     parser.add_argument("--since", metavar="YYYY-MM-DD", help="drop routes before this date")
     parser.add_argument("--project", metavar="SUBSTR", help="substring of the project directory name")
     parser.add_argument("--json", action="store_true", help="emit the rows as JSON")
+    parser.add_argument(
+        "--reviews",
+        action="store_true",
+        help="also list the review-route lines beside the task routes they followed",
+    )
     args = parser.parse_args()
 
-    rows = build_rows(collect(args.project), args.since)
+    sessions = collect(args.project)
+    rows = build_rows(sessions, args.since)
+    review_rows = build_review_rows(sessions, args.since) if args.reviews else []
     if args.json:
-        json.dump(
-            [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows],
-            sys.stdout,
-            indent=2,
-        )
+        payload = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
+        if args.reviews:
+            payload = {"routes": payload, "reviews": review_rows}
+        json.dump(payload, sys.stdout, indent=2)
         print()
     else:
         report(rows)
+        if args.reviews:
+            report_reviews(review_rows)
     return 0
 
 
