@@ -293,6 +293,29 @@ Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
 - Cover the golden path and at least one edge/error case for each new behaviour.
 - Do not write tests for code that was not changed.
 
+## Procedure: Review and fix
+
+**Inputs:** `SCOPE` (as above); `MODE`.
+
+Run `/code-review medium --fix` from the worktree. It reviews the working-tree
+diff and applies its findings in place.
+
+This runs in **both** modes — only Ship + PR and Teardown are auto-only — and it
+runs **after Test, before Report completion**, never later: `--fix` writes to
+the working tree, so its changes must be inside the diff that Ship + PR commits,
+and Teardown refuses a dirty worktree.
+
+- **Re-run the test commands from Test afterwards.** A review fix can break a
+  test, and an unverified fix is worth less than the finding it closed.
+- Apply what the review returns without asking (see **Autonomy**). Log any
+  finding you deliberately did not take under the plan file's `## Decisions`,
+  with the reason.
+- A finding in code the change did not touch is out of `SCOPE`: report it to the
+  user, do not fix it here.
+- An empty review is a pass. Say so and continue.
+- If the review itself errors, report it and continue to Report completion — a
+  broken review does not discard work that already passed its tests.
+
 ## Procedure: Report completion
 
 **Inputs:** `WORKTREE`, `MODE`, `PLAN_FILE`.
@@ -354,6 +377,8 @@ Only runs when a worktree was created **and** Ship + PR completed successfully.
 
 - Do not commit anything yourself in `no-auto` mode. In `auto` mode, committing
   is delegated to `/bonliva-dev:ship`.
+- Do not commit before **Review and fix** has run — the review's fixes belong in
+  the same commit as the work they correct, not in a follow-up.
 - Do not push the branch yourself in `no-auto` mode — tell the user to run
   `/bonliva-dev:ship`.
 - Do not force-remove a dirty worktree — surface the warning instead.
