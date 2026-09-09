@@ -297,7 +297,7 @@ Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
 
 **Inputs:** `SCOPE` (as above); `MODE`.
 
-Run `/code-review medium --fix` from the worktree. It reviews the working-tree
+Run `/code-review high --fix` from the worktree. It reviews the working-tree
 diff and applies its findings in place.
 
 This runs in **both** modes — only Ship + PR and Teardown are auto-only — and it

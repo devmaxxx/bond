@@ -118,7 +118,7 @@ Run these shared procedures in order:
    ```
 
 3. **Implement** then **Test** — `SCOPE` = **only the new `## QA fix round` section**, not the whole plan.
-4. **Review and fix** — `/code-review medium --fix` over the fix round, then re-run the tests.
+4. **Review and fix** — `/code-review high --fix` over the fix round, then re-run the tests.
 5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update`, then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `WORKTREE` = the `-qa` path + original repo dir recorded in step 6, or `none` under `--no-worktree`.
