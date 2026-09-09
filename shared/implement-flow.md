@@ -360,11 +360,52 @@ If either step fails, surface the error and stop — do not retry blindly, and d
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
 resume).
 
+Record the PR number or URL as `PR_REF` — the next two procedures need it.
+
+## Procedure: Track CI and autofix  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
+
+**Inputs:** `PR_REF` from Ship + PR.
+
+The push starts a pipeline. Nobody has to sit and watch it: hand it to
+`/bond:track-pr`, which self-paces its own wake-ups, and act on the verdict.
+
+1. Invoke `/bond:track-pr <PR_REF>` — it polls the pipeline on the PR's latest
+   commit and notifies when it leaves the running state. Do not poll the
+   pipeline yourself in parallel; one watcher per PR.
+2. On **success** — run **Transition to In Review**, then Teardown. `track-pr`
+   chains into `/bond:request-review` by default; pass `--no-review` when the
+   work is not ready for reviewers (a QA round, a draft the user asked to hold).
+3. On **failure**, **error** or **stopped** — invoke `/bond:fix-pr <PR_REF>`. It
+   reads the failed step logs, fixes the root cause on the same branch, and
+   pushes, which starts a fresh pipeline; go back to step 1 for that run.
+4. Give up after **two** autofix rounds on the same PR. A third red pipeline
+   means the failure is not something the logs explain — stop, report what each
+   round changed and what still fails, and leave the branch and worktree in
+   place. Do not transition the ticket.
+
+A failure that `/bond:fix-pr` cannot even diagnose (no pipeline found, the
+pipeline never started, credentials rejected) is not an autofix round — surface
+it and stop.
+
+## Procedure: Transition to In Review
+
+**Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
+
+Runs once the pipeline is **green**, not when the PR is opened — a red pipeline
+on the board as "In Review" sends a reviewer to work that does not build.
+
+For each ticket ID, run the **transition** procedure in
+`${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In Review**. Same
+rules as the In Progress hop: one hop at a time along the chain, skip a ticket
+already at or beyond In Review, report per ticket, and surface a failed
+transition without aborting — the code has shipped either way.
+
 ## Procedure: Teardown  *(auto mode only — skip when `MODE` is `no-auto` or `WORKTREE` is `none`)*
 
 **Inputs:** `WORKTREE` (recorded worktree path + original repo directory).
 
-Only runs when a worktree was created **and** Ship + PR completed successfully.
+Only runs when a worktree was created **and** the pipeline went green. A red or
+still-running pipeline keeps the worktree: `/bond:fix-pr` needs a tree to fix in.
 
 1. `cd` back to the original repo directory recorded during branch setup.
 2. `git worktree remove <worktree-path>`. If it reports the worktree is dirty or
@@ -381,6 +422,10 @@ Only runs when a worktree was created **and** Ship + PR completed successfully.
   the same commit as the work they correct, not in a follow-up.
 - Do not push the branch yourself in `no-auto` mode — tell the user to run
   `/bonliva-dev:ship`.
+- Do not move a ticket to In Review on a red or still-running pipeline, and do
+  not move it at all once the autofix rounds are exhausted.
+- Do not autofix a third time on the same PR, and do not widen `/bond:fix-pr`
+  into unrelated work to get the pipeline green.
 - Do not force-remove a dirty worktree — surface the warning instead.
 - When `PR_HANDLING` is `update`, do not open a second PR and do not auto-ping
   reviewers.

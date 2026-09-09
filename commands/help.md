@@ -15,7 +15,7 @@ Output the following table verbatim:
 | Command                | Purpose                                                                                         |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `/bond:help`           | List all bond plugin commands with their descriptions                                           |
-| `/bond:chrome-debug`   | Set up/open a debuggable Chrome (LaunchAgent) and install the chrome-devtools MCP pointed at it |
+| `/bond:chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) and install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/bond:disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones           |
 | `/bond:fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it                 |
 | `/bond:fix-pr`         | Diagnose why a PR's pipeline failed, fix the root causes, and push                              |

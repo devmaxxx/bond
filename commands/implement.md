@@ -26,7 +26,7 @@ Examples:
 By **default** `/implement` runs in **worktree mode** and **auto mode**: it creates an isolated git worktree, skips the plan confirmation prompt, runs ship + open-pr after implementation, and removes the worktree when everything is done.
 
 - `--no-worktree` — switch branches in the current working tree instead of a worktree (requires a clean tree).
-- `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR and Teardown procedures are skipped; the worktree is left in place).
+- `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR, Track CI and autofix, and Teardown procedures are skipped; the worktree is left in place).
 - `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base defaults **per repo** (`bonliva-erp` → `main`, `bonliva-crm` → `dev`, async-api → `master`; else `dev`) per the shared **Default base branch** procedure. Use the flag to override, e.g. `--base develop`.
 
 Flags that only apply when **creating** a ticket (no key given — see step 1):
@@ -70,7 +70,7 @@ Run these shared procedures in order:
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
 3. **Implement** then **Test** — `SCOPE` = the whole plan.
 4. **Review and fix** — `/code-review high --fix` over the work, then re-run the tests.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Teardown**.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Track CI and autofix**, then **Transition to In Review** (green pipeline only), then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 

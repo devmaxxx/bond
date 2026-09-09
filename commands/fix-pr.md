@@ -100,7 +100,12 @@ Run the shared procedures in order, scoped to the diagnosed root causes:
    section.
 5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update` (commits and
    pushes automatically in auto mode; the push updates the existing PR — never opens
-   a second one), then **Teardown**.
+   a second one), then **Track CI and autofix**, then **Teardown**.
+
+   This command *is* an autofix round, so it enters that procedure having spent
+   one of the two: watch the pipeline the push started, and if it is red again,
+   one more `/bond:fix-pr` is allowed before stopping and reporting. Skip
+   **Transition to In Review** — a PR reached this way carries no ticket context.
 
 Shared tail inputs: `MODE` = `no-auto` if `--no-auto` was passed else `auto`;
 `WORKTREE` = the `-prfix` path + original repo dir from step 4.1, or `none` under

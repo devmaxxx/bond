@@ -9,7 +9,7 @@ description: >-
   write, edit, or review comments, and proactively prune restate-comments and
   strip ticket tags during code review or cleanup. Trigger even when the user
   just says "clean up", "remove comments", "keep only important comments", or
-  "review this PR". Pairs with [[readable-code-structure]] and [[stop-slop]].
+  "review this PR". Pairs with [[readable-code-structure]].
 ---
 
 # Comment hygiene

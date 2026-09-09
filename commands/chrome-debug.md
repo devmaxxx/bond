@@ -1,8 +1,17 @@
 ---
-description: Set up / open an always-on debuggable Chrome (LaunchAgent) and install the chrome-devtools MCP pointed at it
+description: Fallback browser path — set up / open an always-on debuggable Chrome (LaunchAgent) and install the chrome-devtools MCP pointed at it, for when claude-in-chrome is unavailable
 ---
 
 # /bond:chrome-debug
+
+**Reach for `claude-in-chrome` first.** It drives the user's real, already-signed-in
+Chrome through the browser extension, so every SSO session (Jira, Teams, the app
+under test) is already there and nothing has to be stood up. This command exists
+for the cases it cannot cover: the extension is not installed or not granted the
+site, the browser is not Chrome, or the task needs raw CDP — a performance trace,
+a heap snapshot, a Lighthouse audit, headless work in CI or a hook.
+
+See **Browser access** in the README for the full order.
 
 Manage an always-on, **debuggable** Chrome that the `chrome-devtools` MCP (and any
 CDP client) can attach to, and install/point that MCP at it. This lets Claude
@@ -44,6 +53,17 @@ Optional env overrides the user can export (the script reads them):
 `BOND_CHROME_DESKTOP_LAUNCHER` (default `~/Desktop/Chrome Debug.command`).
 
 ## Steps
+
+### 0. Confirm the fallback is what's wanted
+
+Skip this when `$ARGUMENTS` names a subcommand other than `setup` — the user is
+managing an agent that already exists.
+
+On a bare `setup`, check whether `claude-in-chrome` is available (the
+`mcp__claude-in-chrome__*` tools present or loadable via `ToolSearch`). If it is,
+say so in one line and name the reason to continue anyway (raw CDP: traces, heap
+snapshots, Lighthouse, headless CI) — then proceed if the user confirms or if
+their request already named one of those.
 
 ### 1. Run the script
 

@@ -24,7 +24,9 @@ with a prose _why_ body. No AI signature anywhere.
   `scope` optional lowercase noun for the area (`api`, `ui`, `plans`, `ci`);
   `!` and/or `BREAKING CHANGE:` footer for breaks.
 - description: imperative, lowercase, no trailing period, fits GitHub's list.
-- `[skip ci]` when the commit cannot change a pipeline result (`bond:skip-ci-docs`).
+- `[skip ci]` when the commit cannot change a pipeline result — docs, markdown,
+  plan files, comments — so a prose-only push does not burn a full CI run. Never
+  skip when the build, tests, lint or typecheck read any file the commit touches.
 - `Merge …`, `fixup!`, `squash!`, `Revert "…"` pass through untouched.
 
 Example: `chore(graphify): tell an agent about the graph when it first opens a file`

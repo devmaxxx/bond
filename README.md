@@ -7,7 +7,7 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | Command           | Purpose                                                                                       |
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | `/help`           | List all bond plugin commands with their descriptions                                         |
-| `/chrome-debug`   | Set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it |
+| `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it               |
 | `/implement`      | Fetch (or create) a Jira ticket, create a typed branch, plan, and code                        |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
@@ -90,7 +90,28 @@ Now `/teams-post <message>` delivers a card to that channel. The underlying
 BOND_TEAMS_WEBHOOK_URL="https://…" scripts/teams-post.sh --title "Deploy" "Build #42 passed"
 ```
 
-## Chrome debug (for the chrome-devtools MCP)
+## Browser access
+
+Anything in this plugin that needs a browser — reading a Jira attachment,
+pulling Teams calls in `/log-plan`, opening a failing page in `/investigate` —
+uses **`claude-in-chrome`** whenever it is available. It drives the user's real
+Chrome through the browser extension, so the SSO sessions are already there and
+no profile, LaunchAgent or debug port has to be stood up first. Load the tools
+with `ToolSearch` (`select:mcp__claude-in-chrome__tabs_context_mcp,…`) before
+using them.
+
+Fall back to `/chrome-debug` and the CDP-based `chrome-devtools` MCP only when
+`claude-in-chrome` cannot do the job:
+
+- the extension is not installed, or has not been granted the site
+- the task needs raw CDP — a performance trace, a heap snapshot, a Lighthouse
+  audit, `evaluate_script` against a target
+- it has to run unattended: CI, a hook, headless
+
+If neither is available, skip the step and say so rather than asking the user to
+sign in — never enter credentials on their behalf.
+
+## Chrome debug (fallback, for the chrome-devtools MCP)
 
 `/chrome-debug` lets Claude drive a **real, logged-in browser** instead of the
 chrome-devtools MCP's throwaway one. It installs a per-user macOS LaunchAgent that
@@ -133,7 +154,6 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 
 ## Skills
 
-- **stop-slop** — removes predictable AI writing patterns from prose. Auto-triggers when drafting, editing, or reviewing text. Bundled under `skills/stop-slop/`.
 - **single-pass-iteration** — collapses repeated iterations over the same collection (multiple `.reduce()`, `.filter().map()` chains, duplicate loops) into a single pass. Triggers on cleanup/optimize/refactor requests and during code review. Bundled under `skills/single-pass-iteration/`.
 - **always-use-braces** — wraps every `if`/`else`/`for`/`while` body in curly braces, even one-liners and guard clauses. Triggers when writing or reviewing JS/TS control flow. Bundled under `skills/always-use-braces/`.
 - **readable-code-structure** — splits long functions into small named ones and replaces awkward/clever control flow (search loops, N+1 in loops, nested ternaries, flag params) with plain expressions. Triggers on clean-up/refactor/"make this readable" requests and during review. Bundled under `skills/readable-code-structure/`.
@@ -177,7 +197,6 @@ bond/
 │   └── marketplace.json    # marketplace entry (single-plugin repo)
 ├── commands/               # slash commands
 ├── skills/
-│   ├── stop-slop/          # prose-cleanup skill bundled with the plugin
 │   ├── single-pass-iteration/  # merge redundant array passes into one
 │   ├── always-use-braces/  # brace every if/else/for/while body
 │   ├── readable-code-structure/  # small named functions + plain control flow
@@ -199,7 +218,7 @@ bond/
 │   └── pr-review-card.json # Adaptive Card template for /request-review
 ├── scripts/
 │   ├── teams-post.sh       # POST a card to a Teams channel webhook
-│   └── chrome-debug.sh     # manage a debuggable Chrome LaunchAgent + its MCP
+│   └── chrome-debug.sh     # fallback: debuggable Chrome LaunchAgent + its MCP
 ├── hooks/
 │   ├── hooks.json
 │   ├── format-file.sh      # PostToolUse: prettier on the edited file
