@@ -57,7 +57,7 @@ The thresholds are the table's: 20 and 5. A number of your own is not a predicat
 
 ## Asking
 
-Any xhigh, max or fable predicate ⇒ one `AskUserQuestion` right after the scan, before any other tool call, quoting the card fields that fired. One question per task, not per phase, not per predicate. Options: `opus`/`high` (the default, first), the tier the predicate points at, and `fable` to plan when a fable predicate fired.
+Any xhigh, max or fable predicate ⇒ one `AskUserQuestion` right after the scan, before any other tool call, quoting the card fields that fired. One question per task, not per phase, not per predicate. Options: the pair the card argues for first, marked `(Recommended)`; `opus`/`high` always offered; `fable` to plan when a fable predicate fired. Every option's description says, from the card, what that pair buys on this task and what it costs: the concrete failure the extra effort catches (`schema=migrations/ → a wrong column type in prod has no rollback`), or what the default leaves to chance, and the price (xhigh ≈1.6× high, max ≈1.7×; fable costs more than opus per token, so it plans once and never builds). A reason that names no card field is not a reason — then `opus`/`high` is the recommendation.
 
 Run at the answer, and treat it as a named override for the rest of the task. Cannot ask, or no pick — non-interactive session, a hook or cron turn, or you are already a subagent — then `opus`/`high`, with `(escalation not asked)` in the route line. Never ask twice for the same task; a shape change earns one more scan and one more question.
 
@@ -77,7 +77,10 @@ Example, session `opus`/`high`, "replace role strings with a policy table, migra
 
 ```
 scan: files=14 (src/auth/**, src/api/roles.ts, migrations/) · modules=3 · test=src/auth/roles.test.ts · schema=migrations/ · surface=GET /roles · security=authz · concurrency=none · repro=none · designs=2+: table in db / table in config
-AskUserQuestion: "schema=migrations/, surface=GET /roles, security=authz, designs=2+. Route it up?" → opus/high · opus/xhigh · fable plans, opus builds
+AskUserQuestion: "schema=migrations/, surface=GET /roles, security=authz, designs=2+. Route it up?"
+  fable plans, opus builds (Recommended) — designs=2+ with authz on the surface: fable settles db-table vs config-table once, before 14 files move; ≈1.7× one high plan, builds stay opus
+  opus/xhigh — same care on both phases, no separate design pass; ≈1.6× high throughout
+  opus/high — default; what it leaves to chance: the old-API shim written after the migration instead of before it
 answer: fable plans, opus builds
 route: tier=xhigh (schema, surface, security, designs — granted) plan=fable/xhigh build=opus/xhigh → spawn, spawn
 Agent(subagent_type: "bond:effort-xhigh", model: "fable", description: "fable/xhigh plan · policy table", prompt: "Phase: plan. scan: … ")
@@ -110,3 +113,4 @@ Unanswered, the same task runs `plan=opus/high build=opus/high`.
 | "One more file and the scan is sure" | Six calls; the seventh is `?`, and `?` has a rule. |
 | "The scan is overhead on a small task" | `low` from the prompt skips it; six read-only calls are cheaper than one wrong tier. |
 | "The description is just a label" | It is the only line the panel shows; pair and job, or the spawn is anonymous. |
+| "The options speak for themselves" | An option without its reason is a coin toss; say what the tier catches and what it costs. |
