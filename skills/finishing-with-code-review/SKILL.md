@@ -35,7 +35,7 @@ touches documentation only (`*.md`, or comment-only edits). The router emits
    a Rust repo that is `cargo test` and `cargo clippy --all-targets -- -D warnings`.
 4. **Commit** the fixes under a Conventional subject (`fix(scope): …`, `refactor(scope): …`),
    the message passed on stdin in its own shell call, no trailers. If the branch is already
-   pushed, push again — through the account rule in `switching-github-accounts`.
+   pushed, push again — through the account rule in `authorship-conventions`.
 5. **Recap** names the level it ran at and the card fields that set it, how many findings there
    were, how many were fixed, which were skipped and why. Zero findings is said in words:
    "review: nothing found".

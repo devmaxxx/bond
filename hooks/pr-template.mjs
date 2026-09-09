@@ -7,18 +7,9 @@
 
 import { existsSync, readFileSync } from "node:fs";
 
+import { runsCommand, scrubShell } from "./shell.mjs";
+
 const DEFAULT_JIRA_PROJECTS = ["ERP", "CRMDEV"];
-
-// $3 is the rest of the header line, kept because a `&& gh …` can live there.
-const HEREDOC = /<<-?\s*(["']?)(\w+)\1([^\n]*)\n(?:[\s\S]*?\n)?[ \t]*\2(?![\w])/g;
-const DOUBLE_QUOTED = /"(?:[^"\\]|\\[\s\S])*"/g;
-const SINGLE_QUOTED = /'[^']*'/g;
-const COMMENT = /(^|\s)#[^\n]*/g;
-const LINE_CONTINUATION = /\\\n/g;
-
-const SEGMENT_BREAK = /[\n;&|(){}`]+/;
-const GH_PR_CREATE =
-  /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:(?:command|builtin|exec|nohup|time)\s+)*(?:[\w./~-]*\/)?gh\s+pr\s+create(?![\w-])/;
 
 const WEB = /(?:^|\s)(?:-w|--web)(?:\s|$)/;
 const FILL = /(?:^|\s)--fill(?:-first|-verbose)?(?:\s|$)/;
@@ -50,29 +41,9 @@ export function hasTicket(text) {
   return new RegExp(`(?<![A-Za-z0-9])(?:${keys})-\\d+(?![0-9])`).test(text);
 }
 
-/**
- * Blanks out every stretch of a command line that the shell would treat as data
- * rather than code — heredoc bodies, quoted strings, comments — so that flags
- * and command names are matched only where they are really flags and command
- * names. A diagnostic that merely prints "gh pr create" is not a PR.
- *
- * Best effort by design: unbalanced quotes leave a mangled string that matches
- * nothing, and the hook's contract is that an unreadable command blocks nobody.
- */
-export function scrubShell(cmd) {
-  return cmd
-    .replace(HEREDOC, "<<HEREDOC$3")
-    .replace(DOUBLE_QUOTED, '""')
-    .replace(SINGLE_QUOTED, "''")
-    .replace(COMMENT, "$1")
-    .replace(LINE_CONTINUATION, " ");
-}
-
 /** True when a scrubbed command runs `gh pr create` at a command position. */
 export function isGhPrCreate(scrubbed) {
-  return scrubbed
-    .split(SEGMENT_BREAK)
-    .some((segment) => GH_PR_CREATE.test(segment));
+  return runsCommand(scrubbed, "gh\\s+pr\\s+create");
 }
 
 /**

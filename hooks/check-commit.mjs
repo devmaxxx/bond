@@ -10,6 +10,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { findAiBreadcrumbs } from "./ai-breadcrumbs.mjs";
+import { runsCommand, scrubShell } from "./shell.mjs";
 
 const TYPES = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert";
 const SUBJECT = new RegExp(`^(${TYPES})(\\([a-z0-9][a-z0-9._/-]*\\))?!?: \\S`);
@@ -22,8 +23,20 @@ try {
   process.exit(0);
 }
 const cmd = payload?.tool_input?.command ?? "";
-const isCommit = /\bgit\b[^\n;&|]*\bcommit\b/.test(cmd);
-const isPr = /\bgh\s+pr\s+(create|edit|comment|review|merge)\b/.test(cmd);
+// Detection reads the scrubbed command, so the words spelled inside a heredoc
+// body, a quoted string or a comment are data, not an invocation. Message
+// extraction below still reads the raw command — that is where the body lives.
+const scrubbed = scrubShell(cmd);
+// `-C <path>` / `-c <name=value>` take a value, so a bare `-\S+` repetition
+// would stop at the path and miss `git -C /repo commit` entirely.
+const isCommit = runsCommand(
+  scrubbed,
+  "git(?:\\s+(?:-[Cc]\\s+\\S+|--?\\S+))*\\s+commit",
+);
+const isPr = runsCommand(
+  scrubbed,
+  "gh\\s+pr\\s+(?:create|edit|comment|review|merge)",
+);
 if (!isCommit && !isPr) {
   process.exit(0);
 }

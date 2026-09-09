@@ -65,9 +65,10 @@ see `shared/project-profile.md`.
 ## GitHub account — always on
 
 Two accounts are logged into `gh`: Bonliva work pushes as one, everything else
-as the other. Apply the `bond:switching-github-accounts` skill before any
-`git push` or `gh` write — check the active account first, and ask when the repo
-matches neither side of the rule.
+as the other. Apply the `bond:authorship-conventions` skill before any push or
+`gh` write — check the active account first, and ask when the repo matches
+neither side of the rule. The active account is machine-global, so another
+session may have moved it since you last looked.
 
 ## Branch names — always on
 

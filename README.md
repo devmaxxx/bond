@@ -196,7 +196,8 @@ Every command reads that profile rather than assuming a host or a tracker:
 ## Tests
 
 The hook rules are unit-tested with the Node test runner — no dependencies, no
-install step:
+install step. Both matchers, the ticket-key rule and the standing-rules
+rendering are covered, and `check-commit.mjs` is driven end to end over stdin:
 
 ```sh
 node --test 'tests/**/*.test.mjs'
@@ -210,11 +211,10 @@ node --test 'tests/**/*.test.mjs'
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 - **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
-- **authorship-conventions** — naming and attribution for every git artefact: Conventional Branch `<type>/<description>`, Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs — plus the rename trap: renaming a branch after its PR is open closes the PR. Bonliva repos keep the `<prefix>/<KEY>` branch shape bond imposes; everywhere else the spec wins. Backed by the `check-commit` / `check-doc` hooks. Triggers on `checkout -b`, "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/authorship-conventions/`.
+- **authorship-conventions** — naming and attribution for every git artefact: Conventional Branch `<type>/<description>`, Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs — plus the rename trap: renaming a branch after its PR is open closes the PR. Bonliva repos keep the `<prefix>/<KEY>` branch shape bond imposes; everywhere else the spec wins. Backed by the `check-commit` / `check-doc` hooks. Triggers on `checkout -b`, "commit", "amend", "open a PR", "write the ADR/plan/README". Also decides which of the two `gh` accounts pushes — the active one is machine-global, so another session may have moved it since. Bundled under `skills/authorship-conventions/`.
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/high by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
-- **switching-github-accounts** — two accounts are logged into `gh`; the active one decides which token pushes, and it is machine-global, so another session may have switched it. Check before every push or `gh` write. Triggers before `git push`, a PR, or any `gh` write. Bundled under `skills/switching-github-accounts/`.
 
 ## Agents
 
@@ -254,11 +254,10 @@ bond/
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
 │   ├── pr-template/         # one shared PR title + description + reviewers
 │   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
-│   ├── authorship-conventions/  # branch/commit/PR/doc naming + attribution
+│   └── authorship-conventions/  # branch/commit/PR/doc naming, attribution, gh account
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
 │   ├── finishing-with-code-review/  # every code task ends with the review
-│   └── switching-github-accounts/  # the right gh token before every push
 ├── agents/
 │   ├── DocsExplorer.md     # look up official docs before using a third-party API
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
@@ -277,14 +276,18 @@ bond/
 ├── hooks/
 │   ├── hooks.json
 │   ├── format-file.sh      # PostToolUse: prettier on the edited file
+│   ├── shell.mjs           # is this command really *running* X?
 │   ├── standing-rules.mjs  # SessionStart: print the always-on rules
+│   ├── render-rules.mjs    # what the session actually reads
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
 │   ├── check-pr.mjs        # PreToolUse: block a PR that breaks the shared template
 │   └── check-doc.mjs       # PostToolUse: flag a written md/txt with a signature
 ├── tests/
-│   └── pr-template.test.mjs  # node --test 'tests/**/*.test.mjs'
+│   ├── pr-template.test.mjs  # node --test 'tests/**/*.test.mjs'
+│   ├── render-rules.test.mjs
+│   └── shell.test.mjs
 ├── .mcp.json               # MCP server template (installed via /setup-plugin)
 ├── LICENSE
 └── README.md

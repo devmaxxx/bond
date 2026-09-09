@@ -9,8 +9,8 @@ import {
   checkMcp,
   hasTicket,
   isGhPrCreate,
-  scrubShell,
 } from "../hooks/pr-template.mjs";
+import { scrubShell } from "../hooks/shell.mjs";
 
 const GOOD_BODY = [
   "## Summary",

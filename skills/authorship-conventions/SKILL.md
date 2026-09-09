@@ -7,9 +7,11 @@ description: >-
   `git branch -m`, before writing or reviewing any commit message,
   amend/reword, PR title, body or comment, review comment, ADR, plan, README,
   design doc or code comment, and when a branch name is called off-convention.
-  Trigger on "checkout -b", "start work on a ticket", "rename the branch",
-  "commit", "amend", "open/create a PR", "PR description", "write the
-  ADR/plan/README".
+  Also covers which `gh` account pushes: two are authenticated on this machine,
+  the active one is machine-global, and pushing from the wrong one is public and
+  awkward to undo. Trigger on "checkout -b", "start work on a ticket", "rename
+  the branch", "commit", "amend", "git push", "gh pr create", any other `gh`
+  write, "open/create a PR", "PR description", "write the ADR/plan/README".
 ---
 
 # Authorship conventions — branches, commits, PRs, docs
@@ -163,9 +165,73 @@ up CLOSED.** Assume the PR does not survive. So:
    from the new branch. Copy the description and re-request reviewers; review
    comments on the old PR do not move.
 3. That endpoint returns **403** unless the *active* `gh` account has push
-   access on the repo. Check with the `switching-github-accounts` skill before
-   calling it — a 403 here usually means the wrong account is active, not a
-   missing permission.
+   access on the repo. Check the active account (§7) before calling it — a 403
+   here usually means the wrong account is active, not a missing permission.
+
+## 7. Which account pushes
+
+Two accounts are authenticated in `gh` on github.com: **maxSynEfisco** (Bonliva
+work) and **devmaxxx** (personal). The active one decides which token pushes.
+A commit pushed or a PR opened from the wrong account is public, attributed to
+the wrong identity, and undone only by force-pushing or closing and reopening
+the PR.
+
+**Two different things — do not confuse them:**
+
+| | What it is | How it changes |
+|---|---|---|
+| `gh` account | The token that pushes / opens PRs / calls the API | `gh auth switch` |
+| git identity | The `Author:` name and email on commits | `git config user.name` / `user.email` |
+
+A `gh auth switch` does **not** change `git config user.name/user.email`, and
+setting a git identity does **not** change which token pushes. Read the identity
+with `git config user.name` rather than assuming it matches the account name.
+
+**Check before every write** — a push, a PR creation, any `gh api` write:
+
+```bash
+gh auth status --active --hostname github.com
+git remote -v
+```
+
+**The rule.** Bonliva projects use **maxSynEfisco**; everything else uses
+**devmaxxx**. Decide from the repo in front of you, never from memory. First
+match wins:
+
+1. **GitHub remote owner is `devmaxxx`** → **devmaxxx**. The token must match the
+   repo owner, so this beats every other signal, manifest included.
+2. **`.bonliva-dev/project.json` at the repo root**, or a remote pointing at
+   `bitbucket.org/bonliva/...` → **maxSynEfisco**.
+3. **Anything else** — a remote owned by another org, no remote, a bare
+   directory → **ask once which account this repo uses. Do not guess.**
+
+Signals disagreeing (a Bonliva manifest in a repo whose GitHub remote is
+`devmaxxx/...`) is rule 1: push with the account that owns the remote.
+
+```bash
+gh auth switch --hostname github.com --user maxSynEfisco   # or devmaxxx
+gh auth status --hostname github.com                        # confirm
+```
+
+The switch is **global to this machine**, so it survives into other sessions —
+and another session may have moved it since. Check again rather than assuming.
+
+Note an SSH remote (`git@github.com:...`) authenticates with the SSH key, not
+the `gh` token, so a wrong active account does not by itself mean a wrong push —
+but every `gh` command in the same task still uses it.
+
+Change the git identity only when the commits themselves should carry a
+different name. It is per-repo:
+
+```bash
+git config --local user.name "<name>"
+git config --local user.email "<email>"
+```
+
+The machine's global identity is already the Bonliva one, so Bonliva repos need
+nothing. A personal repo that should not carry the work address needs its own
+local identity: ask for the name and email once, and never invent one. This file
+is published in a public repo, so the addresses themselves stay out of it.
 
 ## Checklist before `git commit` / PR / doc
 
@@ -199,3 +265,5 @@ closes a PR. §6 is the enforcement.
 | "I'll fix the branch name later"     | Later is after the push, and then after the PR. Now.      |
 | "An underscore reads fine"           | Invalid per the spec outside the Bonliva `<KEY>_<KEY>` shape. |
 | "This repo has no convention"        | It has this one. A prefix invented on the spot is not it. |
+| "The account was right last time"    | It is machine-global; another session may have switched it. |
+| "I'll check the account at push time" | Check on entering the repo; at push time the mistake is one keystroke away. |
