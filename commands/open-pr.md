@@ -1,10 +1,10 @@
 ---
-description: Open the Bitbucket PR creation page for the current branch
+description: Open a draft pull request for the current branch (GitHub or Bitbucket)
 ---
 
 # /open-pr
 
-Creates a Bitbucket pull request from the current branch into a base branch (`main` by default) using the Bitbucket MCP server (`bond-bitbucket`).
+Creates a pull request from the current branch into a base branch (`main` by default). The host is resolved from the `origin` remote: `gh` for a GitHub repo, the Bitbucket MCP server (`bond-bitbucket`) for a Bitbucket one.
 
 Usage: `/open-pr [base-branch]`
 
@@ -22,13 +22,16 @@ git rev-parse --abbrev-ref HEAD
 
 Abort if result is `HEAD` (detached HEAD).
 
-### 2. Resolve project and repository
+### 2. Resolve host, project and repository
 
 ```sh
 git remote get-url origin
 ```
 
-- `git@bitbucket.org:bonliva/bonliva-erp.git` → workspace `bonliva`, repository `bonliva-erp`
+- `git@bitbucket.org:bonliva/bonliva-erp.git` → host **Bitbucket**, workspace `bonliva`, repository `bonliva-erp`
+- `git@github.com:Bonliva/bonliva-erp.git` (or a `github-*` SSH host alias) → host **GitHub**, owner `Bonliva`, repository `bonliva-erp`
+
+Call this `<host>` throughout. Steps 4 and 6 branch on it.
 
 Resolve `<base>`: if `$ARGUMENTS` named a base branch, use it. Otherwise pick the repo's default base from the `repo_slug` (case-insensitive):
 
@@ -56,9 +59,10 @@ Then produce the title and description exactly as the template defines them.
 
 Follow the **Reviewers** section of `${CLAUDE_PLUGIN_ROOT}/shared/pr-template.md`:
 `$HOME/.bond/pr-reviewers.json` first (managed by `/bond:set-reviewers`), falling
-back to `mcp__bond-bitbucket__get_effective_default_reviewers` for the workspace
-and repo slug resolved in step 2. Pass the resulting `uuid` values as the
-`reviewers` array when creating the PR.
+back to the host's own defaults — `mcp__bond-bitbucket__get_effective_default_reviewers`
+for the workspace and repo slug on Bitbucket, the repo's configured reviewers or
+`CODEOWNERS` on GitHub. Carry them into step 6 as `uuid` values (Bitbucket) or
+handles (GitHub).
 
 ### 5. Push the branch
 
@@ -68,11 +72,19 @@ git push -u origin <branch>
 
 ### 6. Create the PR
 
-First, use `mcp__bond-bitbucket__get_pull_requests` (state `OPEN`) to check whether an open PR already exists for this source branch. If one is found, skip creation, print its URL, and continue to step 7.
+First check whether an open PR already exists for this source branch — `gh pr list --head <branch> --state open` on GitHub, `mcp__bond-bitbucket__get_pull_requests` (state `OPEN`) on Bitbucket. If one is found, skip creation, print its URL, and continue to step 7.
 
-Otherwise, create a new PR (this also covers the case where a previous PR was declined — Bitbucket does not support reopening declined PRs):
+Otherwise create a new one (this also covers a previously declined PR — Bitbucket cannot reopen those), always as a **draft**:
 
-Always use `mcp__bond-bitbucket__create_draft_pull_request` to create the PR as a draft. It accepts these parameters:
+**GitHub.** Write the description from step 3 to a temp file and pass it as `--body-file`, so the body survives quoting intact. Never `--fill`.
+
+```sh
+gh pr create --draft --base <base> --head <branch> \
+  --title "<title>" --body-file "$body_file" \
+  --reviewer <handle>
+```
+
+**Bitbucket.** Use `mcp__bond-bitbucket__create_draft_pull_request`:
 - `workspace`: resolved workspace (e.g. `bonliva`)
 - `repo_slug`: resolved repository slug (e.g. `bonliva-erp`)
 - `title`: built in step 3
@@ -80,6 +92,8 @@ Always use `mcp__bond-bitbucket__create_draft_pull_request` to create the PR as 
 - `source_branch`: current branch name
 - `destination_branch`: `<base>` (resolved in step 2)
 - `reviewers`: UUIDs resolved in step 4 (omit if none)
+
+The `check-pr` hook blocks either call if the description lost its `## Summary` / `## Jira` / `## Test plan` shape or the create is not a draft — rebuild it from the template rather than working around the hook.
 
 On success, print the PR URL. On failure, report the error and stop.
 
