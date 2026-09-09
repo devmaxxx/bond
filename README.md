@@ -150,7 +150,16 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 
 - `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
 - `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill.
-- `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft, or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`.
+- `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft, or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
+
+## Tests
+
+The hook rules are unit-tested with the Node test runner — no dependencies, no
+install step:
+
+```sh
+node --test 'tests/**/*.test.mjs'
+```
 
 ## Skills
 
@@ -228,8 +237,11 @@ bond/
 │   ├── format-file.sh      # PostToolUse: prettier on the edited file
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
+│   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
 │   ├── check-pr.mjs        # PreToolUse: block a PR that breaks the shared template
 │   └── check-doc.mjs       # PostToolUse: flag a written md/txt with a signature
+├── tests/
+│   └── pr-template.test.mjs  # node --test 'tests/**/*.test.mjs'
 ├── .mcp.json               # MCP server template (installed via /setup-plugin)
 ├── LICENSE
 └── README.md

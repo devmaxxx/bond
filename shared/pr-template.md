@@ -18,7 +18,10 @@ Set these before building the title/description:
 - `<branch>` — current source branch (`git rev-parse --abbrev-ref HEAD`).
 - `<base>` — destination branch the PR targets.
 - `<commits>` — commits not yet in the base: `git log origin/<base>..<branch> --oneline`.
-- `<tickets>` — Jira ticket IDs matching `[A-Z]+-\d+` extracted from `<branch>`.
+- `<tickets>` — Jira ticket IDs extracted from `<branch>`: a configured project
+  key (`ERP`, `CRMDEV`) followed by `-` and digits. Not any `[A-Z]+-\d+` — that
+  shape also spells `UTF-8` and `SHA-256`. Set `BOND_JIRA_PROJECTS` (comma- or
+  space-separated) to replace the list when a project is added.
 
 ## Title
 
