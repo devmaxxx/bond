@@ -9,11 +9,11 @@ Bonliva dev workflow commands and MCP integrations for Claude Code.
 | `/help`           | List all bond plugin commands with their descriptions                                         |
 | `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/fix-qa`         | Read QA failure feedback from a Jira ticket and re-run implementation to fix it               |
-| `/implement`      | Fetch (or create) a Jira ticket, create a typed branch, plan, and code                        |
+| `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/log-plan`       | Generate a day/week/month time-log plan                                                       |
-| `/open-pr`        | Open the Bitbucket PR creation page for the current branch                                    |
+| `/open-pr`        | Open a draft PR for the current branch (GitHub or Bitbucket, resolved per repo)               |
 | `/projects`       | Manage the projects tracked by `/log-plan` (add, remove, discover, clear)                     |
 | `/request-review` | Post a Teams card inviting reviewers to review a PR                                           |
 | `/set-reviewers`  | Set or change the default reviewers added to PRs                                              |
@@ -146,8 +146,30 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 `BOND_CHROME_DEBUG_KEEPALIVE` (`1` = relaunch on quit), `BOND_CHROME_MCP_NAME`
 (default `bond-chrome-devtools`). macOS only.
 
+## Standing rules
+
+`SessionStart` prints `shared/standing-rules.md` into every session — the rules
+that used to live in a personal `~/.claude/CLAUDE.md`, so the plugin carries
+them instead of the machine. A plugin has no declarative way to ship always-on
+instructions (skills and agents load on demand, and there is no auto-loaded
+plugin `CLAUDE.md`), so a hook is the mechanism.
+
+Set `BOND_USER_NAME` to the name replies should open with; it falls back to
+`git config user.name`, and the greeting rule is dropped when neither resolves.
+The name is never committed — this repo is public.
+
+## Project profile
+
+Commands are not Bonliva-only. `shared/project-profile.md` resolves, per repo,
+the PR host, the base branch, whether there is a Jira tracker at all, and who
+the reviewers are. A repo can state its own answers in `.bond/project.json`;
+otherwise they are inferred from the `origin` remote. Outside Bonliva the
+tracker resolves to `none`, and `/implement` takes a free-text task, cuts a
+`<type>/<description>` branch and opens a PR with no `## Jira` section.
+
 ## Hooks
 
+- `SessionStart` runs `hooks/standing-rules.mjs`: the standing rules above. Registered with no matcher, so it fires on every start reason — startup, resume, clear, compact and fork alike. That is deliberate: rules that do not survive a compaction quietly stop applying halfway through a long session, and a matcher that failed to parse would drop them silently.
 - `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
 - `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill.
 - `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft, or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
@@ -175,6 +197,8 @@ node --test 'tests/**/*.test.mjs'
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/high by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
+- **naming-git-branches** — Conventional Branch `<type>/<description>`, the ticket-id rule, and the rename trap: renaming after a PR is open closes it. Bonliva repos keep the `<prefix>/<KEY>` shape bond imposes; everywhere else the spec wins. Triggers on `checkout -b` and before a PR. Bundled under `skills/naming-git-branches/`.
+- **switching-github-accounts** — two accounts are logged into `gh`; the active one decides which token pushes, and it is machine-global, so another session may have switched it. Check before every push or `gh` write. Triggers before `git push`, a PR, or any `gh` write. Bundled under `skills/switching-github-accounts/`.
 
 ## Agents
 
@@ -219,11 +243,15 @@ bond/
 │   ├── authorship-conventions/  # commit/PR/doc conventions, no AI signatures
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
-│   └── finishing-with-code-review/  # every code task ends with the review
+│   ├── finishing-with-code-review/  # every code task ends with the review
+│   ├── naming-git-branches/  # Conventional Branch, and the rename-closes-PR trap
+│   └── switching-github-accounts/  # the right gh token before every push
 ├── agents/
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
+│   ├── project-profile.md  # per-repo host, base, tracker, reviewers
+│   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
 │   └── pr-template.md      # single source of truth for PR title + description
 ├── data/
 │   ├── bb-members.json     # Bitbucket workspace member list (reviewer candidates)
@@ -235,6 +263,7 @@ bond/
 ├── hooks/
 │   ├── hooks.json
 │   ├── format-file.sh      # PostToolUse: prettier on the edited file
+│   ├── standing-rules.mjs  # SessionStart: print the always-on rules
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections

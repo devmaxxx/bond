@@ -33,14 +33,12 @@ git remote get-url origin
 
 Call this `<host>` throughout. Steps 4 and 6 branch on it.
 
-Resolve `<base>`: if `$ARGUMENTS` named a base branch, use it. Otherwise pick the repo's default base from the `repo_slug` (case-insensitive):
-
-| Repo slug contains | Default base |
-| ------------------ | ------------ |
-| `erp`              | `main`       |
-| `crm`              | `dev`        |
-| `async`            | `master`     |
-| anything else      | `dev`        |
+Resolve the rest — `<base>`, the tracker, and whether this repo has reviewers at
+all — from the **project profile**,
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`. It reads `.bond/project.json`
+when the repo has one, applies the Bonliva slug table only inside Bonliva, and
+otherwise takes the remote's own default branch. A `$ARGUMENTS` base still wins
+over everything.
 
 ### 3. Build title and description
 

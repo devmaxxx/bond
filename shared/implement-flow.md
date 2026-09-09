@@ -127,19 +127,14 @@ fails, surface the error but **do not abort**.
 ## Procedure: Default base branch
 
 The base branch a feature branch is cut from / a PR targets differs per repo.
-When the caller did not pass an explicit base, resolve it from the repo slug
-(`basename "$(git rev-parse --show-toplevel)"`, or the Bitbucket `repo_slug`),
-case-insensitive:
+Resolve `BASE_BRANCH` off the **project profile** —
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`, the `BASE_BRANCH` field —
+which walks the explicit argument, the repo's own `.bond/project.json`, the
+Bonliva slug table, and finally the remote's default branch.
 
-| Repo slug contains | Default base |
-| ------------------ | ------------ |
-| `erp`              | `main`       |
-| `crm`              | `dev`        |
-| `async`            | `master`     |
-| anything else      | `dev`        |
-
-An explicit `--base <branch>` (or a base argument to `/bond:open-pr`) always
-overrides this table.
+The slug table (`erp` → `main`, `crm` → `dev`, `async` → `master`, else `dev`)
+applies **only inside Bonliva**. Outside it, `dev` is a branch that usually does
+not exist, so the profile falls through to `refs/remotes/origin/HEAD` instead.
 
 ## Procedure: Set up the branch
 

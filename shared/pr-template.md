@@ -21,7 +21,9 @@ Set these before building the title/description:
 - `<tickets>` — Jira ticket IDs extracted from `<branch>`: a configured project
   key (`ERP`, `CRMDEV`) followed by `-` and digits. Not any `[A-Z]+-\d+` — that
   shape also spells `UTF-8` and `SHA-256`. Set `BOND_JIRA_PROJECTS` (comma- or
-  space-separated) to replace the list when a project is added.
+  space-separated) to replace the list when a project is added. Empty whenever
+  the project profile resolves `TRACKER=none`, which is every repo outside
+  Bonliva unless `.bond/project.json` says otherwise.
 
 ## Title
 
@@ -82,10 +84,13 @@ replace.
 
 Every PR is created with default reviewers attached. Resolve them in this order:
 
-1. **`$HOME/.bond/pr-reviewers.json`** (managed by `/bond:set-reviewers`) — if it
-   exists and its `reviewers` array is non-empty, use it. Entries carry a
-   Bitbucket `uuid`; a `login` on the entry is the GitHub handle for the same
-   person.
+1. **The project profile** — `shared/project-profile.md`, the `REVIEWERS` field:
+   a repo's own `.bond/project.json` first, then
+   `$HOME/.bond/pr-reviewers.json` (managed by `/bond:set-reviewers`) **when the
+   profile says the repo is Bonliva's**. Entries there carry a Bitbucket `uuid`;
+   a `login` on the entry is the GitHub handle for the same person. That file
+   lists Bonliva colleagues, so a personal repo never draws from it — a review
+   request to someone who cannot open the repo is noise they have to clear.
 2. **The host's own defaults** — otherwise call
    `mcp__bond-bitbucket__get_effective_default_reviewers` with the workspace and
    repo slug on Bitbucket, or read the repo's configured reviewers /
