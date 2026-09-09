@@ -23,27 +23,26 @@ fragments — point to the file and line instead.
 Apply the `bond:comment-hygiene` skill on every task that writes, edits, or
 reviews code. Never wait to be asked.
 
-- Comment the **why**, never the **what**. Delete comments that restate a name,
-  a type, a union, or a literal.
-- Keep ticket IDs (`ERP-587`, `JIRA-123`) and issue links out of code comments —
-  git blame, commit messages, and the PR carry traceability.
-- Never delete tool directives (`eslint-disable`, `@ts-expect-error`,
-  `prettier-ignore`, coverage ignores) — they are code, not commentary.
-- Delete commented-out code. Keep `TODO`/`FIXME` with real content, strip their
-  ticket tags.
-- Prune restate-comments proactively during review or cleanup, even when the ask
-  is only "clean this up".
+The rule is *why*, never *what* — and **the skill owns the exceptions**, which
+are the whole difficulty: what a public doc comment states, which identifiers are
+tags to strip and which are names to keep, and which comments are actually tool
+directives. Read it rather than pruning from a summary.
+
+What this paragraph is for is the trigger, not the rule: apply the skill on
+every task that writes, edits or reviews code, prune in passing during a review
+or cleanup, and never wait to be asked.
 
 ## Model and effort routing — always on
 
 Apply the `bond:routing-model-and-effort` skill at the start of every task that
-will change files or needs a plan. Default pair is opus/high for planning and
-implementation both. Never take fable, xhigh or max on your own judgement: when
-one of their predicates fires, ask once, name the predicate, and run opus/high
-until the answer arrives. Dropping to medium or low needs no question. If fable
-is unavailable or its limit is spent, plan with opus at the same tier instead of
-waiting or asking. Any change of model or effort runs in a new
-`bond:effort-<tier>` subagent.
+will change files or needs a plan. **The skill owns the tier table, the scan and
+the spawn rule.** The default pair is opus/high.
+
+The one thing worth repeating here, because it is a standing instruction to *me*
+rather than a routing detail: never take fable, xhigh or max on your own
+judgement. A predicate firing buys a question, not a tier — ask once, name the
+predicate, and run opus/high until the answer arrives. Dropping to medium or low
+needs no question.
 
 ## Caveman mode — always on
 
@@ -80,8 +79,14 @@ rename after the PR is open costs the PR.
 ## Code review at the end — always on
 
 Apply the `bond:finishing-with-code-review` skill at the end of every task that
-changed code: run `/code-review high --fix` on the diff (the PR number when one
-is open, else the branch against its base), apply the findings, re-run the
-tests, commit the fixes, then report. A task is not complete with the review
-unrun; if the review finds nothing, say so in the recap. A docs-only diff is the
-one skip, and it is said in words.
+changed code. **The skill owns the procedure** — the target, the launch, the
+apply-and-prove, the commit, and what the recap must name. Do not run a review
+from memory of this paragraph.
+
+In particular the level is not set here: `bond:routing-code-review` reads it off
+the diff, and a level written into a standing rule is a guess that outranks the
+router on every task it is wrong about.
+
+A task reported done with the review unrun is not done. The router's card names
+the one skip — a docs-only or comment-only diff — and a skip is said in words,
+as is a review that found nothing.

@@ -1,6 +1,6 @@
 {
   "name": "bond",
-  "version": "0.30.0",
+  "version": "0.30.1",
   "description": "Dev workflow commands and MCP integrations, project-flexible: commands resolve a per-repo profile (PR host, base branch, Jira tracker or none, reviewers) so they work inside Bonliva and outside it. Ships help, chrome-debug, disk-analyze, fix-qa, fix-pr, implement, investigate, jira, log-plan, open-pr, projects, publish-timelog, request-review, set-reviewers, setup-plugin, start, teams-post, track-pr; bundles the single-pass-iteration, always-use-braces, readable-code-structure, comment-hygiene, testing-behavior, vertical-horizontal-review, pr-template, woodpecker-cli, authorship-conventions, naming-git-branches, switching-github-accounts, routing-model-and-effort, routing-code-review, and finishing-with-code-review skills; ships the effort-low\u2026effort-max agents for per-phase model/effort routing; a SessionStart hook carries the always-on standing rules, and hooks block AI signatures in commits, PRs and docs",
   "author": {
     "name": "Max Synenko",
