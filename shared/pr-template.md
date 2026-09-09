@@ -45,7 +45,7 @@ If no ticket IDs were found, drop the prefix and use just the short description.
 
 Omit the `## Jira` section entirely if `<tickets>` is empty. The description
 ends at the test plan: no "generated with" footer, no session link, no AI
-co-author line — the PR is owned by the human who opens it (`oleg-skills`).
+co-author line — the PR is owned by the human who opens it (`authorship-conventions`).
 
 ## Drafts
 

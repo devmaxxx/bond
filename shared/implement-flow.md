@@ -340,7 +340,7 @@ branch** procedure resolves it).
 Commit and push happen here automatically — do not ask the user first.
 
 1. Run `/bonliva-dev:ship` to validate, commit, and push the branch. Every
-   commit message follows the `oleg-skills` skill: Conventional Commits
+   commit message follows the `authorship-conventions` skill: Conventional Commits
    subject, prose *why* body, and no AI signature — no `Co-Authored-By`
    naming a tool, no `Claude-Session:` link, no "generated with" footer. The
    plugin's `check-commit` hook blocks a commit that breaks this; fix the

@@ -66,7 +66,7 @@ This applies to manual calls too, not just `/bond:open-pr`.
 
 ## No AI breadcrumbs
 
-The title, description and every later PR comment follow `oleg-skills`: no
+The title, description and every later PR comment follow `authorship-conventions`: no
 "generated with" footer, no `Claude-Session:` link, no `Co-Authored-By` naming a
 tool — the PR is owned by the human who opens it.
 

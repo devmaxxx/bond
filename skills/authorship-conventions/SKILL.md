@@ -1,5 +1,5 @@
 ---
-name: oleg-skills
+name: authorship-conventions
 description: >-
   Commit, PR and document conventions for Bonliva repos — Conventional Commits,
   single human owner, zero AI signatures. Use before writing or reviewing any
@@ -8,7 +8,7 @@ description: >-
   "open/create a PR", "PR description", "write the ADR/plan/README".
 ---
 
-# Oleg skills — commits, PRs, docs
+# Authorship conventions — commits, PRs, docs
 
 One owner per artefact: the human whose `git config user.name` made it.
 Commits follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)

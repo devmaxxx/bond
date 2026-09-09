@@ -3,13 +3,13 @@
  * PostToolUse hook on Edit|Write|MultiEdit — scans a just-written prose file
  * (md, mdx, txt) for AI signatures and exits 2 with the offending lines so the
  * agent removes them before the file is committed. Files that define the rule
- * (skills/oleg-skills, hooks folders) are exempt: they quote what they forbid.
+ * (skills/authorship-conventions, hooks folders) are exempt: they quote what they forbid.
  */
 
 import { readFileSync } from "node:fs";
 import { findAiBreadcrumbs } from "./ai-breadcrumbs.mjs";
 
-const EXEMPT = ["/skills/oleg-skills/", "/hooks/"];
+const EXEMPT = ["/skills/authorship-conventions/", "/hooks/"];
 
 let payload;
 try {
@@ -38,7 +38,7 @@ if (hits.length > 0) {
     .map(({ line, text }) => `${file}:${line}: ${text}`)
     .join("\n  ");
   process.stderr.write(
-    `bond:oleg-skills — AI breadcrumb in a document, remove it:\n  ${lines}\n`,
+    `bond:authorship-conventions — AI breadcrumb in a document, remove it:\n  ${lines}\n`,
   );
   process.exit(2);
 }

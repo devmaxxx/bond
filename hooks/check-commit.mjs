@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * PreToolUse hook on Bash — enforces skills/oleg-skills on `git commit` and
+ * PreToolUse hook on Bash — enforces skills/authorship-conventions on `git commit` and
  * `gh pr …` commands before they run: no AI signature anywhere in the message
  * (inline, heredoc or -F/--body-file), and a Conventional Commits subject
  * when the subject can be read out of the command. Exit 2 blocks the call and
@@ -72,7 +72,7 @@ if (isCommit) {
 
 if (errors.length > 0) {
   process.stderr.write(
-    `bond:oleg-skills rejected this command:\n  - ${errors.join("\n  - ")}\nFix the message (no AI trailers or session links; Conventional Commits subject) and retry.\n`,
+    `bond:authorship-conventions rejected this command:\n  - ${errors.join("\n  - ")}\nFix the message (no AI trailers or session links; Conventional Commits subject) and retry.\n`,
   );
   process.exit(2);
 }

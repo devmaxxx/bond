@@ -128,7 +128,8 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 ## Hooks
 
 - `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
-- `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `oleg-skills` skill.
+- `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill.
+- `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft, or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`.
 
 ## Skills
 
@@ -141,7 +142,12 @@ Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 - **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
-- **oleg-skills** — commit, PR and document conventions: Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs. Backed by the `check-commit` / `check-doc` hooks. Triggers on "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/oleg-skills/`.
+- **authorship-conventions** — commit, PR and document conventions: Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs. Backed by the `check-commit` / `check-doc` hooks. Triggers on "commit", "amend", "open a PR", "write the ADR/plan/README". Bundled under `skills/authorship-conventions/`.
+- **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/xhigh by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
+
+## Agents
+
+- **effort-low / effort-medium / effort-high / effort-xhigh / effort-max** — one agent per reasoning effort level, `model: opus` by default; the caller passes `model` at call time. Used by the routing-model-and-effort skill because effort is only settable through an agent definition. Bundled under `agents/`.
 
 ## Installation
 
@@ -180,7 +186,10 @@ bond/
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
 │   ├── pr-template/         # one shared PR title + description + reviewers
 │   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
-│   └── oleg-skills/         # commit/PR/doc conventions, no AI signatures
+│   ├── authorship-conventions/  # commit/PR/doc conventions, no AI signatures
+│   └── routing-model-and-effort/  # (model, effort) pair per task phase
+├── agents/
+│   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
 │   └── pr-template.md      # single source of truth for PR title + description
@@ -196,6 +205,7 @@ bond/
 │   ├── format-file.sh      # PostToolUse: prettier on the edited file
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
+│   ├── check-pr.mjs        # PreToolUse: block a PR that breaks the shared template
 │   └── check-doc.mjs       # PostToolUse: flag a written md/txt with a signature
 ├── .mcp.json               # MCP server template (installed via /setup-plugin)
 ├── LICENSE
