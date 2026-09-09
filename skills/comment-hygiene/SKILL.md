@@ -2,34 +2,50 @@
 name: comment-hygiene
 description: >-
   Comment the *why*, never the *what*: keep comments that explain a non-obvious
-  business rule, invariant, gotcha, or surprising choice, and delete ones that
-  merely restate the code (a name, a type, a union, a literal). Keep ticket IDs
-  (`ERP-587`, `JIRA-123`) and issue links out of code comments — git blame,
-  commit messages, and the PR carry that traceability. Use this whenever you
-  write, edit, or review comments, and proactively prune restate-comments and
-  strip ticket tags during code review or cleanup. Trigger even when the user
-  just says "clean up", "remove comments", "keep only important comments", or
-  "review this PR". Pairs with [[readable-code-structure]].
+  business rule, invariant, gotcha, or surprising choice; delete ones that
+  restate the code (a name, a type, a union, a literal). A doc comment on a
+  public surface (rustdoc `///`, a docstring, JSDoc on an export) is API
+  documentation, not commentary — it states the contract and stays. Keep
+  work-item keys (`ERP-587`, `CRMDEV-7212`) and issue links out of code
+  comments — blame, the commit and the PR carry that; a spec or invariant ID
+  the repo itself defines (`FR-PAY-03`, `INV-11`) is a name, keep it. Any
+  language, any comment syntax. Use whenever you write, edit, or review
+  comments, and prune restate-comments and strip ticket tags in passing during
+  review or cleanup — even when the user only says "clean up", "remove
+  comments", "keep only important comments", or "review this PR". Pairs with
+  [[readable-code-structure]] and [[authorship-conventions]].
 ---
 
 # Comment hygiene
 
-## The idea
+## Rules
 
-Every comment is a liability: it can go stale, it adds noise, and it makes the
-reader stop and check whether the prose still matches the code. A comment earns
-its keep only when it tells the reader something the code _cannot_ — the *why*
-behind a surprising choice, a business rule that isn't visible in the types, an
-invariant the code relies on but doesn't enforce locally, or a gotcha that will
-bite the next editor.
+| Comment | Rule |
+|---|---|
+| **Inline comment** — `//`, `#`, `--`, `;`, `<!-- -->`, `/* */` inside a body | Survives only by saying what the code cannot: the *why* of a surprising choice, a business rule the types don't show, an invariant relied on but not enforced here, a gotcha for the next editor. Restates a name, a type, a literal, or the next line ⇒ delete. |
+| **Doc comment on a public surface** — rustdoc `///` and `//!`, a Python docstring, JSDoc `/** */` on an export, a Go doc line | API documentation: read without the body, and by tooling. Keep it, and make it state the contract — units, nullability, errors, ordering, cost — not the body. Never strip on a cleanup pass; `missing_docs`-style lints and generated docs depend on it. |
+| **Doc comment on a private item** | Same litmus as an inline comment. `/** Force parkingCost to null … */` on a private method that says what its body says ⇒ delete. |
+| **Work-item key or issue link** — `ERP-587`, `CRMDEV-7212`, `BON-516`, a tracker URL | Strip the tag, keep the sentence. Blame, the commit and the PR carry the link; the tag rots when the ticket closes. A comment that is only a tag ⇒ delete. |
+| **Spec or invariant ID the repo defines** — `FR-PAY-03`, `NFR-PH-01`, `INV-11`, `ADR-7` | A name, not a tag: it points at a rule that lives in this repo and never closes. Test: grep the ID — defined in a file of this repo (requirements doc, ADR index, bench corpus) ⇒ name, keep, write it the way the spec does; found only in a tracker ⇒ tag, strip. |
+| **Literal in prose** — `// 30 seconds` on `30000` | Put the unit in the name (`TIMEOUT_MS = 30_000`), drop the comment. Keep only a *why* the number cannot carry (`// 30s — upstream p99 is 22s`). |
+| **Tool directive** — `eslint-disable*`, `@ts-expect-error`, `@ts-ignore`, `prettier-ignore`, `biome-ignore`, `istanbul ignore`, `c8 ignore`, `# noqa`, `# type: ignore`, `# pragma: no cover`, `// nolint`, `# shellcheck disable` | Code, not commentary. Never delete. Keep its trailing reason; add one when the reason is not obvious. |
+| **`TODO` / `FIXME` / `HACK`** | Keep when it names a real gap; strip its ticket tag in passing. A bare marker (`// TODO`) ⇒ delete. |
+| **Commented-out code** | Delete. Git remembers; "kept for reference" is the rot. |
+| **Block label** — `// Amenity/parking filters.` above self-evident code | Delete, or make the block a function whose name carries it ([[readable-code-structure]]). |
+| **Named algorithm or idiom** — `// Luhn check`, `// x & (x-1) clears the lowest set bit` | Keep — the name is a *why* for a dense body. Better: unpack the code until the label is redundant, then drop it. |
+| **Author, date, AI signature** | Delete. Blame carries author and date; no AI attribution goes in code ([[authorship-conventions]]). |
+| **License / copyright header** | Out of scope. Tooling-enforced; never touch on a cleanup pass. |
+| **Generated file** — `schema.d.ts`, codegen output | Never hand-edit its comments; fix the source and regenerate. |
 
-A comment that restates the *what* — the function name, the type, the literal
-values, the obvious effect of the next line — is pure cost. Delete it.
+Anything the table does not name: *does this tell me something I could not get by reading the code?* Yes ⇒ keep. No ⇒ delete.
 
-## Delete: comments that restate the code
+## Why
 
-If the comment says the same thing the symbol name, signature, or body already
-says, it's noise. The reader can read the code.
+A comment is a liability: it goes stale, it adds noise, and it makes the reader stop to check whether the prose still matches the code. It earns its keep only by carrying what the code cannot. A doc comment on a public surface is a different genre — its reader has not opened the body and may be a tool — so it is judged as documentation, by whether it states the contract, never by the litmus.
+
+## Examples
+
+### Delete — restates the code
 
 ```ts
 // Tri-state filter for a yes/no flag: no filter, only-yes, only-no.
@@ -38,23 +54,17 @@ export type TriStateFilter = "all" | "yes" | "no";   // the union already says t
 
 ```ts
 /** Force parkingCost to null unless parking is yes/option. */
-private normalizeParkingCost(parking, parkingCost) {   // the name + body say this
+private normalizeParkingCost(parking, parkingCost) {   // private; name + body say this
   return this.parkingHasCost(parking) ? (parkingCost ?? null) : null;
 }
 ```
 
-```ts
-// Amenity/parking filters.          ← labels a block whose code is self-evident
-if (filters.sharedBathroom != null) { … }
+```rust
+// Iterate the nodes and push each id.
+for node in &graph.nodes { ids.push(node.id); }
 ```
 
-All three: delete the comment, keep the code.
-
-A comment that just converts a literal to prose is restate too — `const TIMEOUT = 30000; // 30 seconds`. Encode the unit in the name instead (`TIMEOUT_MS = 30_000`) and drop the comment. Keep it only when it adds a *why* the number can't (`// 30s — upstream p99 is 22s`).
-
-## Keep: comments that explain the why
-
-These say something the code can't. Keep them (and write them when missing):
+### Keep — says what the code cannot
 
 ```ts
 // The service is the boundary for the MCP path, which bypasses the DTO's
@@ -63,80 +73,63 @@ private validateParking(parking, parkingCost) { … }
 ```
 
 ```ts
-// parkingCost is required only when parking is yes/option, so it can't live in
-// VERIFY_REQUIRED_FIELDS (optional otherwise).
-```
-
-```ts
 // Plain ADD COLUMN — instant lock, online-safe. All nullable so existing rows
 // survive without a backfill (NULL = unanswered).
 ```
 
-```ts
-// Edge-detect so a no-op re-save of an already-verified row is left untouched.
-if (accommodation.isVerified && !wasVerified) { … }
+```rust
+// Retry once: `serve` rewrites the index file atomically, and a reader racing
+// the rename sees ENOENT for one tick.
 ```
 
-Litmus test before deleting: *does this comment tell me something I couldn't get
-by reading the code?* If yes — keep it. If no — delete it.
+### Doc comment on a public surface — keep, state the contract
 
-## Keep ticket IDs out of code comments
+```rust
+/// Money in grosze. Never a float: callers sum these across a day, and a
+/// drift of one grosz fails the ledger check.
+pub struct Money(pub i64);
+```
 
-`ERP-587`, `JIRA-123`, issue URLs and similar tags don't belong in code
-comments. Git blame, the commit message, and the PR already tie any line to its
-ticket — the tag in the comment just rots (the ticket closes, the work moves on)
-and adds noise to every reader.
+```python
+def load_index(path: Path) -> Index:
+    """Read the on-disk index. Raises IndexStale when the graph is newer than
+    the index; the caller decides whether to rebuild."""
+```
+
+```ts
+/** Debounced: the last call inside `windowMs` wins; earlier calls resolve with its result. */
+export function coalesce<T>(fn: () => Promise<T>, windowMs: number) { … }
+```
+
+A public doc comment that only repeats the signature (`/** Returns the user by id. */` on `getUserById`) is the private case in public clothes: rewrite it to say what the caller cannot see — an unknown id, a network hop, a cache — never strip it.
+
+### Work-item key vs spec ID
 
 ```ts
 // before
 /** Whether the bathroom is shared (ERP-587). NULL on legacy rows = unanswered. */
-// after — drop the tag, keep the invariant
+// after — tag gone, invariant kept
 /** Whether the bathroom is shared. NULL on legacy rows = unanswered. */
 ```
 
 ```ts
 // before
-// Clear the cost qualifier when parking no longer carries one (ERP-587), so a
+// takes the stale lock and re-sends from the top (CRMDEV-7305)
 // after
-// Clear the cost qualifier when parking no longer carries one, so a
+// takes the stale lock and re-sends from the top
 ```
 
-If the comment is _only_ a ticket tag (`// ERP-587 fields`), delete it outright.
+```ts
+// keep — FR-PAY-03 and INV-11 are defined in this repo's requirements corpus
+/** Money in grosze; see FR-PAY-03 and INV-11 for the rounding rule. */
+```
 
-### Where ticket IDs ARE fine
-
-- **Test `it()` / `describe()` titles** — `it("persists the ERP-587 fields", …)`
-  acts as a traceability label for the spec, not a code comment.
-- **Commit messages and PR descriptions** — that's where traceability lives.
-- A migration / ADR header documenting a one-time decision, when the ticket is
-  genuinely the only record of *why* — rare; prefer summarising the reason.
-
-## Special cases the litmus doesn't settle
-
-Some lines that look like comments aren't prose explanations, so the
-why-not-what test misfires on them. Handle these by category:
-
-| Comment kind | Rule |
-|---|---|
-| **Tool directive** — `eslint-disable*`, `@ts-expect-error`, `@ts-ignore`, `prettier-ignore`, `biome-ignore`, `istanbul ignore`, `c8 ignore` | **Never delete.** These are code, not commentary — removing one re-enables an error, changes coverage, or unsuppresses formatting. The why-not-what test does not apply. Keep any trailing rationale; if it has none and the reason isn't obvious, add one. |
-| **`TODO` / `FIXME` / `HACK`** | Keep — it flags a real gap the code can't show. Strip any ticket tag in passing (`// FIXME: … (ERP-902)` → `// FIXME: …`). A bare marker with no content (`// TODO`) is noise — delete. |
-| **Commented-out code** | Delete. Git remembers it; "kept for reference / remove after migration" is exactly the rot to cut. |
-| **License / copyright header** | Out of scope — leave it untouched. Often tooling-enforced; never strip on a "clean up comments" pass. |
-| **Names a non-obvious algorithm or idiom** — `// Luhn check`, `// x & (x-1) clears the lowest set bit` | Keep — naming the trick is a *why*: it tells you what the dense body can't. Better still, rename / unpack the code per [[readable-code-structure]] so the label becomes redundant, then drop it. |
-
-## Generated files
-
-Never hand-edit generated output (`schema.d.ts`, codegen types) to fix its
-comments — the tags there mirror the source DTO/decorator descriptions. Fix the
-source, then regenerate. Editing the artifact just gets overwritten.
+Where a work-item key does belong: test titles (`it("persists the ERP-587 fields", …)`), commit messages, PR descriptions, and a migration or ADR header when the ticket is genuinely the only record of *why* — rare; prefer summarising the reason.
 
 ## How to apply
 
-- When pruning, remove the whole comment line(s) and let the formatter settle
-  spacing — don't leave a dangling blank comment or an empty `/** */`.
-- Strip ticket tags in passing whenever you edit a line that carries one.
-- On a "remove excess comments" / "keep only important" request, default to
-  aggressive: a comment survives only if it passes the why-not-what litmus test.
-- Don't add new restate-comments while editing — if you're tempted to narrate
-  the next block, consider extracting it into a named function instead (see
-  [[readable-code-structure]]).
+- Remove whole comment lines and let the formatter settle spacing; never leave a dangling `//` or an empty `/** */`.
+- Strip work-item tags in passing whenever you edit a line that carries one.
+- On "remove excess comments" / "keep only important": aggressive — an inline comment survives only by the litmus; a doc comment on a public surface survives by default and is rewritten, not removed.
+- Do not add restate-comments while editing; a comment that introduces the next block is a function name waiting to happen ([[readable-code-structure]]).
+- Any language, any syntax — YAML, CI and shell files included.
