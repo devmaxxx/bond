@@ -2,16 +2,16 @@
 description: Publish an existing time-log markdown into the Jira timesheet and Clockify (one entry per day), then reconcile the totals across both dashboards
 ---
 
-# /bond:publish-timelog
+# /bond-bonliva:publish-timelog
 
 > **Needs a Jira tracker and a Clockify project.** Both come from the project
 > profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Missing either,
 > name the one that is missing and stop — a timesheet posted to the wrong
 > workspace is worse than one not posted.
 
-Take an **already-written** time-log markdown (the output of `/bond:log-plan`) and post it to **Jira** (one worklog per ticket row) and **Clockify** (**one time entry per day**, every row folded into the description), then **compare the two dashboards' total time** and report any mismatch.
+Take an **already-written** time-log markdown (the output of `/bond-bonliva:log-plan`) and post it to **Jira** (one worklog per ticket row) and **Clockify** (**one time entry per day**, every row folded into the description), then **compare the two dashboards' total time** and report any mismatch.
 
-This command does **not** generate or rebalance a plan — it only publishes an existing one. Use `/bond:log-plan` to produce/rebalance the markdown first.
+This command does **not** generate or rebalance a plan — it only publishes an existing one. Use `/bond-bonliva:log-plan` to produce/rebalance the markdown first.
 
 ## Arguments
 
@@ -33,7 +33,7 @@ Resolve the file (arg or newest in `docs/time-logs/`). Parse the **`## Daily log
 - `ticket` is the first cell; normalise it (`^[A-Z][A-Z0-9_]+-\d+$`, strip `-2`/`-3` branch suffixes).
 - `hours` is the numeric hours (e.g. `2.5`); `note` is the third cell verbatim (this is the full Jira title or the `Call:`/`Meeting:`/`Daily standup`/`PR review` label).
 
-Keep the rows **in table order** per day. Verify each day's hours sum to **exactly 8h** (lunch excluded) and that the per-day sums add up to the markdown's stated total; print a one-line per-day total table and **stop with an error** if any day ≠ 8h (the markdown is the source of truth — fix it via `/bond:log-plan`, don't silently adjust here).
+Keep the rows **in table order** per day. Verify each day's hours sum to **exactly 8h** (lunch excluded) and that the per-day sums add up to the markdown's stated total; print a one-line per-day total table and **stop with an error** if any day ≠ 8h (the markdown is the source of truth — fix it via `/bond-bonliva:log-plan`, don't silently adjust here).
 
 ### 2. Compute the timeline (for Jira `started` + the Clockify summary)
 
@@ -56,7 +56,7 @@ Print the counts first: `N Jira worklogs` (one per ticket row) and `D Clockify e
 
 ### 4. Post to Jira (one worklog per row)
 
-For **every** ticket row (including the overhead keys CRMDEV-1393 / CRMDEV-1367 / CRMDEV-1366), create a worklog via the procedure in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` (or the `addWorklogToJiraIssue` MCP tool directly):
+For **every** ticket row (including the overhead keys CRMDEV-1393 / CRMDEV-1367 / CRMDEV-1366), create a worklog via the procedure in `${CLAUDE_PLUGIN_ROOT}/shared/jira.md` (or the `addWorklogToJiraIssue` MCP tool directly):
 
 - `issueIdOrKey` = the normalised key.
 - `timeSpent` = Jira format from the row's hours.

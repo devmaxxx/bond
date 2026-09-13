@@ -36,6 +36,21 @@ export function scrubShell(cmd) {
 }
 
 /**
+ * Start/end offsets of every heredoc, quoted or commented span in the raw
+ * command — for callers that need real argument text, so cannot use
+ * `scrubShell`'s output, but must still skip what the shell treats as data.
+ */
+export function quotedRanges(cmd) {
+  const ranges = [];
+  for (const re of [HEREDOC, DOUBLE_QUOTED, SINGLE_QUOTED, COMMENT]) {
+    for (const match of cmd.matchAll(re)) {
+      ranges.push([match.index, match.index + match[0].length]);
+    }
+  }
+  return ranges;
+}
+
+/**
  * True when a scrubbed command runs `<words>` at a command position — the start
  * of the line, or after `;`, `&&`, `||`, `|`, a subshell or a backtick.
  *

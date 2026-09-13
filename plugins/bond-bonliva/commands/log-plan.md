@@ -5,7 +5,7 @@ description: Generate a day/week/month time-log plan markdown by gathering commi
 # /log-plan
 
 > **Bonliva time-logging.** The repos it walks come from `$HOME/.bond/projects.json`
-> (see `/bond:projects`, whose discovery glob is configurable); the ticket titles
+> (see `/bond-bonliva:projects`, whose discovery glob is configurable); the ticket titles
 > and merged PRs come from Jira and Bitbucket. Outside a profile with a Jira
 > tracker it can still summarise commits, but say plainly which sections are
 > empty and why rather than emitting a plan with blank ticket titles.
@@ -87,10 +87,10 @@ Resolve the repo root via `git rev-parse --show-toplevel` — used for the outpu
 
 **Resolve the projects to track (per-user config — never hardcode paths in this command).** In priority order:
 
-1. **Config file** — `$HOME/.bond/projects.json`, a JSON object with a `projects` array of absolute repo paths (`{ "projects": ["/abs/path", ...] }`). This is the per-user list of projects to track, written by `/bond:setup-plugin` and managed by `/bond:projects`; to add or drop a project, run `/bond:projects add <name>` / `/bond:projects remove <name>`.
+1. **Config file** — `$HOME/.bond/projects.json`, a JSON object with a `projects` array of absolute repo paths (`{ "projects": ["/abs/path", ...] }`). This is the per-user list of projects to track, written by `/bond-bonliva:setup-plugin` and managed by `/bond-bonliva:projects`; to add or drop a project, run `/bond-bonliva:projects add <name>` / `/bond-bonliva:projects remove <name>`.
 2. **Auto-discovery fallback** — if that file is absent, glob `bonliva-*` git repos in the parent of the current repo root: `ls -d "$(dirname "$(git rev-parse --show-toplevel)")"/bonliva-*/.git | sed 's,/.git,,'`.
 
-If neither yields anything, tell the user to run `/bond:setup-plugin` (which configures the projects to track) and abort.
+If neither yields anything, tell the user to run `/bond-bonliva:setup-plugin` (which configures the projects to track) and abort.
 
 Run in parallel for each resolved repo that exists on disk. `fetch` first so
 branches merged elsewhere but not yet pulled locally aren't silently missed, use
@@ -257,7 +257,7 @@ If **No**, stop here (plan only). Otherwise lay out each day's rows contiguously
 
 **Clockify** (`create-clockify-time-entry`): resolve workspace + project/task once via `list-clockify-workspaces`, `get-clockify-user`, `list-clockify-projects`, `list-clockify-tasks`. Post one entry per row with the derived `start`/`end` (local offset, no UTC conversion) and a **short description** — ticket key + a few words, e.g. `ERP-152 Claude commands`, `Call: Daniel`, `Daily standup`.
 
-**Jira timesheet**: post each row through the **worklog** procedure in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` (the single place issues are worked) — one worklog per row with `timeSpent` (Jira format: `"15m"`, `"30m"`, `"1h"`, `"3h 15m"`, `"7h 15m"`), `started` (local wall-clock timestamp with its local offset, e.g. `2026-05-13T09:00:00.000+02:00` — **not** UTC), and `comment` (the row's short note). That procedure normalises the key (`^[A-Z][A-Z0-9_]+-\d+$`) and strips `-2`/`-3` branch suffixes (`feature/CRMDEV-6335-2` → `CRMDEV-6335`) — for a stripped suffix, log to the base ticket with `comment: "Follow-up (branch X-2)"`.
+**Jira timesheet**: post each row through the **worklog** procedure in `${CLAUDE_PLUGIN_ROOT}/shared/jira.md` (the single place issues are worked) — one worklog per row with `timeSpent` (Jira format: `"15m"`, `"30m"`, `"1h"`, `"3h 15m"`, `"7h 15m"`), `started` (local wall-clock timestamp with its local offset, e.g. `2026-05-13T09:00:00.000+02:00` — **not** UTC), and `comment` (the row's short note). That procedure normalises the key (`^[A-Z][A-Z0-9_]+-\d+$`) and strips `-2`/`-3` branch suffixes (`feature/CRMDEV-6335-2` → `CRMDEV-6335`) — for a stripped suffix, log to the base ticket with `comment: "Follow-up (branch X-2)"`.
 
 Report each post inline, tagged by target: `✓ Jira CRMDEV-1366 30m on 2026-05-13 — Call: Daniel`, `✓ Clockify ERP-152 1h on 2026-05-04`. Continue past failures.
 

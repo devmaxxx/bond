@@ -90,5 +90,5 @@ the diff, and a level written into a standing rule is a guess that outranks the
 router on every task it is wrong about.
 
 A task reported done with the review unrun is not done. The router's card names
-the one skip — a docs-only or comment-only diff — and a skip is said in words,
+the skips — a docs-only or comment-only diff, or a small low-risk one — and a skip is said in words,
 as is a review that found nothing.

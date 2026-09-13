@@ -11,26 +11,43 @@ but every command resolves a per-repo profile, so they work outside it too.
 | `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
 | `/fix-pr`         | Diagnose why a PR's CI failed (Bitbucket or GitHub), fix the root causes, and push             |
-| `/fix-qa`         | Re-run implementation against QA feedback — from a Jira ticket, or given as free text          |
 | `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
-| `/log-plan`       | Generate a day/week/month time-log plan                                                       |
-| `/open-pr`        | Open a draft PR for the current branch (GitHub or Bitbucket, resolved per repo)               |
-| `/projects`       | Manage the projects tracked by `/log-plan` (add, remove, discover, clear)                     |
-| `/publish-timelog`| Publish a time-log md to Jira + Clockify (one entry/day) and reconcile the totals              |
-| `/request-review` | Post a Teams card inviting reviewers to review a PR                                           |
-| `/set-reviewers`  | Set or change the default reviewers added to PRs                                              |
-| `/setup-plugin`   | Set up the bond plugin: install MCP servers and configure env vars                            |
+| `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
 | `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
-| `/teams-post`     | Post a message to a Teams channel via a Workflow webhook                                      |
-| `/track-pr`       | Watch a PR's CI (Bitbucket or GitHub) and push a desktop notification on finish                |
+
+## bond-bonliva (Bonliva-only companion)
+
+`plugins/bond-bonliva/` is a second plugin in the same marketplace. It depends on
+`bond` and carries everything that only makes sense inside Bonliva: the MCP
+server template and its setup, time logging, Teams and Bitbucket reviewer
+defaults. Enable it per Bonliva repo, not globally, so personal repos never load
+its commands or MCP tool listings:
+
+```json
+// <bonliva repo>/.claude/settings.local.json
+{ "enabledPlugins": { "bond-bonliva@devmaxxx": true } }
+```
+
+| Command                          | Purpose                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `/bond-bonliva:fix-qa`           | Re-run implementation against QA feedback — from a Jira ticket, or free text  |
+| `/bond-bonliva:log-plan`         | Generate a day/week/month time-log plan                                       |
+| `/bond-bonliva:projects`         | Manage the projects tracked by `log-plan` (add, remove, discover, clear)      |
+| `/bond-bonliva:publish-timelog`  | Publish a time-log md to Jira + Clockify (one entry/day) and reconcile totals  |
+| `/bond-bonliva:request-review`   | Post a Teams card inviting reviewers to review a PR                           |
+| `/bond-bonliva:set-reviewers`    | Set or change the default reviewers added to PRs                              |
+| `/bond-bonliva:setup-plugin`     | Install the Bonliva MCP servers (local scope, per project) and env vars       |
+| `/bond-bonliva:teams-post`       | Post a message to a Teams channel via a Workflow webhook                      |
+
+Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
+symlinks into `bond`, which the plugin cache resolves into real copies.
 
 ## MCP Servers
 
-This plugin ships an MCP server template in `.mcp.json`. Run `/setup-plugin` to
-install those servers into your **user-scope** (global) config, where they apply
-to every project. To avoid colliding with any servers you already run, each is
+`bond-bonliva` ships an MCP server template in `plugins/bond-bonliva/.mcp.json`. Run `/bond-bonliva:setup-plugin` to
+install those servers into the **local scope** of each Bonliva project, so they load only there. To avoid colliding with any servers you already run, each is
 installed under a `bond-` prefixed name and exposed as `mcp__bond-<name>__*`:
 
 - **bond-atlassian** — official Atlassian remote MCP server (`https://mcp.atlassian.com/v1/sse`, OAuth, no env vars). Opens a browser on first use.
@@ -39,7 +56,7 @@ installed under a `bond-` prefixed name and exposed as `mcp__bond-<name>__*`:
 - **bond-teams** — `@floriscornel/teams-mcp` (Microsoft Teams chats, channels, messages). No env vars; auth is a one-time CLI step (see below).
 - **bond-outline** — `outline-mcp-server` (Outline docs, collections, search)
 
-`/setup-plugin` prompts for any missing credentials and writes them via the
+`/bond-bonliva:setup-plugin` prompts for any missing credentials and writes them via the
 `claude mcp` CLI. You can also export them in your environment beforehand so the
 command picks them up without prompting:
 
@@ -52,11 +69,11 @@ export OUTLINE_API_URL="https://docs.bonliva.dev/api"
 ```
 
 `BITBUCKET_WORKSPACE` defaults to `https://bitbucket.org` — override if needed.
-`OUTLINE_API_URL` has no default — `/setup-plugin` prompts for it. Use
+`OUTLINE_API_URL` has no default — `/bond-bonliva:setup-plugin` prompts for it. Use
 `https://docs.bonliva.dev/api` for the Bonliva instance, or
 `https://app.getoutline.com/api` for Outline cloud.
 
-`bond-teams` has no env vars. After `/setup-plugin`, authenticate it once with a
+`bond-teams` has no env vars. After `/bond-bonliva:setup-plugin`, authenticate it once with a
 Microsoft Graph OAuth flow:
 
 ```bash
@@ -67,7 +84,7 @@ npx -y @floriscornel/teams-mcp@latest authenticate
 
 `bond-teams` needs a Microsoft Graph token, which a tenant Conditional Access
 policy can block (e.g. device-compliance requirements). For **one-way posting to
-a Teams channel**, the `/teams-post` command sidesteps Graph entirely: it POSTs
+a Teams channel**, the `/bond-bonliva:teams-post` command sidesteps Graph entirely: it POSTs
 to a Power Automate Workflow webhook, whose URL is a bearer secret with no OAuth.
 
 This posts to a **channel only** — not to 1:1 or group chats.
@@ -80,18 +97,18 @@ Create the webhook once, in the Teams client:
 3. Finish the wizard and copy the generated **HTTP POST URL**.
 
 Then make the URL available as `BOND_TEAMS_WEBHOOK_URL` (treat it as a secret).
-Either let `/setup-plugin` prompt for it and store it in `~/.claude/settings.json`
+Either let `/bond-bonliva:setup-plugin` prompt for it and store it in `~/.claude/settings.json`
 (`env` block), or export it yourself:
 
 ```bash
 export BOND_TEAMS_WEBHOOK_URL="https://…"
 ```
 
-Now `/teams-post <message>` delivers a card to that channel. The underlying
-`scripts/teams-post.sh` is also usable standalone (CI, hooks):
+Now `/bond-bonliva:teams-post <message>` delivers a card to that channel. The underlying
+`plugins/bond-bonliva/scripts/teams-post.sh` is also usable standalone (CI, hooks):
 
 ```bash
-BOND_TEAMS_WEBHOOK_URL="https://…" scripts/teams-post.sh --title "Deploy" "Build #42 passed"
+BOND_TEAMS_WEBHOOK_URL="https://…" plugins/bond-bonliva/scripts/teams-post.sh --title "Deploy" "Build #42 passed"
 ```
 
 ## Browser access
@@ -173,12 +190,12 @@ tracker resolves to `none`, and `/implement` takes a free-text task, cuts a
 
 Every command reads that profile rather than assuming a host or a tracker:
 
-- **Host-flexible** — `/open-pr`, `/fix-pr`, `/track-pr` work against Bitbucket
+- **Host-flexible** — `/open-pr` and `/fix-pr` work against Bitbucket
   Pipelines and GitHub Actions alike; the profile's *Resolve PR coordinates* and
   *PR details and CI status* procedures normalise both to one vocabulary, so no
   command branches on a host-specific status string.
-- **Tracker-flexible** — `/implement`, `/start` and `/fix-qa` take free text
-  where there is no Jira; `/fix-qa` applies it to the branch already checked out.
+- **Tracker-flexible** — `/implement` and `/start` take free text where there is no
+  Jira; `/bond-bonliva:fix-qa` does the same on the branch already checked out.
 - **Guarded, not faked** — `/jira`, `/request-review`, `/publish-timelog` and
   `/log-plan` genuinely need Jira, a Teams channel or Clockify. They say which
   prerequisite is missing and stop, rather than pretending to work.
@@ -191,7 +208,7 @@ Every command reads that profile rather than assuming a host or a tracker:
 - `SessionStart` runs `hooks/standing-rules.mjs`: the standing rules above. Registered with no matcher, so it fires on every start reason — startup, resume, clear, compact and fork alike. That is deliberate: rules that do not survive a compaction quietly stop applying halfway through a long session, and a matcher that failed to parse would drop them silently.
 - `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
 - `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill.
-- `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft, or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
+- `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where one is required (`"draft"` in `.bond/project.json`, else a Bonliva repo: origin under `bonliva/`, a Bitbucket `workspace: bonliva`, or `.bonliva-dev/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
 
 ## Tests
 
@@ -266,12 +283,8 @@ bond/
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
 │   └── pr-template.md      # single source of truth for PR title + description
-├── data/
-│   ├── bb-members.json     # Bitbucket workspace member list (reviewer candidates)
-│   ├── teams-users.json    # Teams users → email (mention ids for /request-review)
-│   └── pr-review-card.json # Adaptive Card template for /request-review
 ├── scripts/
-│   ├── teams-post.sh       # POST a card to a Teams channel webhook
+│   ├── disk-analyze.sh     # disk usage report behind /disk-analyze
 │   └── chrome-debug.sh     # fallback: debuggable Chrome LaunchAgent + its MCP
 ├── hooks/
 │   ├── hooks.json
@@ -288,7 +301,13 @@ bond/
 │   ├── pr-template.test.mjs  # node --test 'tests/**/*.test.mjs'
 │   ├── render-rules.test.mjs
 │   └── shell.test.mjs
-├── .mcp.json               # MCP server template (installed via /setup-plugin)
+├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
+│   ├── .claude-plugin/plugin.json  # depends on bond
+│   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
+│   ├── data/               # bb-members, teams-users, pr-review-card
+│   ├── scripts/teams-post.sh
+│   ├── shared/             # symlinks into bond: project-profile, implement-flow, jira
+│   └── .mcp.json           # MCP server template (installed via /bond-bonliva:setup-plugin)
 ├── LICENSE
 └── README.md
 ```

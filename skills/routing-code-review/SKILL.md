@@ -22,7 +22,7 @@ Predicates are measured off the diff, not guessed. The task's own `scan:` and `r
 Read-only, at most five tool calls, all `git` or `gh`:
 
 1. `git status --short; git rev-parse --abbrev-ref HEAD @{upstream}`
-2. `git diff --stat=200 <base>...HEAD; git diff --stat=200 HEAD` — the union of the two is `files`
+2. `git diff --stat=200 <base>...HEAD; git diff --stat=200 HEAD; git diff --shortstat <base>` — the union of the first two is `files`; insertions plus deletions of the third is `lines`
 3. `gh pr view --json number,state,isDraft,baseRefName,headRefOid,url` — a failure means no GitHub PR, not no PR
 4. Only when this conversation carries no `scan:` card for this diff: `git diff <base> | grep -ciE '<pattern>'` for the risk words and the path patterns — fills `risk` and the test-hunk half of `tests`
 5. Only when every changed path is code and `files ≤ 5`: `git diff -U0 <base>` — settles `comment-only`
@@ -30,7 +30,7 @@ Read-only, at most five tool calls, all `git` or `gh`:
 A field the calls did not settle is `?`. Emit the card as one line:
 
 ```
-review: target=<pr #n→base | branch <name>…<base> | tree | path <p>> · files=<n> (<paths|globs>) · modules=<n> · tests=<moved|none|n/a> · kind=<code|docs-only|comment-only|mechanical> · risk=<schema|security|concurrency|numbers|none|?> (<from scan|from diff>) · prior=<level>+<files since>|none · task=<tier> <granted: fields|declined|default>|low|none
+review: target=<pr #n→base | branch <name>…<base> | tree | path <p>> · files=<n> (<paths|globs>) · lines=<n> · modules=<n> · tests=<moved|none|n/a> · kind=<code|docs-only|comment-only|mechanical> · risk=<schema|security|concurrency|numbers|none|?> (<from scan|from diff>) · prior=<level>+<files since>|none · task=<tier> <granted: fields|declined|default>|low|none
 ```
 
 - `files`: the union of what is committed since the base and what the working tree still holds — a review of the branch sees both.
@@ -64,10 +64,10 @@ Start at `high`. Drop to `medium` or `low` when every predicate of that row hold
 | max (ask) | `files ≥ 20` · `risk` not `none` unless the task's answer settled that field · base `release/*` or `hotfix/*` · a second fix round on the same target · a prior review's fixes reverted | 20 is the effort router's xhigh threshold; the risk fields are its max row; a release or hotfix base means a miss ships; a second round or a revert is a prior attempt that regressed |
 | high (default) | everything else | the standing default: the level a diff gets when nothing on the card argues for another |
 | medium (all) | `files ≤ 5` · `modules=1` · `tests=moved` or the types judge it · `risk=none` · `task` not granted above high — **or** `prior=high+≤5`, the re-run over that review's own fixes | 5 and 1 are the router's medium row read off the diff; a second high pass over a diff that just passed at high re-finds nothing |
-| low (all) | `files=1` · `kind=mechanical` · `risk=none` | the router's low row, inherited through the task's route line, plus the one-file check |
-| skip | `kind=docs-only` or `comment-only` | a review of prose finds prose; the skip is said in words in the recap |
+| low (all) | `files=1` · `kind=mechanical` · `risk=none` — **or** `lines ≤ 100` · `risk=none` · `task` not granted above high | the router's low row, inherited through the task's route line, plus the one-file check; a diff under a hundred lines gets one low pass, never a split |
+| skip | `kind=docs-only` or `comment-only` — **or** `lines ≤ 20` · `files ≤ 2` · `risk=none` · `tests=moved` or `n/a` | a review of prose finds prose; a twenty-line change with its test is cheaper to read than to fork a reviewer over; the skip is said in words in the recap |
 
-The thresholds are the effort router's and the harness's: 5, 1, 20, 15. A number of your own is not a predicate.
+The thresholds are the effort router's and the harness's: 5, 1, 20, 15 — plus the diff-size lines 20 and 100. A number of your own is not a predicate.
 
 **The task's question is the review's question.** When a max predicate of the review is a field the task's own escalation question already put to the user, that answer stands — granted ⇒ `max`, declined ⇒ `high` — and no second question is asked. The review asks its own only for a field the task card did not carry: `files ≥ 20` first seen on the diff, a `release/*` or `hotfix/*` base, a second fix round, a reverted fix, or `task=none`. `files ≥ 20` already answered on the task asks nothing, but the route line still prints the ultra invocation once:
 
@@ -113,7 +113,7 @@ The answer is a named override for the rest of the task. Cannot ask — non-inte
 1. Record what the user named: level, target, flags.
 2. Read the task's `route:` line, its answer, and any earlier `review:` / `review-route:` line in this conversation.
 3. Scan, and emit the `review:` line.
-4. `kind=docs-only` or `comment-only` ⇒ `review-route: level=skip (<kind>)`, say it in words, stop.
+4. The skip row holds ⇒ `review-route: level=skip (<kind> | lines=<n>)`, say it in words, stop.
 5. A max predicate the task did not settle ⇒ ask once, then use the answer.
 6. Emit one line before any launch:
 

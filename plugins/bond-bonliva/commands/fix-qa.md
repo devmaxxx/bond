@@ -2,7 +2,7 @@
 description: Re-run implementation against QA failure feedback — read off the Jira ticket, or given as free text where the project has no tracker
 ---
 
-# /bond:fix-qa
+# /bond-bonliva:fix-qa
 
 A ticket has come back from QA. This command pulls the QA failure comments off the Jira issue, decides what needs to change, and runs the same shared implementation flow `/bond:implement` uses — against the existing branch, appending a dated **QA fix round** to the existing plan.
 
@@ -20,10 +20,10 @@ Everything else is delegated to the shared procedures in `${CLAUDE_PLUGIN_ROOT}/
 what came back broken, plus optional flags.
 
 Examples:
-- `/bond:fix-qa ERP-135`
-- `/bond:fix-qa ERP-135 --no-auto`
-- `/bond:fix-qa ERP-135 --no-worktree`
-- `/bond:fix-qa the rename cache still misses on nested modules` — no tracker: the
+- `/bond-bonliva:fix-qa ERP-135`
+- `/bond-bonliva:fix-qa ERP-135 --no-auto`
+- `/bond-bonliva:fix-qa ERP-135 --no-worktree`
+- `/bond-bonliva:fix-qa the rename cache still misses on nested modules` — no tracker: the
   text *is* the feedback, applied to the branch already checked out.
 
 ### Flags
@@ -137,7 +137,7 @@ Run these shared procedures in order:
 
 3. **Implement** then **Test** — `SCOPE` = **only the new `## QA fix round` section**, not the whole plan.
 4. **Review and fix** — `/code-review` over the fix round at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update`, then **Track CI and autofix** (pass `--no-review` to `/bond:track-pr` — a QA round does not re-ping reviewers), then **Transition to In Review** (green pipeline only; skipped under `TRACKER=none`, where there is no issue to move), then **Teardown**.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update`, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to move), then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `WORKTREE` = the `-qa` path + original repo dir recorded in step 6, or `none` under `--no-worktree`.
 
@@ -145,5 +145,5 @@ Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `a
 
 - Do not create a new branch when one already exists — attach to it (`BRANCH_SOURCE=existing`).
 - Do not overwrite the existing plan file — append a new dated `QA fix round` section (`PLAN_MODE=append`).
-- Do not transition the ticket past In Progress here — In Review / Ready for QA is left to `/bond:open-pr` / `/bond:request-review` when the fix actually ships.
+- Do not transition the ticket past In Progress here — In Review / Ready for QA is left to `/bond:open-pr` / `/bond-bonliva:request-review` when the fix actually ships.
 - The shared flow's own **Do NOT** list applies (including: on `PR_HANDLING=update`, never open a second PR or auto-ping reviewers).

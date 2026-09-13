@@ -158,7 +158,7 @@ the doc link in the description.
 - Reporting "probably X" as the cause. Either prove it or file it under open
   questions.
 - Fixing code mid-investigation. This command investigates; `/bond:implement`
-  or `/bond:fix-qa` does the fix, using the doc as its input.
+  or `/bond-bonliva:fix-qa` does the fix, using the doc as its input.
 - Re-running the failing action "to see what happens" before checking what it
   writes.
 - Dumping raw logs into the doc. Quote the two lines that matter.

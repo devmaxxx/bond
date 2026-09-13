@@ -6,7 +6,7 @@ description: Fetch (or create) a Jira ticket — or take a free-text task in a r
 
 Full ticket-to-implementation workflow: fetch one or more Jira tickets (or **create one** when you have none yet), create a properly-named branch in an isolated worktree, analyse the codebase, write a concrete implementation plan, implement it, ship, open the PR, and tear the worktree down. By default it runs end-to-end without pausing; pass `--no-auto` to confirm the plan first or `--no-worktree` to work in the current tree.
 
-Everything except the four decisions unique to this command — creating a ticket when none is given, parsing multiple ticket IDs, the branch-prefix rule, and writing a fresh plan — is delegated to the shared procedures in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md` (the same flow `/bond:fix-qa` uses). Read that file; the steps below name the procedures to run and the inputs to set.
+Everything except the four decisions unique to this command — creating a ticket when none is given, parsing multiple ticket IDs, the branch-prefix rule, and writing a fresh plan — is delegated to the shared procedures in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md` (the same flow `/bond-bonliva:fix-qa` uses). Read that file; the steps below name the procedures to run and the inputs to set.
 
 ## Arguments
 
@@ -26,7 +26,7 @@ Examples:
 By **default** `/implement` runs in **worktree mode** and **auto mode**: it creates an isolated git worktree, skips the plan confirmation prompt, runs ship + open-pr after implementation, and removes the worktree when everything is done.
 
 - `--no-worktree` — switch branches in the current working tree instead of a worktree (requires a clean tree).
-- `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR, Track CI and autofix, and Teardown procedures are skipped; the worktree is left in place).
+- `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR and Teardown procedures are skipped; the worktree is left in place).
 - `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, the Bonliva slug table inside Bonliva, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
 
 Flags that only apply when **creating** a ticket (no key given — see step 1):
@@ -67,7 +67,7 @@ Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs 
 
 - Prefix: all tickets type `Bug` → `fix`; any `Story`/`Task`/other → `feat`.
 - Single ticket → `<prefix>/ERP-135`; multiple → `<prefix>/ERP-135_ERP-136` (underscore-separated, in the order given).
-- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because `/bond:fix-qa` and `/bond:fix-pr` look a branch up by its Jira key, and outside Bonliva nothing does.
+- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because `/bond-bonliva:fix-qa` and `/bond:fix-pr` look a branch up by its Jira key, and outside Bonliva nothing does.
 
 ### 4. Set up the branch
 
@@ -81,7 +81,7 @@ Run these shared procedures in order:
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
 3. **Implement** then **Test** — `SCOPE` = the whole plan.
 4. **Review and fix** — `/code-review` over the work at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Track CI and autofix**, then **Transition to In Review** (green pipeline only — skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 

@@ -1,7 +1,7 @@
 # Shared implementation flow
 
 > **Not an invocable command.** Shared include used by `/bond:implement` and
-> `/bond:fix-qa`. Each command owns only its unique decisions — which tickets,
+> `/bond-bonliva:fix-qa`. Each command owns only its unique decisions — which tickets,
 > how the branch is chosen, how the plan is built — and calls the procedures
 > below for everything they have in common, so the shared logic lives in exactly
 > one place. A command lists which procedures it runs, in what order, and the
@@ -37,7 +37,7 @@ on every command.
 Resolve the Atlassian `cloudId` once via
 `mcp__bond-atlassian__getAccessibleAtlassianResources` (the resource matching
 `bonliva.atlassian.net`). For each ticket ID, run the **get** procedure in
-`${CLAUDE_PLUGIN_ROOT}/commands/jira.md` — the single place issues are read —
+`${CLAUDE_PLUGIN_ROOT}/shared/jira.md` — the single place issues are read —
 requesting these fields:
 
 - `fields.summary`, `fields.issuetype.name`, `fields.status.name`,
@@ -110,7 +110,7 @@ Work you start is work you own. For each resolved ticket, read
 `fields.assignee`:
 
 - **Unassigned** (`null`) → run the **assign** procedure in
-  `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with the target set to **your**
+  `${CLAUDE_PLUGIN_ROOT}/shared/jira.md` with the target set to **your**
   `account_id` (`mcp__bond-atlassian__atlassianUserInfo`), and report
   `claimed <KEY>`.
 - **Already assigned** — to you or to anyone else → leave it as is and report who
@@ -124,7 +124,7 @@ If an assign call fails, surface the error but **do not abort**.
 **Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
 
 For each ticket ID, run the **transition** procedure in
-`${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In Progress** — it
+`${CLAUDE_PLUGIN_ROOT}/shared/jira.md` with target status **In Progress** — it
 walks the linear status chain (`Todo → In Progress → In Review → QA`) one hop at
 a time, so a ticket already past In Progress is left where it is. Report per
 ticket. Skip silently if already at or beyond In Progress. If a transition call
@@ -184,6 +184,10 @@ Do **not** require a clean working tree.
      origin/<BRANCH_NAME>` when only a remote branch exists. Abort on
      path/branch conflicts.
 6. `cd` into the worktree. All later procedures run inside it.
+   Local-scope MCP servers follow a worktree to its main repo, but
+   `.claude/settings.local.json` is an untracked file and does not: `cp
+   <original>/.claude/settings.local.json .claude/` when it exists, or a Bonliva
+   worktree opens without `bond-bonliva` enabled.
 7. `BRANCH_SOURCE=existing` only: `git pull --ff-only origin <BRANCH_NAME>` to
    fast-forward. Abort on failure — do not auto-merge or rebase. (`new` is
    already at the `origin/<BASE_BRANCH>` tip.)
@@ -362,54 +366,23 @@ Commit and push happen here automatically — do not ask the user first.
      `gh pr list --head <branch> --state open --json number,url` on GitHub. If
      one exists, print its URL and do **not** invoke `/bond:open-pr`. If none
      exists, invoke `/bond:open-pr` to create it. Do **not** re-ping reviewers on
-     a QA round — just tell the user they can run `/bond:request-review` if the
+     a QA round — just tell the user they can run `/bond-bonliva:request-review` if the
      project has a channel for it.
 
 If either step fails, surface the error and stop — do not retry blindly, and do
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
 resume).
 
-Record the PR number or URL as `PR_REF` — the next two procedures need it.
-
-## Procedure: Track CI and autofix  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
-
-**Inputs:** `PR_REF` from Ship + PR.
-
-The push starts CI — Bitbucket Pipelines or GitHub Actions, per the project
-profile. Nobody has to sit and watch it: hand it to `/bond:track-pr`, which
-self-paces its own wake-ups, and act on the verdict.
-
-1. Invoke `/bond:track-pr <PR_REF>` — it polls the checks on the PR's latest
-   commit and notifies when they leave the running state. Do not poll them
-   yourself in parallel; one watcher per PR.
-2. On **success** — run **Transition to In Review**, then Teardown. `track-pr`
-   chains into `/bond:request-review` where the profile has a Teams channel;
-   pass `--no-review` when the work is not ready for reviewers (a QA round, a
-   draft the user asked to hold). A repo with no channel simply skips it.
-3. On **failure**, **error** or **stopped** — invoke `/bond:fix-pr <PR_REF>`. It
-   reads the failed step logs, fixes the root cause on the same branch, and
-   pushes, which starts a fresh pipeline; go back to step 1 for that run.
-4. Give up after **two** autofix rounds on the same PR. A third red pipeline
-   means the failure is not something the logs explain — stop, report what each
-   round changed and what still fails, and leave the branch and worktree in
-   place. Do not transition the ticket.
-
-A failure that `/bond:fix-pr` cannot even diagnose (no run found, CI never
-started, credentials rejected) is not an autofix round — surface it and stop.
-
-A repo with no CI at all is not a failure: say the branch pushed with no checks
-configured, skip to **Transition to In Review** (where there is a tracker) and
-Teardown.
+Record the PR number or URL as `PR_REF` for the completion report. CI is not watched here; a red pipeline is `/bond:fix-pr <PR_REF>`, run by hand.
 
 ## Procedure: Transition to In Review  *(`TRACKER=jira` only)*
 
 **Inputs:** `TICKET_IDS`; the `cloudId` resolved above.
 
-Runs once the pipeline is **green**, not when the PR is opened — a red pipeline
-on the board as "In Review" sends a reviewer to work that does not build.
+Runs once Ship + PR has opened or updated the PR.
 
 For each ticket ID, run the **transition** procedure in
-`${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In Review**. Same
+`${CLAUDE_PLUGIN_ROOT}/shared/jira.md` with target status **In Review**. Same
 rules as the In Progress hop: one hop at a time along the chain, skip a ticket
 already at or beyond In Review, report per ticket, and surface a failed
 transition without aborting — the code has shipped either way.
@@ -418,8 +391,8 @@ transition without aborting — the code has shipped either way.
 
 **Inputs:** `WORKTREE` (recorded worktree path + original repo directory).
 
-Only runs when a worktree was created **and** the pipeline went green. A red or
-still-running pipeline keeps the worktree: `/bond:fix-pr` needs a tree to fix in.
+Only runs when a worktree was created **and** Ship + PR succeeded. A failed push
+or PR keeps the worktree so the user can fix and resume.
 
 1. `cd` back to the original repo directory recorded during branch setup.
 2. `git worktree remove <worktree-path>`. If it reports the worktree is dirty or

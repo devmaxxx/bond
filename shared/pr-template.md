@@ -3,13 +3,14 @@
 > **Not an invocable command.** Single source of truth for the title and
 > description of every pull request opened in a Bonliva repo, on GitHub and on
 > Bitbucket alike. Used by `/bond:open-pr`, by the Ship + PR step of
-> `/bond:implement` and `/bond:fix-qa`, and by the `pr-template` skill. Edit the
+> `/bond:implement` and `/bond-bonliva:fix-qa`, and by the `pr-template` skill. Edit the
 > format here and every PR path picks it up — do not copy this format into
 > individual commands.
 
 The shape below is not a suggestion: `hooks/check-pr.mjs` blocks a create call
 whose description is missing `## Summary` or `## Test plan`, one that carries a
-ticket id with no `## Jira` section, and one that is not a draft.
+ticket id with no `## Jira` section, and — where the profile resolves `DRAFT` —
+one that is not a draft.
 
 ## Inputs
 
@@ -54,9 +55,13 @@ co-author line — the PR is owned by the human who opens it (`authorship-conven
 
 ## Drafts
 
-Every PR is created as a **draft**, on every host — `--draft` on `gh pr create`,
+When the project profile resolves `DRAFT` — every Bonliva repo by default — the
+PR is created as a **draft**, on every host — `--draft` on `gh pr create`,
 `create_draft_pull_request` on Bitbucket. The author publishes it when it is
 ready for review.
+
+Otherwise open it ready for review: drop `--draft`, use `create_pull_request`.
+A repo changes its own answer with `"draft": true|false` in `.bond/project.json`.
 
 ## Host
 
@@ -64,7 +69,7 @@ Resolve the host from `git remote get-url origin` before building the call; a
 Bonliva repo may live on either.
 
 **GitHub** (`gh`) — write the description to a file and pass `--body-file`, so
-the body survives quoting intact:
+the body survives quoting intact (`--draft` in Bonliva only):
 
 ```sh
 gh pr create --draft --base <base> --head <branch> \
@@ -76,7 +81,8 @@ Never `--fill` / `--fill-first` / `--fill-verbose`: they build the body from
 commit subjects, which is exactly the per-PR wording this template exists to
 replace.
 
-**Bitbucket** (MCP) — `mcp__bond-bitbucket__create_draft_pull_request` with
+**Bitbucket** (MCP) — `mcp__bond-bitbucket__create_draft_pull_request` in
+Bonliva, `create_pull_request` elsewhere, with
 `workspace`, `repo_slug`, `title`, `description`, `source_branch`,
 `destination_branch`, `reviewers`.
 
@@ -86,7 +92,7 @@ Every PR is created with default reviewers attached. Resolve them in this order:
 
 1. **The project profile** — `shared/project-profile.md`, the `REVIEWERS` field:
    a repo's own `.bond/project.json` first, then
-   `$HOME/.bond/pr-reviewers.json` (managed by `/bond:set-reviewers`) **when the
+   `$HOME/.bond/pr-reviewers.json` (managed by `/bond-bonliva:set-reviewers`) **when the
    profile says the repo is Bonliva's**. Entries there carry a Bitbucket `uuid`;
    a `login` on the entry is the GitHub handle for the same person. That file
    lists Bonliva colleagues, so a personal repo never draws from it — a review

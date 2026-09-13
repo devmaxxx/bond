@@ -2,7 +2,7 @@
 description: Post a Teams card inviting reviewers to review a Bitbucket pull request
 ---
 
-# /bond:request-review
+# /bond-bonliva:request-review
 
 > **Needs a Teams channel.** Resolve the project profile
 > (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) first. With no
@@ -115,7 +115,7 @@ On confirmation:
 ### 9. Transition Jira ticket to In Review
 
 If a Jira key was extracted from the PR title in step 3, run the **transition**
-procedure in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In
+procedure in `${CLAUDE_PLUGIN_ROOT}/shared/jira.md` with target status **In
 Review**. It resolves `cloudId` and walks the linear status chain
 (`Todo → In Progress → In Review → QA`) one hop at a time, so a ticket behind In
 Review is stepped forward rather than skipped. Report success; skip silently if

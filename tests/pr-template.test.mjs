@@ -1,16 +1,32 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
 import {
+  cdTarget,
   checkBash,
   checkMcp,
   hasTicket,
+  isBonlivaRemote,
   isGhPrCreate,
+  resolveDraft,
 } from "../hooks/pr-template.mjs";
 import { scrubShell } from "../hooks/shell.mjs";
+
+/** A throwaway git repo with the given origin and optional manifest. */
+function repo(origin, manifest) {
+  const dir = mkdtempSync(join(tmpdir(), "bond-repo-"));
+  execFileSync("git", ["init", "-q"], { cwd: dir });
+  execFileSync("git", ["remote", "add", "origin", origin], { cwd: dir });
+  if (manifest !== undefined) {
+    mkdirSync(join(dir, ".bond"));
+    writeFileSync(join(dir, ".bond", "project.json"), JSON.stringify(manifest));
+  }
+  return dir;
+}
 
 const GOOD_BODY = [
   "## Summary",
@@ -41,7 +57,10 @@ const BODY_WITH_JIRA = [
 const JIRA_MISSING =
   "a ticket id is in play but the description has no `## Jira` section";
 const NOT_DRAFT =
-  "every PR opens as a draft — add --draft (the author publishes when ready)";
+  "this repo opens PRs as drafts — add --draft (the author publishes when ready)";
+const NOT_DRAFT_MCP =
+  "this repo opens PRs as drafts — use create_draft_pull_request (the author publishes when ready)";
+const PERSONAL = { requireDraft: (target) => target ?? false };
 
 /** A well-formed create call; `extra` adds the flags under test. */
 function create(extra = "", body = GOOD_BODY, title = "chore: tidy the export") {
@@ -135,6 +154,36 @@ describe("the template's own protections", () => {
     assert.deepEqual(errors, [NOT_DRAFT]);
   });
 
+  it("lets a non-draft through outside Bonliva", () => {
+    const errors = checkBash(
+      `gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`,
+      PERSONAL,
+    );
+    assert.deepEqual(errors, []);
+  });
+
+  it("still demands the template outside Bonliva", () => {
+    const body = ["## Summary", "", "- tidied it", ""].join("\n");
+    assert.deepEqual(
+      checkBash(`gh pr create --title "chore: tidy" --body "${body}"`, PERSONAL),
+      ["description is missing its `## Test plan` section"],
+    );
+  });
+
+  it("takes Bonliva from --repo over the checkout's remote", () => {
+    const personalTarget = `gh pr create --repo devmaxxx/repograph --title "chore: tidy" --body "${GOOD_BODY}"`;
+    assert.deepEqual(checkBash(personalTarget), []);
+    const bonlivaTarget = `gh pr create -R Bonliva/bonliva-erp --title "chore: tidy" --body "${GOOD_BODY}"`;
+    assert.deepEqual(checkBash(bonlivaTarget, PERSONAL), [NOT_DRAFT]);
+  });
+
+  it("resolves drafts in the directory a leading cd moves into", () => {
+    const seen = [];
+    const cmd = `cd ~/bonliva-erp && gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`;
+    checkBash(cmd, { requireDraft: (target, dir) => (seen.push(dir), false) });
+    assert.deepEqual(seen, ["~/bonliva-erp"]);
+  });
+
   it("blocks a description with no `## Summary` section", () => {
     const body = ["## Test plan", "", "- [ ] it works", ""].join("\n");
     assert.deepEqual(checkBash(create("", body)), [
@@ -167,6 +216,77 @@ describe("the template's own protections", () => {
     assert.deepEqual(checkBash(`gh pr create --draft --body-file ${bodyFile}`), [
       "description is missing its `## Test plan` section",
     ]);
+  });
+});
+
+describe("recognising a Bonliva remote", () => {
+  it("matches the Bonliva workspace and org on either host", () => {
+    for (const url of [
+      "git@bitbucket.org:bonliva/bonliva-erp.git",
+      "https://bitbucket.org/bonliva/bonliva-crm.git",
+      "git@github.com:Bonliva/bonliva-erp.git",
+      "git@github-work:Bonliva/bonliva-erp.git",
+    ]) {
+      assert.equal(isBonlivaRemote(url), true, url);
+    }
+  });
+
+  it("does not match a personal repo or a lookalike owner", () => {
+    for (const url of [
+      "https://github.com/devmaxxx/repograph.git",
+      "git@github.com:devmaxxx/bonliva-notes.git",
+      "git@github.com:notbonliva/app.git",
+    ]) {
+      assert.equal(isBonlivaRemote(url), false, url);
+    }
+  });
+});
+
+describe("reading the cd target", () => {
+  it("takes the last cd before gh pr create", () => {
+    assert.equal(cdTarget("cd /a && cd '/b c' && gh pr create --draft"), "/b c");
+  });
+
+  it("ignores a cd after gh pr create", () => {
+    assert.equal(cdTarget("gh pr create --draft && cd /elsewhere"), null);
+  });
+
+  it("gives up on a target only known at run time", () => {
+    assert.equal(cdTarget('cd "$REPO" && gh pr create'), null);
+    assert.equal(cdTarget("cd - && gh pr create"), null);
+  });
+
+  it("does not read a cd inside another word", () => {
+    assert.equal(cdTarget("abcd /x && gh pr create"), null);
+  });
+
+  it("ignores a literal 'gh pr create' mentioned before the real one", () => {
+    const cmd = `echo "run gh pr create later" && cd ~/bonliva-erp && gh pr create --draft`;
+    assert.equal(cdTarget(cmd), "~/bonliva-erp");
+  });
+});
+
+describe("resolving whether a repo opens drafts", () => {
+  const BONLIVA = "git@bitbucket.org:bonliva/bonliva-erp.git";
+  const PERSONAL_ORIGIN = "https://github.com/devmaxxx/repograph.git";
+
+  it("follows the remote when there is no manifest", () => {
+    assert.equal(resolveDraft(repo(BONLIVA), null), true);
+    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN), null), false);
+  });
+
+  it("lets the PR's explicit target outrank the remote", () => {
+    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN), true), true);
+    assert.equal(resolveDraft(repo(BONLIVA), false), false);
+  });
+
+  it("lets the manifest's `draft` outrank everything", () => {
+    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN, { draft: true }), false), true);
+    assert.equal(resolveDraft(repo(BONLIVA, { draft: false }), true), false);
+  });
+
+  it("ignores a manifest that does not state `draft`", () => {
+    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN, { tracker: "none" }), null), false);
   });
 });
 
@@ -267,9 +387,24 @@ describe("the Bitbucket MCP path", () => {
       { title: "chore: tidy", description: BODY_WITH_JIRA },
       "mcp__bond-bitbucket__create_pull_request",
     );
-    assert.deepEqual(errors, [
-      "every PR opens as a draft — use create_draft_pull_request (the author publishes when ready)",
-    ]);
+    assert.deepEqual(errors, [NOT_DRAFT_MCP]);
+  });
+
+  it("allows the non-draft create call outside the bonliva workspace", () => {
+    const errors = checkMcp(
+      { workspace: "devmaxxx", title: "chore: tidy", description: GOOD_BODY },
+      "mcp__bond-bitbucket__create_pull_request",
+    );
+    assert.deepEqual(errors, []);
+  });
+
+  it("takes Bonliva from the workspace over the checkout's remote", () => {
+    const errors = checkMcp(
+      { workspace: "bonliva", title: "chore: tidy", description: GOOD_BODY },
+      "mcp__bond-bitbucket__create_pull_request",
+      PERSONAL,
+    );
+    assert.deepEqual(errors, [NOT_DRAFT_MCP]);
   });
 
   it("accepts a draft that follows the template", () => {

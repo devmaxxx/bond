@@ -5,11 +5,16 @@
  * substring guesses, and both blocked work that opened no PR at all.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
-import { runsCommand, scrubShell } from "./shell.mjs";
+import { quotedRanges, runsCommand, scrubShell } from "./shell.mjs";
 
 const DEFAULT_JIRA_PROJECTS = ["ERP", "CRMDEV"];
+
+const BONLIVA_REMOTE = /(?:bitbucket\.org|github(?:\.com|-[\w.-]+))[:/]bonliva\//i;
+const BONLIVA_REPO_FLAG = /^(?:(?:https?:\/\/)?[^/]+\/)?bonliva\//i;
 
 const WEB = /(?:^|\s)(?:-w|--web)(?:\s|$)/;
 const FILL = /(?:^|\s)--fill(?:-first|-verbose)?(?:\s|$)/;
@@ -32,6 +37,58 @@ export function jiraProjects() {
 }
 
 /**
+ * Drafts are a Bonliva convention, detected the way `BONLIVA` is in
+ * shared/project-profile.md. Anywhere else a PR may open ready for review.
+ */
+export function isBonlivaRemote(url) {
+  return BONLIVA_REMOTE.test(url);
+}
+
+/**
+ * Resolution order mirrors the project profile: the repo's own `draft` in
+ * `.bond/project.json` wins, then the PR's explicit target (`--repo`, the
+ * Bitbucket workspace), then the checkout's remote.
+ */
+export function resolveDraft(cwd, target) {
+  const root = gitOutput(cwd, "rev-parse", "--show-toplevel");
+  if (root !== null) {
+    const manifest = readManifest(join(root, ".bond", "project.json"));
+    if (typeof manifest?.draft === "boolean") {
+      return manifest.draft;
+    }
+  }
+  return target ?? isBonlivaRepo(cwd, root);
+}
+
+function readManifest(path) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function gitOutput(cwd, ...args) {
+  try {
+    return execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+export function isBonlivaRepo(cwd, root = gitOutput(cwd, "rev-parse", "--show-toplevel")) {
+  if (root !== null && existsSync(join(root, ".bonliva-dev", "project.json"))) {
+    return true;
+  }
+  const origin = gitOutput(cwd, "remote", "get-url", "origin");
+  return origin !== null && isBonlivaRemote(origin);
+}
+
+/**
  * The boundaries are hand-rolled because `\b` gets both ends wrong here: it
  * refuses the `ERP-135_ERP-136` a multi-ticket branch carries, and it accepts
  * the `ERP` tail of a longer word.
@@ -39,6 +96,41 @@ export function jiraProjects() {
 export function hasTicket(text) {
   const keys = jiraProjects().join("|");
   return new RegExp(`(?<![A-Za-z0-9])(?:${keys})-\\d+(?![0-9])`).test(text);
+}
+
+/**
+ * The directory a `cd` earlier in the command moves `gh pr create` into — the
+ * hook's own cwd is where the Bash call started, which `cd ~/bonliva-erp && gh
+ * pr create` leaves behind. Null when there is no `cd`, or its target is only
+ * known at run time (`cd -`, `cd "$DIR"`).
+ *
+ * Matched against the raw command, not `scrubShell`'s output, because a
+ * quoted `cd` argument needs its real text. So a literal "gh pr create" or
+ * "cd …" sitting in a title, body or comment is skipped explicitly instead —
+ * `scrubShell` would have blanked it, but also shortened the string underneath
+ * every later index.
+ */
+export function cdTarget(cmd) {
+  const ranges = quotedRanges(cmd);
+  const isQuoted = (index) => ranges.some(([start, end]) => index >= start && index < end);
+
+  let create = -1;
+  for (const match of cmd.matchAll(/gh\s+pr\s+create/g)) {
+    if (!isQuoted(match.index)) {
+      create = match.index;
+      break;
+    }
+  }
+  const before = create === -1 ? cmd : cmd.slice(0, create);
+  const matches = [
+    ...before.matchAll(/(?:^|[;&|(\n])\s*cd\s+(?:"([^"]*)"|'([^']*)'|([^\s;&|)]+))/g),
+  ].filter((match) => !isQuoted(match.index));
+  const last = matches.at(-1);
+  if (!last) {
+    return null;
+  }
+  const dir = last[1] ?? last[2] ?? last[3];
+  return dir === "-" || dir.includes("$") ? null : dir;
 }
 
 /** True when a scrubbed command runs `gh pr create` at a command position. */
@@ -49,8 +141,11 @@ export function isGhPrCreate(scrubbed) {
 /**
  * Returns null when the command is not a PR creation, or when the body cannot
  * be read out of it — an unreadable body is not evidence of a missing template.
+ * `requireDraft` is lazy because resolving it shells out to git, and this runs
+ * on every Bash call. It receives the PR's explicit target — true/false when
+ * `--repo` names one, null otherwise — and the `cd` target, if any.
  */
-export function checkBash(cmd) {
+export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {}) {
   const scrubbed = scrubShell(cmd);
   if (!isGhPrCreate(scrubbed)) {
     return null;
@@ -67,9 +162,13 @@ export function checkBash(cmd) {
     );
   }
   if (!DRAFT.test(scrubbed)) {
-    problems.push(
-      "every PR opens as a draft — add --draft (the author publishes when ready)",
-    );
+    const repo = flagValue(cmd, "-R|--repo");
+    const target = repo !== null ? BONLIVA_REPO_FLAG.test(repo) : null;
+    if (requireDraft(target, cdTarget(cmd))) {
+      problems.push(
+        "this repo opens PRs as drafts — add --draft (the author publishes when ready)",
+      );
+    }
   }
 
   const body = bodyFromCommand(cmd);
@@ -87,11 +186,21 @@ export function checkBash(cmd) {
   return [...problems, ...missingSections(body, haystack)];
 }
 
-export function checkMcp(input, toolName) {
+export function checkMcp(
+  input,
+  toolName,
+  { requireDraft = (target) => target ?? true } = {},
+) {
   if (toolName === "mcp__bond-bitbucket__create_pull_request") {
-    return [
-      "every PR opens as a draft — use create_draft_pull_request (the author publishes when ready)",
-    ];
+    const target =
+      typeof input.workspace === "string"
+        ? input.workspace.toLowerCase() === "bonliva"
+        : null;
+    if (requireDraft(target)) {
+      return [
+        "this repo opens PRs as drafts — use create_draft_pull_request (the author publishes when ready)",
+      ];
+    }
   }
   const body = typeof input.description === "string" ? input.description : null;
   if (body === null) {

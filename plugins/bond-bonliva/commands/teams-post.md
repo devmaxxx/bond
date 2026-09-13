@@ -2,7 +2,7 @@
 description: Post a message to a Microsoft Teams channel via a Workflow webhook
 ---
 
-# /bond:teams-post
+# /bond-bonliva:teams-post
 
 Post a message to a Microsoft Teams **channel** using the bond webhook script at
 `${CLAUDE_PLUGIN_ROOT}/scripts/teams-post.sh`, which POSTs an Adaptive Card to a

@@ -19,9 +19,11 @@ follow-up: a task reported done with the review unrun is not done.
 Every task whose diff touches a source, test, build or config file. Subagent-built phases are not
 exempt: the session runs the review over the branch, not the builder over its own phase.
 
-**The one skip, keyed to the router's card:** `kind=docs-only` or `kind=comment-only` — the diff
-touches documentation only (`*.md`, or comment-only edits). The router emits
-`review-route: level=skip`, the recap says "docs-only, review skipped", and the task stops there.
+**The skips, keyed to the router's card:** `kind=docs-only` or `kind=comment-only` — the diff
+touches documentation only (`*.md`, or comment-only edits) — or a small, low-risk diff
+(`lines ≤ 20`, `files ≤ 2`, `risk=none`, its test moved). The router emits
+`review-route: level=skip`, the recap says why ("docs-only" / "12-line diff"), and the task stops
+there. A diff up to 100 lines with `risk=none` runs one `low` pass, never split.
 
 ## Procedure
 
@@ -45,7 +47,7 @@ touches documentation only (`*.md`, or comment-only edits). The router emits
 | Excuse | Reality |
 |---|---|
 | "The subagent ran the tests" | Tests prove the code does what its author meant. The review looks for what nobody meant. |
-| "The diff is tiny" | Tiny diffs ship the bugs big ones get reviewed for. |
+| "The diff is tiny" | Tiny is the card's `lines`, not your read of it. Under the skip row, say so; above it, run. |
 | "Max is waiting" | Max asked for this at the end of every task. The wait is the price he chose. |
 | "An earlier phase was reviewed" | The target is the whole branch diff, and the last phase moved it. |
 | "It's a merge, not new code" | A conflict resolution is code nobody wrote on purpose. Review it. |

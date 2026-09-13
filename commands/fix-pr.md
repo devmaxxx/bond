@@ -51,8 +51,7 @@ Run the **PR details and CI status** procedure in the same file for `title`,
    normalises both hosts to **running** / **passed** / **failed**, so the rest of
    this step is the same whether the checks ran on Bitbucket Pipelines or GitHub
    Actions.
-2. **running** — say so and **stop**; wait for it to finish (suggest
-   `/bond:track-pr` to watch it). **passed** — say so and **stop**, there is
+2. **running** — say so and **stop**; re-run this command once it finishes. **passed** — say so and **stop**, there is
    nothing to fix.
 3. **failed** — pull the logs of the failed steps only: `get_pipeline_step_logs`
    per failed step on Bitbucket, `gh run view <run-id> --log-failed` on GitHub.
@@ -102,11 +101,8 @@ Run the shared procedures in order, scoped to the diagnosed root causes:
    section.
 5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update` (commits and
    pushes automatically in auto mode; the push updates the existing PR — never opens
-   a second one), then **Track CI and autofix**, then **Teardown**.
-
-   This command *is* an autofix round, so it enters that procedure having spent
-   one of the two: watch the pipeline the push started, and if it is red again,
-   one more `/bond:fix-pr` is allowed before stopping and reporting. Skip
+   a second one), then **Teardown**. The push starts a fresh pipeline;
+   it is not watched — run this command again if it goes red. Skip
    **Transition to In Review** — a PR reached this way carries no ticket context.
 
 Shared tail inputs: `MODE` = `no-auto` if `--no-auto` was passed else `auto`;
@@ -121,7 +117,7 @@ Print:
 - Pipeline verdict + the root cause(s) found, and how each was fixed.
 - Plan file path and the files changed.
 - Push result — or, in `no-auto` mode, the reminder to run `/bonliva-dev:ship`.
-- Suggest `/bond:track-pr <id>` to watch the re-run.
+- The re-run pipeline is not watched: run `/bond:fix-pr <id>` again if it fails.
 
 ## Do NOT
 

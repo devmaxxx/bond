@@ -4,11 +4,11 @@ description: Manage the list of projects tracked by /log-plan (add, remove, disc
 
 # /projects
 
-Manage the **projects to track** — the per-user list of repos that `/bond:log-plan`
+Manage the **projects to track** — the per-user list of repos that `/bond-bonliva:log-plan`
 aggregates commits and PRs across.
 
 The list lives once, in the user's home directory, and applies to every repo. When
-it is missing, `/bond:log-plan` falls back to auto-discovery and then aborts.
+it is missing, `/bond-bonliva:log-plan` falls back to auto-discovery and then aborts.
 
 ## Storage
 
@@ -142,4 +142,4 @@ Print the saved list:
   - bonliva-vms
 ```
 
-These are the repos `/bond:log-plan` gathers commits and PRs from.
+These are the repos `/bond-bonliva:log-plan` gathers commits and PRs from.

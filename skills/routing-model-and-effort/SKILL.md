@@ -7,11 +7,11 @@ description: Use when a task arrives that will change files or needs a plan; whe
 
 ## Contract
 
-Every phase carries a pair (model, effort). Default pair: `opus`/`high`, plan and build alike. `fable`, `xhigh` and `max` are never taken on your own judgement: their predicates buy a question, and only the user's answer spends it. Below `high` the tier table decides alone — downward is free. A pair equal to the session's runs here; any other pair runs in a new subagent. Model and effort freeze at spawn: `SendMessage` keeps them, `fork` keeps the parent's whole pair and is never a routing move.
+Every phase carries a pair (model, effort). Default pair: `opus`/`high`, plan and build alike. `fable`, `xhigh` and `max` are never taken on your own judgement: their predicates buy a question, and only the user's answer spends it. Below `high` the tier table decides alone — downward is free. **Phases run here, in this session, by default.** A new subagent is spawned only when a phase's pair is above the session's and the user named it or granted it in answer to the escalation question. A pair at or below the session's runs here: a fresh context re-reads everything this session already holds, and that costs more than a lower tier saves. Model and effort freeze at spawn: `SendMessage` keeps them, `fork` keeps the parent's whole pair and is never a routing move.
 
 Predicates are measured, not guessed: a scan of the repository fills a card, and the tier table reads the card. The prompt alone settles only the `low` row.
 
-Session pair: model from the system prompt; effort from the user's `/effort` or `CLAUDE_CODE_EFFORT_LEVEL` when visible in this conversation, else the harness default `high`. Never read effort from the numeric `reasoning_effort` tag. Spawned as `bond:effort-<tier>`: that tier and the model passed at spawn are your pair; run your phase — no scan, no routing spawn, no escalation question. A sonnet or haiku session therefore spawns every build.
+Session pair: model from the system prompt; effort from the user's `/effort` or `CLAUDE_CODE_EFFORT_LEVEL` when visible in this conversation, else the harness default `high`. Never read effort from the numeric `reasoning_effort` tag. Spawned as `bond:effort-<tier>`: that tier and the model passed at spawn are your pair; run your phase — no scan, no routing spawn, no escalation question.
 
 Override: a model or effort is named when the user wrote its name (`sonnet`, `opus`, `haiku`, `fable`; `low` … `max`) in a turn of this conversation for this work, or picked it in answer to the escalation question. Adjectives (cheap, fast, quick, smart), the system prompt, CLAUDE.md, and agent definitions name nothing. A named model applies to the phases it is named for, to all when no phase is given. A named effort replaces the tier for every phase.
 
@@ -69,7 +69,7 @@ Run at the answer, and treat it as a named override for the rest of the task. Ca
 4. Phases: plan when the spec is incomplete, designs=2+, or an escalation predicate fired; build when any file is written. Test runs and diff reads belong to build. A turn that ends with no file written and no plan handed on is answered here.
 5. Escalation predicate fired ⇒ ask once, then use the answer. No predicate ⇒ no question.
 6. Give each phase its pair and emit one line before any tool call other than the scan and the question: `route: tier=<t> (<card fields that fired, or "default">) plan=<model>/<tier> build=<model>/<tier> → <here|spawn>`.
-7. Spawn with `Agent(subagent_type: "bond:effort-<tier>", model: "<phase model>", description: "<model>/<tier> <phase> · <ticket or title>")`, the card in the prompt. The description is the one line the agent panel shows for the spawn: pair first, then the job — `opus/xhigh build · ERP-1083 lock scope`. The session spawns every phase; a planning agent returns a plan and spawns nothing. Independent builds are one spawn each, in parallel, each at the task's pair; splitting never re-tiers, only the plan drop lowers a build. While a spawn runs, the session edits nothing.
+7. Only for a phase step 6 marked `spawn` — named or granted above the session's pair — spawn with `Agent(subagent_type: "bond:effort-<tier>", model: "<phase model>", description: "<model>/<tier> <phase> · <ticket or title>")`, the card in the prompt. The description is the one line the agent panel shows for the spawn: pair first, then the job — `opus/xhigh build · ERP-1083 lock scope`. A planning agent returns a plan and spawns nothing. Independent escalated builds are one spawn each, in parallel, each at the task's pair; splitting never re-tiers, only the plan drop lowers a build. While a spawn runs, the session edits nothing.
 8. `bond:effort-<tier>` not in the agent list: spawn `general-purpose` with the phase model, report the effort fallback, tell the user to update the bond plugin.
 9. Task shape changes: stop at the current tool call, leave the file in hand, redo 3–7 for the remainder.
 
@@ -87,7 +87,7 @@ Agent(subagent_type: "bond:effort-xhigh", model: "fable", description: "fable/xh
 Agent(subagent_type: "bond:effort-xhigh", model: "opus",  description: "opus/xhigh build · policy table", prompt: "Phase: build. Plan: … scan: … Repro: …")
 ```
 
-Unanswered, the same task runs `plan=opus/high build=opus/high`.
+Unanswered, the same task runs `plan=opus/high build=opus/high → here, here`. A `medium` or `low` task in an `opus`/`high` session prints `→ here` too: downward never spawns.
 
 ## Audit
 
@@ -98,11 +98,11 @@ Unanswered, the same task runs `plan=opus/high build=opus/high`.
 | Thought | Reality |
 |---|---|
 | "Mechanical, a cheap model is enough" | Difficulty sets effort; the phase sets the model. |
-| "Spawning costs more than the task" | A spawn is a prompt; low costs 0.6× high. |
+| "Low tier, so spawn it cheap" | A spawn re-reads the whole context; downward runs here. |
 | "Already opus, so effort is moot" | opus/high is not opus/xhigh. |
 | "The user said quick" | A latency wish; only a named effort replaces the tier. |
 | "A subagent lacks my context" | Hand it paths, plan, repro, the card. |
-| "I'm already here, I'll plan it" | Mid-conversation is not a pair match. |
+| "Granted xhigh, but I'll stay here" | A granted pair is not the session's; that phase spawns. |
 | "The predicate holds, escalate and mention it" | The predicate buys a question, not a tier. |
 | "Asking burns a turn" | One question is cheaper than a whole task at xhigh. |
 | "It feels like a high task" | Feelings pick nothing; below high every predicate of the row must hold. |

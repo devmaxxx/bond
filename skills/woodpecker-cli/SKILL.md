@@ -56,7 +56,7 @@ Resolution order, highest first:
    `woodpecker-cli login`.
 
 In a bond setup the two variables live in `~/.claude/settings.json` under `env`
-(written by `/bond:setup-plugin`), so they are already exported for Bash tool
+(written by `/bond-bonliva:setup-plugin`), so they are already exported for Bash tool
 calls. `woodpecker-cli login` is the interactive alternative — it opens a
 browser and persists the token to the config file, which survives outside
 Claude Code sessions.

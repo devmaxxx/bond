@@ -1,5 +1,5 @@
 ---
-description: Open a draft pull request for the current branch (GitHub or Bitbucket)
+description: Open a pull request for the current branch (GitHub or Bitbucket) — a draft in Bonliva repos
 ---
 
 # /open-pr
@@ -10,7 +10,7 @@ Usage: `/open-pr [base-branch]`
 
 `$ARGUMENTS` — an optional **base branch** to target the PR at. If omitted, the base is resolved **per repo** (step 2). Examples: `/open-pr`, `/open-pr develop`, `/open-pr release/2.0`. Call this base `<base>` throughout the steps below.
 
-PRs are **always** created as drafts (not ready for review). The author publishes the draft when it is ready for review.
+Where the project profile resolves `DRAFT` (every Bonliva repo, unless `.bond/project.json` sets `draft`) PRs are created as drafts; the author publishes the draft when it is ready for review. Anywhere else the PR opens ready for review.
 
 ## Steps
 
@@ -56,7 +56,7 @@ Then produce the title and description exactly as the template defines them.
 ### 4. Resolve reviewers
 
 Follow the **Reviewers** section of `${CLAUDE_PLUGIN_ROOT}/shared/pr-template.md`:
-`$HOME/.bond/pr-reviewers.json` first (managed by `/bond:set-reviewers`), falling
+`$HOME/.bond/pr-reviewers.json` first (managed by `/bond-bonliva:set-reviewers`), falling
 back to the host's own defaults — `mcp__bond-bitbucket__get_effective_default_reviewers`
 for the workspace and repo slug on Bitbucket, the repo's configured reviewers or
 `CODEOWNERS` on GitHub. Carry them into step 6 as `uuid` values (Bitbucket) or
@@ -72,9 +72,9 @@ git push -u origin <branch>
 
 First check whether an open PR already exists for this source branch — `gh pr list --head <branch> --state open` on GitHub, `mcp__bond-bitbucket__get_pull_requests` (state `OPEN`) on Bitbucket. If one is found, skip creation, print its URL, and continue to step 7.
 
-Otherwise create a new one (this also covers a previously declined PR — Bitbucket cannot reopen those), always as a **draft**:
+Otherwise create a new one (this also covers a previously declined PR — Bitbucket cannot reopen those) — as a **draft** when `DRAFT` resolves, ready for review otherwise:
 
-**GitHub.** Write the description from step 3 to a temp file and pass it as `--body-file`, so the body survives quoting intact. Never `--fill`.
+**GitHub.** Write the description from step 3 to a temp file and pass it as `--body-file`, so the body survives quoting intact. Never `--fill`. Drop `--draft` when `DRAFT` does not resolve.
 
 ```sh
 gh pr create --draft --base <base> --head <branch> \
@@ -82,7 +82,7 @@ gh pr create --draft --base <base> --head <branch> \
   --reviewer <handle>
 ```
 
-**Bitbucket.** Use `mcp__bond-bitbucket__create_draft_pull_request`:
+**Bitbucket.** Use `mcp__bond-bitbucket__create_draft_pull_request` (`create_pull_request` when `DRAFT` does not resolve):
 - `workspace`: resolved workspace (e.g. `bonliva`)
 - `repo_slug`: resolved repository slug (e.g. `bonliva-erp`)
 - `title`: built in step 3
@@ -91,7 +91,7 @@ gh pr create --draft --base <base> --head <branch> \
 - `destination_branch`: `<base>` (resolved in step 2)
 - `reviewers`: UUIDs resolved in step 4 (omit if none)
 
-The `check-pr` hook blocks either call if the description lost its `## Summary` / `## Jira` / `## Test plan` shape or the create is not a draft — rebuild it from the template rather than working around the hook.
+The `check-pr` hook blocks either call if the description lost its `## Summary` / `## Jira` / `## Test plan` shape or a create is not a draft where `DRAFT` resolves — rebuild it from the template rather than working around the hook.
 
 On success, print the PR URL. On failure, report the error and stop.
 

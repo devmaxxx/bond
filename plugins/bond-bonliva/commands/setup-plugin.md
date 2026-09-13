@@ -1,14 +1,14 @@
 ---
-description: Set up the bond plugin — install its MCP servers into the user-scope (global) config and configure plugin env vars, prompting for anything missing
+description: Set up the bond-bonliva plugin — install its MCP servers into each Bonliva project's local scope and configure plugin env vars, prompting for anything missing
 ---
 
 # /setup-plugin
 
 Set up the bond plugin for this user. This does three things:
 
-1. **Install the bond MCP servers** into the **user scope** (global) MCP config so they are available across **all** projects — not just the current repo.
-2. **Configure plugin env vars** that bond commands need but that are not MCP server config — `BOND_USER_NAME` and `BOND_JIRA_PROJECTS` (step 6a), the `BOND_TEAMS_WEBHOOK_URL` used by `/bond:teams-post` and `/bond:request-review` (step 6c), and `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` for the `woodpecker-cli` binary (step 6e).
-3. **Write per-user data files** that bond commands read — default PR reviewers (`$HOME/.bond/pr-reviewers.json`, step 6b) and the list of projects to track (`$HOME/.bond/projects.json`, step 6d), used by `/bond:log-plan`.
+1. **Install the bond MCP servers** into the **local scope** of every Bonliva project listed in `$HOME/.bond/projects.json` (plus the current repo when it is Bonliva's), so their tool listings load only where they are used — not in personal repos.
+2. **Configure plugin env vars** that bond commands need but that are not MCP server config — `BOND_USER_NAME` and `BOND_JIRA_PROJECTS` (step 6a), the `BOND_TEAMS_WEBHOOK_URL` used by `/bond-bonliva:teams-post` and `/bond-bonliva:request-review` (step 6c), and `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` for the `woodpecker-cli` binary (step 6e).
+3. **Write per-user data files** that bond commands read — default PR reviewers (`$HOME/.bond/pr-reviewers.json`, step 6b) and the list of projects to track (`$HOME/.bond/projects.json`, step 6d), used by `/bond-bonliva:log-plan`.
 
 Use the bond plugin's bundled `.mcp.json` (at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`) as the canonical template for the MCP servers.
 
@@ -24,7 +24,7 @@ To avoid colliding with any servers the user already runs, every bond server is 
 
 This command **only ever manages `bond-` prefixed servers**. It never reads values from, modifies, or removes any other user-scope server — including a user's own unprefixed `atlassian` / `bitbucket` / `clockify`. Because the template keys are themselves `bond-` prefixed, each server installs under the exact key from the template with no renaming.
 
-User-scope servers live in the top-level `mcpServers` of `~/.claude.json`. Manage them with the `claude mcp` CLI (`--scope user`) rather than editing `~/.claude.json` by hand — that file also holds session state and is easy to corrupt.
+User-scope servers live in the top-level `mcpServers` of `~/.claude.json`. Manage them with the `claude mcp` CLI (`--scope local`) rather than editing `~/.claude.json` by hand — that file also holds session state and is easy to corrupt.
 
 Run this after installing the plugin, after a plugin update introduces new servers, or when rotating tokens.
 
@@ -55,7 +55,7 @@ If the user passed explicit `--reset` flags, honor those and skip this question 
 - **Name and tracker keys** — configure `BOND_USER_NAME` / `BOND_JIRA_PROJECTS` (step 6a).
 - **Teams webhook** — configure `BOND_TEAMS_WEBHOOK_URL` (step 6c).
 - **PR reviewers** — set default PR reviewers (step 6b).
-- **Projects to track** — configure the projects `/bond:log-plan` scans (step 6d).
+- **Projects to track** — configure the projects `/bond-bonliva:log-plan` scans (step 6d).
 - **Woodpecker CI** — install/check `woodpecker-cli` and set `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` (step 6e).
 
 Then run only the steps that map to the selection — always do step 1 (locate the template); only run step 7 if "MCP servers" or a server-specific credential was chosen. If **Everything** is selected — or it's the first run with no existing user-scope bond config — run every step. For a chosen credential item, treat it as an implicit `--reset` of those keys: re-prompt and overwrite the existing value.
@@ -70,7 +70,7 @@ If `$TEMPLATE` does not exist, abort:
 
 > Plugin MCP template not found at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`.
 
-Parse it as JSON to get `mcpServers`. Every key is already `bond-` prefixed; that key is the user-scope server name. If any key is somehow not `bond-` prefixed, abort and report it — this command installs `bond-` servers only.
+Parse it as JSON to get `mcpServers`. Every key is already `bond-` prefixed; that key is the local-scope server name. If any key is somehow not `bond-` prefixed, abort and report it — this command installs `bond-` servers only.
 
 ### 2. Tooling checks
 
@@ -95,7 +95,7 @@ For each server in the template, check the runtime it needs:
 List the servers already installed in the user scope:
 
 ```sh
-claude mcp list --scope user
+claude mcp list --scope local
 ```
 
 For any `bond-` prefixed server you intend to touch, inspect its current definition (including resolved env keys) with:
@@ -114,7 +114,7 @@ The plugin previously shipped a `jira` server (`uvx mcp-atlassian`) that is now 
 
 > The legacy `bond-jira` server (`uvx mcp-atlassian`) is superseded by `bond-atlassian` (official SSE). Remove it from your user-scope config?
 
-- **Yes** — `claude mcp remove bond-jira --scope user`.
+- **Yes** — `claude mcp remove bond-jira --scope local`.
 - **No** — leave it.
 
 Never assume an unprefixed `jira` server belongs to bond — leave it alone.
@@ -155,7 +155,7 @@ For each env key being **reset** (in the `--reset` scope from step 5), always pr
 
 For variables not in the table, ask generically: "Value for `${VAR_NAME}`".
 
-If the user skips a prompt, **do not install** that stdio server this run (an unresolved placeholder in the user scope would break the server for every project). Note it and tell the user to re-run `/setup-plugin` once they have the value. SSE servers and servers whose env is fully resolved still get installed.
+If the user skips a prompt, **do not install** that stdio server this run (an unresolved placeholder would break the server in that project). Note it and tell the user to re-run `/setup-plugin` once they have the value. SSE servers and servers whose env is fully resolved still get installed.
 
 ### 6a. Configure the identity and tracker variables
 
@@ -178,21 +178,21 @@ the same way as the Teams webhook in step 6c — read, set the one key, write ba
 
 This applies whenever the `bond-bitbucket` server is being installed or is already present (skip it if `bond-bitbucket` is not part of the template or its env was skipped in step 6).
 
-If `$HOME/.bond/pr-reviewers.json` already exists, skip — reviewers are already configured (mention it: "Default PR reviewers already set — change them with `/bond:set-reviewers`.").
+If `$HOME/.bond/pr-reviewers.json` already exists, skip — reviewers are already configured (mention it: "Default PR reviewers already set — change them with `/bond-bonliva:set-reviewers`.").
 
 Otherwise ask the user (`AskUserQuestion`):
 
 > Set default PR reviewers for `/bond:open-pr` now? If you skip this, `/open-pr` uses each repo's Bitbucket effective default reviewers.
 
-- **Yes** — run the `/bond:set-reviewers` flow inline: read the member list from `${CLAUDE_PLUGIN_ROOT}/data/bb-members.json`, present the numbered member list, prompt for a selection, and write `$HOME/.bond/pr-reviewers.json`.
-- **Skip** — do nothing; `/open-pr` falls back to Bitbucket effective default reviewers. Note the user can set them later with `/bond:set-reviewers`.
+- **Yes** — run the `/bond-bonliva:set-reviewers` flow inline: read the member list from `${CLAUDE_PLUGIN_ROOT}/data/bb-members.json`, present the numbered member list, prompt for a selection, and write `$HOME/.bond/pr-reviewers.json`.
+- **Skip** — do nothing; `/open-pr` falls back to Bitbucket effective default reviewers. Note the user can set them later with `/bond-bonliva:set-reviewers`.
 
 This is always optional — skipping it never blocks installation of `bond-bitbucket` or any other server.
 
 ### 6c. Configure the Teams channel webhook
 
 `BOND_TEAMS_WEBHOOK_URL` is the Power Automate Workflow webhook URL used by
-`/bond:teams-post` and `/bond:request-review`. It is **not** an MCP server env var —
+`/bond-bonliva:teams-post` and `/bond-bonliva:request-review`. It is **not** an MCP server env var —
 it is an environment variable read by `scripts/teams-post.sh` when bond commands
 shell out to it, so it is stored in the user-scope Claude settings rather than the
 MCP config.
@@ -207,7 +207,7 @@ Decide:
 - **Already set and not in the `--reset` scope** → skip; mention "Teams webhook already configured — change it with `/setup-plugin --reset BOND_TEAMS_WEBHOOK_URL`."
 - **Missing, or in the `--reset` scope** → ask the user via `AskUserQuestion`:
 
-  > Teams channel webhook URL for `/bond:teams-post` and `/bond:request-review`. Create a "Post to a channel when a webhook request is received" Workflow in Teams and paste its POST URL here. Treat it as a secret. Skip if you don't use the Teams commands.
+  > Teams channel webhook URL for `/bond-bonliva:teams-post` and `/bond-bonliva:request-review`. Create a "Post to a channel when a webhook request is received" Workflow in Teams and paste its POST URL here. Treat it as a secret. Skip if you don't use the Teams commands.
 
 If the user provides a value, write it to `~/.claude/settings.json` under the
 top-level `env` object as `BOND_TEAMS_WEBHOOK_URL`:
@@ -223,7 +223,7 @@ exporting the variable in their shell profile.
 
 ### 6d. Configure the projects to track
 
-`/bond:log-plan` aggregates commits and PRs across the user's projects. The list is
+`/bond-bonliva:log-plan` aggregates commits and PRs across the user's projects. The list is
 read from `$HOME/.bond/projects.json` — a JSON object with a `projects` array of
 absolute repo paths. This makes the list per-user; nothing is hardcoded in the command.
 
@@ -237,7 +237,7 @@ absolute repo paths. This makes the list per-user; nothing is hardcoded in the c
 ```
 
 If `$HOME/.bond/projects.json` already exists and `--reset` was **not** passed, skip —
-mention: "Projects to track already set — run `/bond:projects` to change it."
+mention: "Projects to track already set — run `/bond-bonliva:projects` to change it."
 
 Otherwise auto-discover candidates and confirm with the user:
 
@@ -257,7 +257,7 @@ Otherwise auto-discover candidates and confirm with the user:
 This is optional — skipping it means `/log-plan` falls back to its own auto-discovery
 and otherwise aborts asking the user to configure the list. With bare `--reset`,
 re-run discovery and overwrite the file. After setup, the list is managed by
-`/bond:projects` (`show` / `add` / `remove` / `clear`).
+`/bond-bonliva:projects` (`show` / `add` / `remove` / `clear`).
 
 ### 6e. Configure the Woodpecker CI CLI
 
@@ -317,7 +317,7 @@ This step is optional — skipping it never blocks the rest of setup.
 For each server to install or update, write it with `claude mcp add-json` at user scope. The template key `<name>` is already `bond-` prefixed and is used as-is. Build the full per-server JSON object (the value from `template.mcpServers.<name>`, with env values resolved from step 6) and run:
 
 ```sh
-claude mcp add-json <name> '<json>' --scope user
+claude mcp add-json <name> '<json>' --scope local
 ```
 
 `add-json` overwrites an existing server of the same name, so when updating an existing server pass the **merged** object — template definition plus every existing env value preserved from step 5 — not the bare template. For env keys in the `--reset` scope, use the freshly prompted value from step 6 instead of the preserved one.
@@ -326,7 +326,7 @@ For a server that needs no changes at all, skip it (don't re-add). In reset mode
 
 ### 8. Verify and report
 
-Run `claude mcp list --scope user` to confirm, then print one of:
+Run `claude mcp list --scope local` to confirm, then print one of:
 
 - **Already in sync** — `✓ bond-* user-scope MCP servers already match the template, nothing to do.`
 - **Updated** — list each change, e.g.:
@@ -342,7 +342,7 @@ Run `claude mcp list --scope user` to confirm, then print one of:
   ```
   Then remind the user:
   - **Restart Claude Code** to reload MCP servers.
-  - These servers now apply to **every project** you open, exposed as `mcp__bond-<name>__*` tools.
+  - These servers now apply only to the Bonliva projects they were installed into, exposed as `mcp__bond-<name>__*` tools.
   - On the first call to a `bond-atlassian` tool, a browser tab will open for OAuth — sign in with the Atlassian account that has access to `bonliva.atlassian.net`.
   - If `bond-teams` was installed, authentication is a **separate one-time CLI step** (the server has no env vars). Tell the user to run, in their terminal:
     ```sh
@@ -355,7 +355,7 @@ If any stdio server was skipped for missing env (step 6), list it and tell the u
 ## Do NOT
 
 - Do not edit `~/.claude.json` directly — always go through the `claude mcp` CLI. That file holds session state and is easy to corrupt.
-- Do not write a project `.mcp.json` — this command installs to the user scope only.
+- Do not write a project `.mcp.json` — this command installs to each Bonliva project's local scope only; run `claude mcp add-json` from inside each project directory (local scope is keyed by that path). A git worktree shares its main repo's local-scope servers, so worktrees need no install of their own.
 - Do not touch any server that is not `bond-` prefixed, or any `bond-` server not in the template. The command manages only the bond template servers.
 - Do not overwrite existing env values, even if they look wrong — **unless** `--reset` was passed, which deliberately re-prompts and overwrites the targeted keys.
 - Do not install a stdio server with an unresolved `${VAR}` placeholder — skip it instead.

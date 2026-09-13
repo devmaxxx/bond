@@ -10,7 +10,9 @@
  */
 
 import { readFileSync } from "node:fs";
-import { checkBash, checkMcp } from "./pr-template.mjs";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
+import { checkBash, checkMcp, resolveDraft } from "./pr-template.mjs";
 
 const MCP_CREATE = /^mcp__bond-bitbucket__create_(draft_)?pull_request$/;
 
@@ -22,9 +24,17 @@ try {
 }
 
 const toolName = payload?.tool_name ?? "";
+const cwd = payload?.cwd ?? process.cwd();
+const options = {
+  requireDraft: (target, dir) =>
+    resolveDraft(
+      dir ? resolve(cwd, dir.replace(/^~(?=\/|$)/, homedir())) : cwd,
+      target,
+    ),
+};
 const errors = MCP_CREATE.test(toolName)
-  ? checkMcp(payload?.tool_input ?? {}, toolName)
-  : checkBash(payload?.tool_input?.command ?? "");
+  ? checkMcp(payload?.tool_input ?? {}, toolName, options)
+  : checkBash(payload?.tool_input?.command ?? "", options);
 
 if (errors === null || errors.length === 0) {
   process.exit(0);

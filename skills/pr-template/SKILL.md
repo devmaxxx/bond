@@ -4,9 +4,9 @@ description: >-
   Use whenever opening or creating a pull request in a Bonliva repo, on any
   host — `gh pr create` against GitHub, the `create_pull_request` /
   `create_draft_pull_request` Bitbucket MCP calls, the `/bond:open-pr` command,
-  the Ship + PR step of `/bond:implement` and `/bond:fix-qa`, or any time you
+  the Ship + PR step of `/bond:implement` and `/bond-bonliva:fix-qa`, or any time you
   write a PR title and description. Enforces the one shared PR template so every
-  PR has the same Summary / Jira / Test plan shape, opens as a draft, and
+  PR has the same Summary / Jira / Test plan shape, opens as a draft in Bonliva, and
   carries the same default reviewers. Trigger on "open a PR", "create a pull
   request", "draft a PR", "write a PR description", "gh pr create", "add
   reviewers to a PR".
@@ -42,18 +42,21 @@ The rule is not Bitbucket-specific. It binds equally on:
 - **GitHub** — `gh pr create`. Pass the built description with `--body-file`
   (a heredoc written to a temp file) or `--body`; never `--fill`, which builds
   the body out of commit subjects and skips the template entirely.
-- **Bitbucket** — `mcp__bond-bitbucket__create_draft_pull_request`, whether
-  called by `/bond:open-pr` or by hand.
+- **Bitbucket** — `mcp__bond-bitbucket__create_draft_pull_request` (or
+  `create_pull_request` outside Bonliva), whether called by `/bond:open-pr` or
+  by hand.
 - **Commands** — `/bond:open-pr`, and the Ship + PR step that `/bond:implement`
-  and `/bond:fix-qa` run.
+  and `/bond-bonliva:fix-qa` run.
 
 Resolve the host from `git remote get-url origin` before building the call.
 
 ## Drafts
 
-PRs are **always** created as drafts on every host — `--draft` on `gh pr
-create`, `create_draft_pull_request` on Bitbucket. The author publishes when the
-PR is ready for review.
+When the profile resolves `DRAFT` (`shared/project-profile.md` — every Bonliva
+repo, unless `.bond/project.json` sets `draft`) PRs are created as drafts on
+every host — `--draft` on `gh pr create`, `create_draft_pull_request` on
+Bitbucket. The author publishes when the PR is ready for review. Otherwise open
+it ready for review.
 
 ## Reviewers
 
@@ -75,5 +78,5 @@ tool — the PR is owned by the human who opens it.
 `hooks/check-pr.mjs` runs as a `PreToolUse` hook on `gh pr create` and on the
 Bitbucket MCP create calls. It blocks a description missing `## Summary` or
 `## Test plan`, a ticket-bearing PR with no `## Jira` section, a non-draft
-create, and `--fill`. `hooks/check-commit.mjs` separately blocks AI breadcrumbs
+create where `DRAFT` resolves, and `--fill`. `hooks/check-commit.mjs` separately blocks AI breadcrumbs
 in `gh pr …`. Fix the call rather than working around the hook.
