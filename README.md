@@ -272,10 +272,11 @@ bond/
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
 │   ├── pr-template/         # one shared PR title + description + reviewers
 │   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
-│   └── authorship-conventions/  # branch/commit/PR/doc naming, attribution, gh account
+│   ├── authorship-conventions/  # branch/commit/PR/doc naming, attribution, gh account
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
-│   ├── finishing-with-code-review/  # every code task ends with the review
+│   ├── context-cost/        # what a read/screenshot costs once the session carries it
+│   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
 │   ├── DocsExplorer.md     # look up official docs before using a third-party API
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
