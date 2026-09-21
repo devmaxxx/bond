@@ -9,7 +9,7 @@
       "name": "bond",
       "source": "./",
       "description": "Project-flexible dev workflow: implement, open/fix PRs, review routing, authorship and PR hooks",
-      "version": "0.32.0"
+      "version": "0.32.1"
     },
     {
       "name": "bond-bonliva",

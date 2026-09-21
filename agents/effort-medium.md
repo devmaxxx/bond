@@ -1,7 +1,6 @@
 ---
 name: effort-medium
-description: Runs one task phase at medium reasoning effort. Spawned by the bond:routing-model-and-effort skill when a phase's (model, effort) pair differs from the current session. Always pass the phase model at call time — opus to build, fable or opus to plan; an omitted model falls back to opus.
-model: opus
+description: Runs one task phase at medium reasoning effort. Spawned by the bond:routing-model-and-effort skill when a phase's (model, effort) pair differs from the current session. Always pass the phase model at call time — opus to build, fable or opus to plan; an omitted model falls back to the session default subagent model.
 effort: medium
 ---
 
