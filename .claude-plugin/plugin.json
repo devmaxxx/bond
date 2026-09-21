@@ -1,7 +1,7 @@
 {
   "name": "bond",
   "version": "0.32.0",
-  "description": "Dev workflow commands, project-flexible: commands resolve a per-repo profile (PR host, base branch, Jira tracker or none, reviewers, drafts) so they work inside Bonliva and outside it. Ships help, chrome-debug, disk-analyze, fix-pr, implement, investigate, jira, open-pr, start; bundles the readable-code-structure, comment-hygiene, testing-behavior, vertical-horizontal-review, pr-template, woodpecker-cli, authorship-conventions, routing-model-and-effort, routing-code-review, and finishing-with-code-review skills; ships the DocsExplorer agent and the effort-low…effort-max agents; a SessionStart hook carries the always-on standing rules, and hooks block AI signatures in commits, PRs and docs. Bonliva-only commands and MCP setup live in the bond-bonliva plugin.",
+  "description": "Dev workflow commands, project-flexible: commands resolve a per-repo profile (PR host, base branch, Jira tracker or none, reviewers, drafts) so they work inside Bonliva and outside it. Ships help, chrome-debug, disk-analyze, fix-pr, implement, investigate, jira, open-pr, start; bundles the readable-code-structure, comment-hygiene, testing-behavior, vertical-horizontal-review, pr-template, woodpecker-cli, authorship-conventions, routing-model-and-effort, routing-code-review, context-cost, and finishing-with-code-review skills; ships the DocsExplorer agent and the effort-low…effort-max agents; a SessionStart hook carries the always-on standing rules, and hooks block AI signatures in commits, PRs and docs. Bonliva-only commands and MCP setup live in the bond-bonliva plugin.",
   "author": {
     "name": "Max Synenko",
     "email": "syn.max.13@gmail.com"
