@@ -5,12 +5,7 @@
 3. Scan, and emit the `review:` line.
 4. The skip row holds ⇒ `review-route: level=skip (<kind> | lines=<n>)`, say it in words, stop.
 5. A max predicate the task did not settle ⇒ ask once, then use the answer.
-6. Emit one line before any launch:
-
-```
-review-route: level=<l> (<fields that fired | "default" | "inherited: <field> granted" | "escalation not asked">) target=<t> flags=<--fix|none> → <launch | launch ×n by module | skip | handed to Max: /code-review ultra <t>>
-```
-
+6. Emit one line before any launch — the format is in `SKILL.md`.
 7. Launch from the session: `Skill(skill: "code-review", args: "<level> <target> <flags>")`. Then wait — no other tool call until the fork's report is in.
 8. Re-run after the fixes land: the `prior` row decides it, not the first route.
 9. The diff changes shape — new commits land, the target moves from the tree to a PR, a second fix round starts — one more scan, at most one more question.
