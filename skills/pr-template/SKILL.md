@@ -37,18 +37,13 @@ omitting the `## Jira` section when there are no tickets.
 
 ## Every host, every path
 
-The rule is not Bitbucket-specific. It binds equally on:
+Resolve the host from `git remote get-url origin` before building the call:
+`gh pr create` on GitHub,
+with `--body-file` or `--body` and never `--fill`; the Bitbucket MCP create
+calls otherwise. `/bond:open-pr` and the Ship + PR steps go through the same
+template.
 
-- **GitHub** — `gh pr create`. Pass the built description with `--body-file`
-  (a heredoc written to a temp file) or `--body`; never `--fill`, which builds
-  the body out of commit subjects and skips the template entirely.
-- **Bitbucket** — `mcp__bond-bitbucket__create_draft_pull_request` (or
-  `create_pull_request` outside Bonliva), whether called by `/bond:open-pr` or
-  by hand.
-- **Commands** — `/bond:open-pr`, and the Ship + PR step that `/bond:implement`
-  and `/bond-bonliva:fix-qa` run.
-
-Resolve the host from `git remote get-url origin` before building the call.
+Details: references/hosts.md — read when the host or the create call is in doubt.
 
 ## Drafts
 
@@ -60,12 +55,10 @@ it ready for review.
 
 ## Reviewers
 
-Apply the template's **Reviewers** section: resolve the reviewer list from
-`$HOME/.bond/pr-reviewers.json` first, then fall back to the host's own default
-reviewers (`mcp__bond-bitbucket__get_effective_default_reviewers` on Bitbucket,
-the repo's configured reviewers or `CODEOWNERS` on GitHub). Pass them as the
-`reviewers` array on a Bitbucket create call, or as `--reviewer` flags on `gh`.
-This applies to manual calls too, not just `/bond:open-pr`.
+Apply the template's **Reviewers** section rather than hand-picking names, on a
+manual call as much as on `/bond:open-pr`.
+
+Details: references/reviewers.md — read when building the reviewer list for a PR.
 
 ## No AI breadcrumbs
 
@@ -75,8 +68,7 @@ tool — the PR is owned by the human who opens it.
 
 ## This is enforced, not advisory
 
-`hooks/check-pr.mjs` runs as a `PreToolUse` hook on `gh pr create` and on the
-Bitbucket MCP create calls. It blocks a description missing `## Summary` or
-`## Test plan`, a ticket-bearing PR with no `## Jira` section, a non-draft
-create where `DRAFT` resolves, and `--fill`. `hooks/check-commit.mjs` separately blocks AI breadcrumbs
-in `gh pr …`. Fix the call rather than working around the hook.
+`hooks/check-pr.mjs` blocks a create call that breaks the template. Fix the call
+rather than working around the hook.
+
+Details: references/enforcement.md — read when a hook blocks a PR create call.
