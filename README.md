@@ -32,6 +32,7 @@ its commands or MCP tool listings:
 
 | Command                          | Purpose                                                                       |
 | -------------------------------- | ----------------------------------------------------------------------------- |
+| `/bond-bonliva:babysit-prs`      | Sweep every open PR you authored — review comments, red CI, stale branches   |
 | `/bond-bonliva:fix-qa`           | Re-run implementation against QA feedback — from a Jira ticket, or free text  |
 | `/bond-bonliva:log-plan`         | Generate a day/week/month time-log plan                                       |
 | `/bond-bonliva:projects`         | Manage the projects tracked by `log-plan` (add, remove, discover, clear)      |
@@ -341,7 +342,7 @@ bond/
 │   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond
-│   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
+│   ├── commands/           # babysit-prs, fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card
 │   ├── scripts/teams-post.sh
 │   ├── shared/             # symlinks into bond: project-profile, implement-flow, jira
