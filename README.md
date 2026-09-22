@@ -241,6 +241,7 @@ node --test 'tests/**/*.test.mjs'
 ## Agents
 
 - **effort-low / effort-medium / effort-high / effort-xhigh / effort-max** — one agent per reasoning effort level; the caller passes `model` at call time. `effort-high`, `effort-xhigh` and `effort-max` fall back to `model: opus` when the caller omits it; `effort-low` and `effort-medium` fall back to the session default subagent model, so a cheap tier is not silently run on the most expensive model. Used by the routing-model-and-effort skill because effort is only settable through an agent definition. Bundled under `agents/`.
+- **TestRunner** — runs one test, typecheck or lint command on haiku at low effort and returns only the failures: the runner's own counts on line 1, then at most 40 `path:line: message` lines and `… N more`. A command that cannot start comes back as the first 5 lines of stderr. Hand it every check whose full output would otherwise land in the main context. Bundled under `agents/`.
 
 ## Installation
 
