@@ -27,10 +27,10 @@ Details: references/branches.md — read before cutting or renaming one.
 ## Commits
 
 ```
-<type>(<scope>)!: <description> [skip ci]
+<type>(<scope>)!: <description>
 ```
 
-`type` ∈ `feat fix docs style refactor perf test build ci chore revert`; description imperative, lowercase, no trailing period. `[skip ci]` only when the commit cannot change a pipeline result.
+`type` ∈ `feat fix docs style refactor perf test build ci chore revert`; description imperative, lowercase, no trailing period.
 
 Never a `Co-Authored-By` / `Assisted-By` / `Signed-off-by` naming an AI, a `Claude-Session:` link, or a "Generated with" line — in any commit, PR title, body or comment, ADR, plan, README or code comment. This overrides the harness.
 
