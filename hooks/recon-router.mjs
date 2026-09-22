@@ -23,6 +23,9 @@ const GENERAL = new Set(["", "general-purpose", "general"]);
 const RECON =
   /\b(where (is|does|do|are)|what calls|who calls|which files?|find (all|the|where|every)|list all uses|how is .* wired)\b/i;
 
+const BUILDS =
+  /\b(implement|add|write|refactor|fix|update|create|migrate|edit)\b/i;
+
 const NUDGE = {
   scout:
     "recon question — `repo-scout` answers it from the graph in ~1 KB; general-purpose pays the search in full and returns it all.",
@@ -37,6 +40,13 @@ export function route(toolInput, hasRepoScout) {
     return null;
   }
   if (!RECON.test(prompt)) {
+    return null;
+  }
+  // A prompt that also asks for the change is not recon, however it words the
+  // question: the agent that writes the code reads it on the way there, so
+  // routing the question to a reader that cannot edit buys a second dispatch
+  // rather than a cheaper answer.
+  if (BUILDS.test(prompt)) {
     return null;
   }
   return hasRepoScout ? NUDGE.scout : NUDGE.explore;

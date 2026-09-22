@@ -66,6 +66,25 @@ describe("the prompts this reads as recon", () => {
     assert.equal(ask("how is the PR template wired into the hook?"), SCOUT);
   });
 
+  it("stays quiet on a prompt that asks for the change as well", () => {
+    const builds = [
+      "Implement the retry policy in the worker and find the tests that cover it.",
+      "Refactor UserService: split it into small named functions, and update which files import it.",
+      "Add a migration for the new column, then find all callers of createInvoice and update them.",
+      "Write a README section that explains how is the PR template wired into the hook.",
+    ];
+    for (const prompt of builds) {
+      assert.equal(ask(prompt), null, prompt);
+    }
+  });
+
+  it("still fires on a question that only asks where the code is", () => {
+    assert.equal(
+      ask("Where does the invoice total get rounded, and what calls it?"),
+      SCOUT,
+    );
+  });
+
   it("stays quiet on work that is not recon", () => {
     assert.equal(ask("implement the endpoint"), null);
     assert.equal(ask("rewrite the README hooks section"), null);
