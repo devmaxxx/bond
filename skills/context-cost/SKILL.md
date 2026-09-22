@@ -7,20 +7,13 @@ description: Use before a step that will put a large result into the conversatio
 
 ## Contract
 
-A turn re-reads the whole conversation. Every result that lands in it is paid for again on every turn after it, so the cost of a tool call is not its own output — it is that output multiplied by the turns that follow. Measured across one machine's full local history: cache reads were **97 % of raw tokens and 65 % of weighted cost**, against 17 % for everything the model generated. The bill is what the session carries, not what it thinks.
+A turn re-reads the whole conversation. Every result that lands in it is paid for again on every turn after it, so the cost of a tool call is not its own output — it is that output multiplied by the turns that follow. The bill is what the session carries, not what it thinks.
 
 This skill does not ask for less work. It asks for the same answer in the form that does not have to be carried.
 
 ## What things cost
 
-Measured over 30 days on one machine, 43.1M tokens of tool results:
-
-| Source                                    | Calls  | Tokens | Shape                                |
-| ----------------------------------------- | ------ | ------ | ------------------------------------ |
-| Screenshots (`computer`, `browser_batch`) | 1,239  | 14.4M  | **541 results over 10k tokens each** |
-| `Read`                                    | 977    | 8.4M   | 8.6k tokens per call on average      |
-| `Bash`                                    | 35,705 | 14.2M  | ~400 tokens per call, volume does it |
-| `take_screenshot` (chrome-devtools MCP)   | 21     | 1.5M   | **~70k tokens each**                 |
+Details: references/what-things-cost.md — read when weighing one shape of call against another.
 
 ## Rules
 
@@ -35,10 +28,4 @@ Measured over 30 days on one machine, 43.1M tokens of tool results:
 
 ## Red flags
 
-| Thought                                                  | Reality                                                                        |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| "Let me screenshot to see if that worked"                | Text tells you it worked. Reserve the image for what only an image shows.      |
-| "I'll read the whole file to be safe"                    | The lines you skipped cost nothing; the ones you carried cost every turn.      |
-| "Just this once, the full log"                           | Full logs are the most expensive thing a session can hold. Grep it.            |
-| "The context is already big, one more read won't matter" | A big context is exactly where one more read costs the most.                   |
-| "Clearing loses what I learned"                          | Say what you learned in the next prompt. That is a sentence, not a transcript. |
+Details: references/red-flags.md — read when a rule above is about to be argued around.
