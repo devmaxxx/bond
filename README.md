@@ -306,7 +306,7 @@ bond/
 │   └── shell.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond
-│   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
+│   ├── commands/           # babysit-prs, fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card
 │   ├── scripts/teams-post.sh
 │   ├── shared/             # symlinks into bond: project-profile, implement-flow, jira
