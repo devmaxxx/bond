@@ -14,99 +14,24 @@ description: >-
 # Woodpecker CI CLI
 
 `woodpecker-cli` talks to a Woodpecker CI server's API. Use it instead of
-scraping the web UI: it gives machine-readable pipeline state, step logs, and
-local config validation.
+scraping the web UI.
 
 ## Before anything: check what is installed
 
-Woodpecker renamed and reshuffled commands between v1 → v2 → v3. Flags in this
-skill are the stable core; **when a flag or subcommand is uncertain, run
-`--help` rather than guessing** — a wrong flag silently targets the wrong repo
-on some subcommands.
+The binary is `woodpecker` on older installs, `woodpecker-cli` on v2+; use
+whichever resolves. Commands moved between v1 → v2 → v3, so **run `--help`
+rather than guessing a flag** — a wrong one silently targets the wrong repo.
+Auth is `WOODPECKER_SERVER` plus `WOODPECKER_TOKEN`, already exported in a bond
+setup; `woodpecker-cli info` verifies it in one round-trip.
 
-```sh
-command -v woodpecker-cli || command -v woodpecker
-woodpecker-cli --version
-```
-
-Older installs expose the binary as `woodpecker`; v2+ ships it as
-`woodpecker-cli`. Use whichever resolves.
-
-If it is missing, install it:
-
-```sh
-brew install woodpecker-cli                                     # macOS
-go install go.woodpecker-ci.org/woodpecker/v3/cmd/cli@latest    # any platform
-```
-
-## Auth
-
-Two credentials, both required:
-
-| Variable | Value |
-| --- | --- |
-| `WOODPECKER_SERVER` | Server base URL, e.g. `https://ci.example.com` — no trailing slash, no `/api` suffix |
-| `WOODPECKER_TOKEN` | Personal access token from the server UI, under user settings / "CLI usage" |
-
-Resolution order, highest first:
-
-1. Explicit flags — `--server` / `-s`, `--token` / `-t`.
-2. Environment — `WOODPECKER_SERVER`, `WOODPECKER_TOKEN`.
-3. Config file — `~/.config/woodpecker/config.json`, written by
-   `woodpecker-cli login`.
-
-In a bond setup the two variables live in `~/.claude/settings.json` under `env`
-(written by `/bond-bonliva:setup-plugin`), so they are already exported for Bash tool
-calls. `woodpecker-cli login` is the interactive alternative — it opens a
-browser and persists the token to the config file, which survives outside
-Claude Code sessions.
-
-Verify auth with one call — it is the cheapest round-trip:
-
-```sh
-woodpecker-cli info
-```
-
-Failure to authenticate shows as `401`/`Unauthorized`, not as an empty list.
-Treat an empty `repo ls` as "token has no repo access", not as "no repos exist".
+Details: references/install-and-auth.md — read when the binary is missing or a call returns 401.
 
 ## Command map
 
-Repos are addressed by `owner/name` or by numeric **repo-id**. v3 tightened this:
-several subcommands take the id only. Get ids once with `repo ls`.
+Repos are addressed by `owner/name` or by numeric **repo-id** from `repo ls`;
+secrets, crons and registries take a scope flag.
 
-```sh
-woodpecker-cli repo ls                        # id, full name, activity state
-woodpecker-cli repo info <repo>               # config path, visibility, settings
-```
-
-Pipelines:
-
-```sh
-woodpecker-cli pipeline ls <repo>             # recent pipelines, newest first
-woodpecker-cli pipeline last <repo>           # latest pipeline on the default branch
-woodpecker-cli pipeline info <repo> <number>  # status, event, commit, per-step state
-woodpecker-cli pipeline logs <repo> <number>  # all step logs
-woodpecker-cli pipeline logs <repo> <number> <step>
-woodpecker-cli pipeline start <repo> <number> # restart an existing pipeline
-woodpecker-cli pipeline stop <repo> <number>
-woodpecker-cli pipeline approve <repo> <number>
-woodpecker-cli pipeline decline <repo> <number>
-woodpecker-cli pipeline create <repo> -b <branch>
-woodpecker-cli pipeline ps <repo>             # running steps
-woodpecker-cli pipeline queue                 # server-wide queue (admin)
-```
-
-Config-scoped resources — each takes a scope flag (`--repository`,
-`--organization`, or `--global`); **omitting the scope is the usual cause of
-"secret not found"**:
-
-```sh
-woodpecker-cli secret ls --repository <repo>
-woodpecker-cli secret add --repository <repo> --name <key> --value <val>
-woodpecker-cli cron ls --repository <repo>
-woodpecker-cli registry ls --repository <repo>
-```
+Details: references/command-map.md — read for the repo, pipeline, secret, cron and registry calls.
 
 ## Debugging a failed pipeline
 
@@ -120,36 +45,12 @@ of logs into context:
 4. Fix, push, and re-check — or `pipeline start <repo> <number>` to restart the
    same pipeline when the failure was infrastructure, not code.
 
-## Scripting
+## Scripting and the config file
 
-Most list/info commands accept output formatting. Prefer JSON over parsing the
-table:
+Prefer `--output json` over parsing the table, and `lint` a `.woodpecker.yaml`
+change locally before pushing it.
 
-```sh
-woodpecker-cli pipeline ls <repo> --output json
-woodpecker-cli repo ls --output json | jq -r '.[] | "\(.id)\t\(.full_name)"'
-```
-
-`--output-no-headers` strips the header row from table output when JSON is not
-supported by that subcommand.
-
-## Working on the config file itself
-
-The pipeline definition lives at `.woodpecker.yaml` or, split into workflows,
-under `.woodpecker/*.yaml`.
-
-```sh
-woodpecker-cli lint                    # validate config in the current repo
-woodpecker-cli lint .woodpecker/       # validate a specific path
-woodpecker-cli exec .woodpecker/build.yaml
-```
-
-`lint` catches schema errors and deprecated fields **without a server round-trip**
-— run it before pushing a config change rather than burning a CI run on a typo.
-
-`exec` runs a workflow locally against the Docker backend. It does **not** get
-the server's secrets, and its environment is not identical to the real agent —
-use it to iterate on step logic, not to certify that CI will pass.
+Details: references/config-and-scripting.md — read before scripting a call or linting a config.
 
 ## Rules
 
