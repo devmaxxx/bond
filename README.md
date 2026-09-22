@@ -179,6 +179,15 @@ Set `BOND_USER_NAME` to the name replies should open with; it falls back to
 `git config user.name`, and the greeting rule is dropped when neither resolves.
 The name is never committed — this repo is public.
 
+`shared/permissions-readonly.json` is a read-only allowlist — the git reads
+(`status`, `log`, `diff`, `show`, `branch`, `rev-parse`), `ls`, `wc`, `jq`,
+`head`, `tail`, `pnpm exec repograph`, `pnpm tasks report`, `pnpm tasks blockers`
+and `node --test`: the calls that look at a tree without changing it. A plugin
+cannot apply permissions, so bond cannot switch them on for you — copy the
+`permissions.allow` entries into a project's `.claude/settings.json` (or the
+uncommitted `.claude/settings.local.json`). Until then every one of those calls
+is approved by hand, one at a time.
+
 ## Project profile
 
 Commands are not Bonliva-only. `shared/project-profile.md` resolves, per repo,
@@ -235,7 +244,7 @@ node --test 'tests/**/*.test.mjs'
 - **authorship-conventions** — naming and attribution for every git artefact: Conventional Branch `<type>/<description>`, Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs — plus the rename trap: renaming a branch after its PR is open closes the PR. Bonliva repos keep the `<prefix>/<KEY>` branch shape bond imposes; everywhere else the spec wins. Backed by the `check-commit` / `check-doc` hooks. Triggers on `checkout -b`, "commit", "amend", "open a PR", "write the ADR/plan/README". Also decides which of the two `gh` accounts pushes — the active one is machine-global, so another session may have moved it since. Bundled under `skills/authorship-conventions/`.
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/high by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
-- **context-cost** — what a screenshot, a whole-file read or an unbounded command costs once the session carries it, and the cheaper form that answers the same question. Measured: cache reads are 65 % of weighted cost, and the 15 largest sessions on one machine carried 42 % of its usage.
+- **context-cost** — what a screenshot, a whole-file read or an unbounded command costs once the session carries it, and the cheaper form that answers the same question. Measured: cache reads are 65 % of weighted cost, and the 15 largest sessions on one machine carried 42 % of its usage. Bundled under `skills/context-cost/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
 
 ## Agents
@@ -270,7 +279,7 @@ bond/
 │   ├── plugin.json         # plugin manifest
 │   └── marketplace.json    # marketplace entry (single-plugin repo)
 ├── commands/               # slash commands
-├── skills/
+├── skills/                 # each SKILL.md ≤ 3 KB; the detail sits in <skill>/references/
 │   ├── readable-code-structure/  # small named functions, plain control flow, braces, one pass
 │   ├── comment-hygiene/    # comment the why, delete the what
 │   ├── testing-behavior/   # test the contract, not the implementation
@@ -281,15 +290,18 @@ bond/
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
 │   ├── context-cost/        # what a read/screenshot costs once the session carries it
+│   │   └── scripts/context-audit.py  # per-session tool-result bytes, compactions, results over 40 KB
 │   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
 │   ├── DocsExplorer.md     # look up official docs before using a third-party API
+│   ├── TestRunner.md       # run one check, return only the failures
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
-│   └── pr-template.md      # single source of truth for PR title + description
+│   ├── pr-template.md      # single source of truth for PR title + description
+│   └── permissions-readonly.json  # read-only allowlist to copy into a project
 ├── scripts/
 │   ├── disk-analyze.sh     # disk usage report behind /disk-analyze
 │   └── chrome-debug.sh     # fallback: debuggable Chrome LaunchAgent + its MCP
@@ -315,6 +327,8 @@ bond/
 │   ├── bash-budget.test.mjs
 │   ├── recon-router.test.mjs
 │   ├── node-guard.test.mjs
+│   ├── context-audit.test.mjs
+│   ├── skill-size.test.mjs
 │   └── shell.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond

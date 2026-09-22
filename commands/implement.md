@@ -79,7 +79,7 @@ Run these shared procedures in order:
 
 1. **Analyse the codebase** — `FOCUS` = the ticket descriptions and acceptance criteria.
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
-3. **Implement** then **Test** — `SCOPE` = the whole plan.
+3. **Implement** then **Test** — `SCOPE` = the whole plan — when the plan names three or more files, build through `superpowers:subagent-driven-development` (available when the superpowers plugin is installed; otherwise in-thread): the main thread keeps the plan and the verdicts, test output stays in the subagent.
 4. **Review and fix** — `/code-review` over the work at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
 5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**.
 
