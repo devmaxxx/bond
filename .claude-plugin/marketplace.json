@@ -9,13 +9,13 @@
       "name": "bond",
       "source": "./",
       "description": "Project-flexible dev workflow: implement, open/fix PRs, review routing, authorship and PR hooks",
-      "version": "0.33.0"
+      "version": "0.33.1"
     },
     {
       "name": "bond-bonliva",
       "source": "./plugins/bond-bonliva",
       "description": "Bonliva-only commands and MCP setup (time logs, Teams, Bitbucket reviewers); enable per Bonliva repo",
-      "version": "0.33.0"
+      "version": "0.33.1"
     }
   ]
 }
