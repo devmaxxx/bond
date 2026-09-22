@@ -180,6 +180,15 @@ Set `BOND_USER_NAME` to the name replies should open with; it falls back to
 `git config user.name`, and the greeting rule is dropped when neither resolves.
 The name is never committed — this repo is public.
 
+`shared/permissions-readonly.json` is a read-only allowlist — the git reads
+(`status`, `log`, `diff`, `show`, `branch`, `rev-parse`), `ls`, `wc`, `jq`,
+`head`, `tail`, `pnpm exec repograph`, `pnpm tasks report`, `pnpm tasks blockers`
+and `node --test`: the calls that look at a tree without changing it. A plugin
+cannot apply permissions, so bond cannot switch them on for you — copy the
+`permissions.allow` entries into a project's `.claude/settings.json` (or the
+uncommitted `.claude/settings.local.json`). Until then every one of those calls
+is approved by hand, one at a time.
+
 ## Project profile
 
 Commands are not Bonliva-only. `shared/project-profile.md` resolves, per repo,
@@ -207,15 +216,27 @@ Every command reads that profile rather than assuming a host or a tracker:
 ## Hooks
 
 - `SessionStart` runs `hooks/standing-rules.mjs`: the standing rules above. Registered with no matcher, so it fires on every start reason — startup, resume, clear, compact and fork alike. That is deliberate: rules that do not survive a compaction quietly stop applying halfway through a long session, and a matcher that failed to parse would drop them silently.
+- `SessionStart` and `UserPromptSubmit` run `hooks/branch-guard.mjs`: the branch the session opened on is recorded under `<tmp>/bond/<session_id>.branch`, and the first prompt submitted after the working tree has moved to another branch gets one line of context naming both branches and suggesting `/clear`. Once per recorded baseline — a session that carries two branches pays the first one on every turn of the second, but a reminder repeated every turn costs the tokens it is trying to save, so it is said once and re-armed by the next `SessionStart` (resume and compact reuse the session id, and the drift after one of those deserves a second word). A detached HEAD, a directory that is no git tree or an unwritable tmp means no nudge, never a blocked prompt. The rule is `decide` in that file, unit-tested in `tests/branch-guard.test.mjs`.
+- `SessionStart` runs `hooks/node-guard.mjs`: a tree that pins node in `.nvmrc` (or `.node-version`) gets one line of context when the shell its Bash calls land in runs another version — both versions and the `PATH="$(nvm which <pin> | xargs dirname):$PATH"` prefix every `pnpm`/`node` command then needs. Each Bash call is a fresh shell that does not carry nvm's PATH, so the prefix is per command rather than per session; met mid-session instead of at the start, the same fact costs a failed command per call (`ERR_UNKNOWN_FILE_EXTENSION` on every TypeScript entry point). A shorter pin covers the releases under it — `24` is satisfied by `24.16.0`, `24.1` is not — while an alias only nvm could resolve (`lts/*`) and a tree with neither file say nothing. nvm is never invoked: the line names the prefix, it does not run it. The rule is `check` in that file, unit-tested in `tests/node-guard.test.mjs`.
 - `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
 - `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill.
 - `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where one is required (`"draft"` in `.bond/project.json`, else a Bonliva repo: origin under `bonliva/`, a Bitbucket `workspace: bonliva`, or `.bonliva-dev/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
+- `PreToolUse` on `Bash` runs `hooks/bash-budget.mjs`: context only, never a decision — the command always runs. Ten calls in a row that each carry a single command get one line naming the three cheaper forms — chain the next ones with `&&` or `;`, issue them in one message, or hand the loop to a subagent; measured over thirty days in one repo, 6481 Bash calls averaging 1.6 KB of output, where the price is not that output but the whole conversation being re-read on every one of them. Four shapes whose output has no bound get one line naming the bounded form — `git log` without `-n`/`--oneline`, `cat` of one whole file, `ls -R` or `find` without `-maxdepth`, a test run without `--reporter`. At most one line per call and the batch nudge wins; the row is counted in `<tmp>/bond/<session_id>.bash-singles`, whose own mtime says whether the previous call came from a turn of its own — a counter written under a second ago means both calls were dispatched in one message, which is already the batching asked for, so that call does not lengthen the row. An unwritable tmp costs the batch nudge, never the call. Separators are read where the shell would run them, so `"a && b"` and a heredoc body carrying `&&` are each one command. The rule is `judge` in that file, unit-tested in `tests/bash-budget.test.mjs`.
+- `PreToolUse` on the subagent dispatch — `Agent`, or `Task` where the harness still names it that — runs `hooks/recon-router.mjs`: context only, never a decision — the agent is dispatched either way. A prompt handed to the unnamed or the general-purpose agent that asks where something lives, what or who calls it, which file holds it or how it is wired gets one line naming who answers it cheaply — `repo-scout` where the working tree has one under `.claude/agents/`, otherwise `Explore` with a breadth. The general-purpose agent pays that search in full and returns everything it read; the other two return the conclusion. A prompt that already names an agent has made the choice, and saying it again costs the tokens this is trying to save; so has a prompt that builds — one carrying `implement`, `add`, `write`, `refactor`, `fix`, `update`, `create`, `migrate` or `edit` as a word — since the agent that writes the code reads it on the way there. The rule is `route` in that file, unit-tested in `tests/recon-router.test.mjs`.
 
 ## Tests
 
 The hook rules are unit-tested with the Node test runner — no dependencies, no
-install step. Both matchers, the ticket-key rule and the standing-rules
-rendering are covered, and `check-commit.mjs` is driven end to end over stdin:
+install step. Covered: the two matchers the commit and PR hooks decide on —
+whether a command really runs `git commit` or `gh pr`, and whether a call really
+opens a pull request — along with the AI-signature patterns they share with
+`check-doc.mjs`; the ticket-key rule; the standing-rules rendering; and the four
+context hooks through their decision functions, `decide` (branch-guard), `judge`
+(bash-budget), `route` (recon-router) and `check` (node-guard), each with its
+wrapper driven over stdin as well. `context-audit.py` is run against the
+hand-sized transcript under `tests/fixtures/projects/`, every `SKILL.md` is held
+to its size limit and to the `references/` files it links, and `check-commit.mjs`
+is driven end to end over stdin:
 
 ```sh
 node --test 'tests/**/*.test.mjs'
@@ -232,12 +253,13 @@ node --test 'tests/**/*.test.mjs'
 - **authorship-conventions** — naming and attribution for every git artefact: Conventional Branch `<type>/<description>`, Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs — plus the rename trap: renaming a branch after its PR is open closes the PR. Bonliva repos keep the `<prefix>/<KEY>` branch shape bond imposes; everywhere else the spec wins. Backed by the `check-commit` / `check-doc` hooks. Triggers on `checkout -b`, "commit", "amend", "open a PR", "write the ADR/plan/README". Also decides which of the two `gh` accounts pushes — the active one is machine-global, so another session may have moved it since. Bundled under `skills/authorship-conventions/`.
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/high by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
-- **context-cost** — what a screenshot, a whole-file read or an unbounded command costs once the session carries it, and the cheaper form that answers the same question. Measured: cache reads are 65 % of weighted cost, and the 15 largest sessions on one machine carried 42 % of its usage.
+- **context-cost** — what a screenshot, a whole-file read or an unbounded command costs once the session carries it, and the cheaper form that answers the same question. Measured: cache reads are 65 % of weighted cost, and the 15 largest sessions on one machine carried 42 % of its usage. Bundled under `skills/context-cost/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
 
 ## Agents
 
 - **effort-low / effort-medium / effort-high / effort-xhigh / effort-max** — one agent per reasoning effort level; the caller passes `model` at call time. `effort-high`, `effort-xhigh` and `effort-max` fall back to `model: opus` when the caller omits it; `effort-low` and `effort-medium` fall back to the session default subagent model, so a cheap tier is not silently run on the most expensive model. Used by the routing-model-and-effort skill because effort is only settable through an agent definition. Bundled under `agents/`.
+- **TestRunner** — runs one test, typecheck or lint command on haiku at low effort and returns only the failures: the runner's own counts on line 1, then at most 40 `path:line: message` lines and `… N more`. A command that cannot start comes back as the first 5 lines of stderr. Hand it every check whose full output would otherwise land in the main context. Bundled under `agents/`.
 
 ## Installation
 
@@ -266,7 +288,7 @@ bond/
 │   ├── plugin.json         # plugin manifest
 │   └── marketplace.json    # marketplace entry (single-plugin repo)
 ├── commands/               # slash commands
-├── skills/
+├── skills/                 # each SKILL.md ≤ 3 KB; the detail sits in <skill>/references/
 │   ├── readable-code-structure/  # small named functions, plain control flow, braces, one pass
 │   ├── comment-hygiene/    # comment the why, delete the what
 │   ├── testing-behavior/   # test the contract, not the implementation
@@ -277,15 +299,18 @@ bond/
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
 │   ├── context-cost/        # what a read/screenshot costs once the session carries it
+│   │   └── scripts/context-audit.py  # per-session tool-result bytes, compactions, results over 40 KB
 │   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
 │   ├── DocsExplorer.md     # look up official docs before using a third-party API
+│   ├── TestRunner.md       # run one check, return only the failures
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
-│   └── pr-template.md      # single source of truth for PR title + description
+│   ├── pr-template.md      # single source of truth for PR title + description
+│   └── permissions-readonly.json  # read-only allowlist to copy into a project
 ├── scripts/
 │   ├── disk-analyze.sh     # disk usage report behind /disk-analyze
 │   └── chrome-debug.sh     # fallback: debuggable Chrome LaunchAgent + its MCP
@@ -295,6 +320,10 @@ bond/
 │   ├── shell.mjs           # is this command really *running* X?
 │   ├── standing-rules.mjs  # SessionStart: print the always-on rules
 │   ├── render-rules.mjs    # what the session actually reads
+│   ├── branch-guard.mjs    # SessionStart + UserPromptSubmit: the branch moved under this session
+│   ├── bash-budget.mjs     # PreToolUse: a row of one-command calls, output with no bound
+│   ├── recon-router.mjs    # PreToolUse: who answers a "where is X" prompt cheaply
+│   ├── node-guard.mjs      # SessionStart: the shell node is not the version .nvmrc pins
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
@@ -303,7 +332,14 @@ bond/
 ├── tests/
 │   ├── pr-template.test.mjs  # node --test 'tests/**/*.test.mjs'
 │   ├── render-rules.test.mjs
-│   └── shell.test.mjs
+│   ├── branch-guard.test.mjs
+│   ├── bash-budget.test.mjs
+│   ├── recon-router.test.mjs
+│   ├── node-guard.test.mjs
+│   ├── context-audit.test.mjs
+│   ├── skill-size.test.mjs
+│   ├── shell.test.mjs
+│   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond
 │   ├── commands/           # babysit-prs, fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
