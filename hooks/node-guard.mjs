@@ -88,7 +88,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // main() returns quietly on the failures it anticipates; this is for the
     // ones it does not. An uncaught throw exits nonzero and the session reports
     // a hook error, and a nudge that cannot be made is worth no more noise than
-    // silence.
-    process.exit(0);
+    // silence. Falling off the end exits 0 once stdout has drained; an explicit
+    // exit here could cut a write mid-flush.
   }
 }

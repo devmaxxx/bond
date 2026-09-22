@@ -4,8 +4,9 @@
  * and silence otherwise. Measured over thirty days in one repo: 6481 Bash
  * calls averaging 1.6 KB of output. The output is not the price; re-reading
  * the whole conversation on every one of those calls is. So a row of ten calls
- * that each carry a single command is worth one word about chaining them, and
- * a call whose output has no bound is worth one word about bounding it.
+ * that each carry a single command is worth one word about chaining them or
+ * issuing them in one message, and a call whose output has no bound is worth
+ * one word about bounding it.
  *
  * Nothing here decides anything: the command runs either way. Any failure
  * exits 0 with nothing printed — a missed nudge is a slightly worse session, a
@@ -255,7 +256,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // main() returns quietly on the failures it anticipates; this is for the
     // ones it does not. An uncaught throw exits nonzero and the session reports
     // a hook error, and a nudge that cannot be made is worth no more noise than
-    // silence.
-    process.exit(0);
+    // silence. Falling off the end exits 0 once stdout has drained; an explicit
+    // exit here could cut a write mid-flush.
   }
 }
