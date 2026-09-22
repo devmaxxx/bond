@@ -7,8 +7,9 @@ description: >-
   is long, deeply nested, or does several unrelated things, and proactively when
   you spot awkward idioms — a `while (await repo.exists(...))` / loop-with-a-query
   to find a free value, a query inside a loop body (N+1), nested ternaries, a
-  boolean "flag" parameter that splits a function in two, arrow-of-arrows, or a
-  comment that exists only to explain the next block. Also covers the two
+  boolean "flag" parameter that splits a function in two, a stacked fallback that
+  mixes `??` with a ternary, arrow-of-arrows, or a comment that exists only to
+  explain the next block. Also covers the two
   mechanical rules that share this trigger exactly: brace every control-statement
   body, even a one-line guard (`if (!ok) return;`), and collapse repeated passes
   over one collection (two `.reduce()` over the same array, a `.filter().map()`
@@ -194,6 +195,52 @@ const label = STATUS_LABELS[s] ?? 'Unknown';
 ```
 
 A flat lookup reads at a glance and is exhaustively typed; chained `?:` does not.
+
+### Stacked fallbacks → a named function
+
+One `??` is a default and reads fine. A chain that mixes `??` with a ternary is a
+decision, and a decision written inside an object literal has nowhere to put its
+name or its reason — the reader holds three branches and their precedence in
+their head while working out which parens bind what.
+
+Input:
+
+```ts
+return {
+  ...base,
+  // A create that failed left no item behind, so a previous id is stale.
+  webflowItemId:
+    outcome.itemId ?? (outcome.action === 'create' ? null : (previous?.itemId ?? null)),
+  status: PushStatus.Failed,
+};
+```
+
+Output — the branches become guard clauses, in the order they are decided:
+
+```ts
+function itemIdAfterFailure(previous: PushState | null, outcome: PushOutcome): string | null {
+  if (outcome.itemId !== null) {
+    return outcome.itemId;
+  }
+  // A create is only planned when the collection holds no item under the slug,
+  // and a create that failed left none behind — so an id still on the row is
+  // stale, and keeping it would link at a page the site does not serve.
+  if (outcome.action === 'create') {
+    return null;
+  }
+  return previous?.itemId ?? null;
+}
+
+return { ...base, itemId: itemIdAfterFailure(previous, outcome), status: PushStatus.Failed };
+```
+
+The literal now reads as fields, the rule reads as a rule, and each branch has
+room for the one comment that explains it. The same move applies to an `&&`/`||`
+chain that encodes a rule, and to a ternary whose arms are themselves computed.
+
+**Where the line is:** a single fallback (`name ?? "unknown"`), a null-coalesce
+over one optional chain, or one ternary over one condition stays inline. Extract
+at the second operator, or as soon as the expression needs a comment to be read.
 
 ### Boolean flag parameter → two functions
 
