@@ -211,6 +211,7 @@ Every command reads that profile rather than assuming a host or a tracker:
 - `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill.
 - `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where one is required (`"draft"` in `.bond/project.json`, else a Bonliva repo: origin under `bonliva/`, a Bitbucket `workspace: bonliva`, or `.bonliva-dev/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
 - `PreToolUse` on `Bash` runs `hooks/bash-budget.mjs`: context only, never a decision — the command always runs. Ten calls in a row that each carry a single command get one line about chaining the next ones with `&&` or handing the loop to a subagent; measured over thirty days in one repo, 6481 Bash calls averaging 1.6 KB of output, where the price is not that output but the whole conversation being re-read on every one of them. Four shapes whose output has no bound get one line naming the bounded form — `git log` without `-n`/`--oneline`, `cat` of one whole file, `ls -R` or `find` without `-maxdepth`, a test run without `--reporter`. At most one line per call and the batch nudge wins; the row is counted in `<tmp>/bond/<session_id>.bash-singles`, and an unwritable tmp costs the batch nudge, never the call. Separators are read where the shell would run them, so `"a && b"` and a heredoc body carrying `&&` are each one command. The rule is `judge` in that file, unit-tested in `tests/bash-budget.test.mjs`.
+- `PreToolUse` on `Agent` runs `hooks/recon-router.mjs`: context only, never a decision — the agent is dispatched either way. A prompt handed to the unnamed or the general-purpose agent that asks where something lives, what or who calls it, which file holds it or how it is wired gets one line naming who answers it cheaply — `repo-scout` where the working tree has one under `.claude/agents/`, otherwise `Explore` with a breadth. The general-purpose agent pays that search in full and returns everything it read; the other two return the conclusion. A prompt that already names an agent has made the choice, and saying it again costs the tokens this is trying to save. The rule is `route` in that file, unit-tested in `tests/recon-router.test.mjs`.
 
 ## Tests
 
@@ -298,6 +299,7 @@ bond/
 │   ├── render-rules.mjs    # what the session actually reads
 │   ├── branch-guard.mjs    # SessionStart + UserPromptSubmit: the branch moved under this session
 │   ├── bash-budget.mjs     # PreToolUse: a row of one-command calls, output with no bound
+│   ├── recon-router.mjs    # PreToolUse: who answers a "where is X" prompt cheaply
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
@@ -308,6 +310,7 @@ bond/
 │   ├── render-rules.test.mjs
 │   ├── branch-guard.test.mjs
 │   ├── bash-budget.test.mjs
+│   ├── recon-router.test.mjs
 │   └── shell.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond
