@@ -152,6 +152,15 @@ describe("the hook around the routing", () => {
     }
   });
 
+  it("exits 0 on a payload that main() cannot handle", () => {
+    // A cwd that is no string makes the path join throw outside every try in
+    // main(); execFileSync rejects a nonzero exit, so this is the outer guard.
+    assert.equal(
+      run({ subagent_type: "general-purpose", prompt: "where is X?" }, 123),
+      "",
+    );
+  });
+
   it("prints nothing when there is nothing to say", () => {
     const root = workspace(true);
     try {

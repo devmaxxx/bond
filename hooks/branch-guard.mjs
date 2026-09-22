@@ -160,5 +160,13 @@ function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  try {
+    main();
+  } catch {
+    // main() returns quietly on the failures it anticipates; this is for the
+    // ones it does not. An uncaught throw exits nonzero and the session reports
+    // a hook error, and a nudge that cannot be made is worth no more noise than
+    // silence.
+    process.exit(0);
+  }
 }
