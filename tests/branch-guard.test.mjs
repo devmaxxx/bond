@@ -3,6 +3,28 @@ import { describe, it } from "node:test";
 
 import { decide } from "../hooks/branch-guard.mjs";
 
+/**
+ * Threads each decision back into the next one, the way the wrapper's state
+ * files do, so a sequence of events plays against the real contract.
+ */
+function session() {
+  let recorded = null;
+  let nudged = false;
+  return function turn(event, current) {
+    const out = decide({ event, recorded, current, nudged });
+    if (out.record !== null) {
+      recorded = out.record;
+    }
+    if (out.resetNudged) {
+      nudged = false;
+    }
+    if (out.markNudged) {
+      nudged = true;
+    }
+    return out.message;
+  };
+}
+
 describe("recording the branch a session started on", () => {
   it("records the branch the session opened in", () => {
     const out = decide({
@@ -25,6 +47,17 @@ describe("recording the branch a session started on", () => {
     });
     assert.equal(out.record, null);
     assert.equal(out.message, null);
+  });
+
+  it("clears an earlier nudge when it records a new baseline", () => {
+    const out = decide({
+      event: "SessionStart",
+      recorded: "feat/a",
+      current: "feat/b",
+      nudged: true,
+    });
+    assert.equal(out.record, "feat/b");
+    assert.equal(out.resetNudged, true);
   });
 });
 
@@ -52,6 +85,7 @@ describe("nudging when the branch moves under a session", () => {
     assert.match(out.message, /\/clear/);
     assert.equal(out.markNudged, true);
     assert.equal(out.record, null);
+    assert.equal(out.resetNudged, false);
   });
 
   it("stays quiet once the session has been nudged", () => {
@@ -87,5 +121,31 @@ describe("nudging when the branch moves under a session", () => {
     });
     assert.equal(out.message, null);
     assert.equal(out.markNudged, false);
+  });
+});
+
+describe("a session that starts again mid-flight", () => {
+  it("nudges once per baseline, and again after a new start moves it", () => {
+    // resume and compact reuse the session id, so without a re-arm the second
+    // drift of a long session would go unmentioned.
+    const turn = session();
+    turn("SessionStart", "feat/a");
+    assert.match(turn("UserPromptSubmit", "feat/b"), /feat\/a/);
+    assert.equal(turn("UserPromptSubmit", "feat/b"), null);
+
+    turn("SessionStart", "feat/b");
+    assert.equal(turn("UserPromptSubmit", "feat/b"), null);
+
+    const second = turn("UserPromptSubmit", "feat/c");
+    assert.match(second, /feat\/b/);
+    assert.match(second, /feat\/c/);
+  });
+
+  it("keeps quiet across a start that does not move the baseline", () => {
+    const turn = session();
+    turn("SessionStart", "feat/a");
+    assert.equal(turn("UserPromptSubmit", "feat/a"), null);
+    turn("SessionStart", "feat/a");
+    assert.equal(turn("UserPromptSubmit", "feat/a"), null);
   });
 });

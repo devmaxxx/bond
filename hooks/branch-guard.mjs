@@ -14,11 +14,22 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-const NOTHING = { message: null, record: null, markNudged: false };
+const NOTHING = {
+  message: null,
+  record: null,
+  markNudged: false,
+  resetNudged: false,
+};
 
 /**
  * `current` is null for a detached HEAD or a directory that is not a git tree:
@@ -29,7 +40,15 @@ export function decide({ event, recorded, current, nudged }) {
     return NOTHING;
   }
   if (event === "SessionStart") {
-    return { message: null, record: current, markNudged: false };
+    // A start re-arms the nudge along with the baseline it records: resume and
+    // compact reuse the session id, so a session nudged before a compaction
+    // would otherwise never mention its next drift.
+    return {
+      message: null,
+      record: current,
+      markNudged: false,
+      resetNudged: true,
+    };
   }
   // No record means the session started before this hook could write one, or
   // tmp is unwritable — either way "the branch moved" cannot be established.
@@ -40,6 +59,7 @@ export function decide({ event, recorded, current, nudged }) {
     message: `branch changed since this session started (${recorded} → ${current}) — /clear and reopen in that worktree: a session that carries two branches pays the first one on every turn of the second.`,
     record: null,
     markNudged: true,
+    resetNudged: false,
   };
 }
 
@@ -81,6 +101,15 @@ function write(path, text) {
   }
 }
 
+function remove(path) {
+  try {
+    rmSync(path, { force: true });
+  } catch {
+    // The marker outlives the start that meant to clear it; the session keeps
+    // the nudge it already had rather than losing the prompt.
+  }
+}
+
 function main() {
   let payload;
   try {
@@ -95,15 +124,23 @@ function main() {
 
   const state = join(tmpdir(), "bond", `${session}.branch`);
   const nudgedAt = `${state}.nudged`;
-  const { message, record, markNudged } = decide({
+  const { message, record, markNudged, resetNudged } = decide({
     event: payload.hook_event_name,
     recorded: read(state),
     current: currentBranch(payload.cwd ?? process.cwd()),
     nudged: existsSync(nudgedAt),
   });
 
+  // The two state files degrade in opposite directions, and that is deliberate.
+  // A baseline that cannot be written leaves nothing to compare a later branch
+  // against, so the session stays silent rather than guessing. The marker below
+  // is the half that degrades to saying it every time: if it cannot be written,
+  // every drifted turn nudges again, which is noisy but never wrong.
   if (record !== null) {
     write(state, `${record}\n`);
+  }
+  if (resetNudged) {
+    remove(nudgedAt);
   }
   if (markNudged) {
     write(nudgedAt, "");
