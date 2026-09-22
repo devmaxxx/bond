@@ -31,16 +31,14 @@ Start at `high`; drop a row only when every predicate of it holds. An xhigh or m
 | medium (all) | files ≤ 5 · modules=1 · spec complete · test present, or the types judge it |
 | low (all) | one file · target named literally · end state stated |
 
-Thresholds are the table's: 20 and 5. Plan runs at the task's tier; build one lower when the plan names every file and its edit.
+Plan runs at the task's tier; build one lower when the plan names every file and its edit.
 
 ## Procedure
 
 1. Record what the user named, read the session pair, scan, emit the card.
 2. Phases: plan when the spec is incomplete, designs=2+ or a predicate fired; build when a file is written.
-3. A predicate fired ⇒ one `AskUserQuestion` right after the scan, quoting the fields that fired; one per task. Options: the card's pair first, marked `(Recommended)`; `opus`/`high` always; `fable` to plan when its predicate fired.
+3. A predicate fired ⇒ one `AskUserQuestion` right after the scan, quoting the fields that fired; one per task. Options: the card's pair first, marked `(Recommended)`; `opus`/`high` always; `fable` to plan when its predicate fired. Each option says, from a card field, what the pair catches and what it costs.
 4. Emit before any other tool call: `route: tier=<t> (<card fields that fired, or "default">) plan=<model>/<tier> build=<model>/<tier> → <here|spawn>`.
 5. Only a phase marked `spawn` spawns, the card in its prompt; while it runs the session edits nothing. Shape change ⇒ route the remainder again.
 
-Details: references/asking-and-procedure.md — read for the full steps, the example and the option wording.
-
-Details: references/audit-and-excuses.md — read before moving a threshold.
+Details: references/asking-and-procedure.md (full steps, example, option wording) · references/audit-and-excuses.md (before moving a threshold).
