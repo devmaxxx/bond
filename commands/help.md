@@ -28,6 +28,7 @@ Then output this second table verbatim — these need `bond-bonliva@devmaxxx` en
 
 | Command | Purpose |
 | --- | --- |
+| `/bond-bonliva:babysit-prs`    | Sweep every open PR you authored — review comments, red CI, stale branches — fix and report     |
 | `/bond-bonliva:fix-qa`         | Re-run implementation against QA feedback — from a Jira ticket, or given as free text           |
 | `/bond-bonliva:log-plan`       | Generate a day/week/month time-log plan                                                         |
 | `/bond-bonliva:publish-timelog`| Publish an existing time-log md to Jira + Clockify (1 entry/day) and reconcile the totals        |

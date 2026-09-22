@@ -32,6 +32,7 @@ its commands or MCP tool listings:
 
 | Command                          | Purpose                                                                       |
 | -------------------------------- | ----------------------------------------------------------------------------- |
+| `/bond-bonliva:babysit-prs`      | Sweep every open PR you authored — review comments, red CI, stale branches   |
 | `/bond-bonliva:fix-qa`           | Re-run implementation against QA feedback — from a Jira ticket, or free text  |
 | `/bond-bonliva:log-plan`         | Generate a day/week/month time-log plan                                       |
 | `/bond-bonliva:projects`         | Manage the projects tracked by `log-plan` (add, remove, discover, clear)      |
