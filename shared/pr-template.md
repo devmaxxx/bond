@@ -9,8 +9,9 @@
 
 The shape below is not a suggestion: `hooks/check-pr.mjs` blocks a create call
 whose description is missing `## Summary` or `## Test plan`, one that carries a
-ticket id with no `## Jira` section, and — where the profile resolves `DRAFT` —
-one that is not a draft.
+ticket id with no `## Jira` section, one whose **title** does not open with the
+ticket ids its branch carries (or that reads as a commit subject when there is
+no ticket), and — where the profile resolves `DRAFT` — one that is not a draft.
 
 ## Inputs
 
@@ -26,11 +27,25 @@ Set these before building the title/description:
   the project profile resolves `TRACKER=none`, which is every repo outside
   Bonliva unless `.bond/project.json` says otherwise.
 
+  **Match the key case-insensitively and write it uppercase.** Conventional
+  Branch names are lowercase, so the ticket on the branch is `erp-1155` while
+  the key everywhere else is `ERP-1155`. Reading the branch case-sensitively
+  finds no ticket at all — which is how a sweep of PRs once opened with a commit
+  subject for a title and no `## Jira` section.
+
 ## Title
 
 `<TICKET_IDs>: <short description from commits>`
 
+Multiple tickets are joined with `, ` in branch order: `ERP-135, ERP-136: ...`.
 If no ticket IDs were found, drop the prefix and use just the short description.
+
+**A PR title is not a commit subject.** Never open it with a Conventional
+Commits prefix — `perf(accommodations): stop making every save wait` is the
+commit's shape, and on a PR it hides the ticket the branch is named after. Write
+`ERP-1155: stop making every save wait for the alert reconcile` instead. The
+description belongs to the PR as a whole, so it is written from the branch, not
+copied off the last commit.
 
 ## Description
 

@@ -54,6 +54,10 @@ const BODY_WITH_JIRA = [
   "",
 ].join("\n");
 
+const titleMissing = (tickets) =>
+  `title must open with \`${tickets}:\` — the branch carries ${tickets.split(", ").join(", ")}`;
+const COMMIT_SUBJECT_TITLE =
+  "title is a commit subject — a PR title reads `<TICKET_IDs>: <description>`, or just the description when there is no ticket";
 const JIRA_MISSING =
   "a ticket id is in play but the description has no `## Jira` section";
 const NOT_DRAFT =
@@ -63,7 +67,7 @@ const NOT_DRAFT_MCP =
 const PERSONAL = { requireDraft: (target) => target ?? false };
 
 /** A well-formed create call; `extra` adds the flags under test. */
-function create(extra = "", body = GOOD_BODY, title = "chore: tidy the export") {
+function create(extra = "", body = GOOD_BODY, title = "tidy the export") {
   return `gh pr create --draft --base main --title "${title}" ${extra} --body "${body}"`;
 }
 
@@ -134,7 +138,7 @@ describe("recognising a pull request creation", () => {
 
   it("catches an invocation chained onto the heredoc's own header line", () => {
     const cmd = [
-      `cat > /tmp/body.md <<'EOF' && gh pr create --title "chore: tidy"`,
+      `cat > /tmp/body.md <<'EOF' && gh pr create --title "tidy the export"`,
       "## Summary",
       "EOF",
     ].join("\n");
@@ -149,14 +153,14 @@ describe("recognising a pull request creation", () => {
 describe("the template's own protections", () => {
   it("blocks a create call that is not a draft", () => {
     const errors = checkBash(
-      `gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`,
+      `gh pr create --title "tidy the export" --body "${GOOD_BODY}"`,
     );
     assert.deepEqual(errors, [NOT_DRAFT]);
   });
 
   it("lets a non-draft through outside Bonliva", () => {
     const errors = checkBash(
-      `gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`,
+      `gh pr create --title "tidy the export" --body "${GOOD_BODY}"`,
       PERSONAL,
     );
     assert.deepEqual(errors, []);
@@ -165,21 +169,21 @@ describe("the template's own protections", () => {
   it("still demands the template outside Bonliva", () => {
     const body = ["## Summary", "", "- tidied it", ""].join("\n");
     assert.deepEqual(
-      checkBash(`gh pr create --title "chore: tidy" --body "${body}"`, PERSONAL),
+      checkBash(`gh pr create --title "tidy the export" --body "${body}"`, PERSONAL),
       ["description is missing its `## Test plan` section"],
     );
   });
 
   it("takes Bonliva from --repo over the checkout's remote", () => {
-    const personalTarget = `gh pr create --repo devmaxxx/repograph --title "chore: tidy" --body "${GOOD_BODY}"`;
+    const personalTarget = `gh pr create --repo devmaxxx/repograph --title "tidy the export" --body "${GOOD_BODY}"`;
     assert.deepEqual(checkBash(personalTarget), []);
-    const bonlivaTarget = `gh pr create -R Bonliva/bonliva-erp --title "chore: tidy" --body "${GOOD_BODY}"`;
+    const bonlivaTarget = `gh pr create -R Bonliva/bonliva-erp --title "tidy the export" --body "${GOOD_BODY}"`;
     assert.deepEqual(checkBash(bonlivaTarget, PERSONAL), [NOT_DRAFT]);
   });
 
   it("resolves drafts in the directory a leading cd moves into", () => {
     const seen = [];
-    const cmd = `cd ~/bonliva-erp && gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`;
+    const cmd = `cd ~/bonliva-erp && gh pr create --title "tidy the export" --body "${GOOD_BODY}"`;
     checkBash(cmd, { requireDraft: (target, dir) => (seen.push(dir), false) });
     assert.deepEqual(seen, ["~/bonliva-erp"]);
   });
@@ -358,6 +362,7 @@ describe("requiring the `## Jira` section", () => {
 
   it("demands it when the head branch carries a ticket id", () => {
     assert.deepEqual(checkBash(create("--head feat/CRMDEV-6335")), [
+      titleMissing("CRMDEV-6335"),
       JIRA_MISSING,
     ]);
   });
@@ -384,7 +389,7 @@ describe("requiring the `## Jira` section", () => {
 describe("the Bitbucket MCP path", () => {
   it("blocks the non-draft create call outright", () => {
     const errors = checkMcp(
-      { title: "chore: tidy", description: BODY_WITH_JIRA },
+      { title: "tidy the export", description: BODY_WITH_JIRA },
       "mcp__bond-bitbucket__create_pull_request",
     );
     assert.deepEqual(errors, [NOT_DRAFT_MCP]);
@@ -392,7 +397,7 @@ describe("the Bitbucket MCP path", () => {
 
   it("allows the non-draft create call outside the bonliva workspace", () => {
     const errors = checkMcp(
-      { workspace: "devmaxxx", title: "chore: tidy", description: GOOD_BODY },
+      { workspace: "devmaxxx", title: "tidy the export", description: GOOD_BODY },
       "mcp__bond-bitbucket__create_pull_request",
     );
     assert.deepEqual(errors, []);
@@ -400,7 +405,7 @@ describe("the Bitbucket MCP path", () => {
 
   it("takes Bonliva from the workspace over the checkout's remote", () => {
     const errors = checkMcp(
-      { workspace: "bonliva", title: "chore: tidy", description: GOOD_BODY },
+      { workspace: "bonliva", title: "tidy the export", description: GOOD_BODY },
       "mcp__bond-bitbucket__create_pull_request",
       PERSONAL,
     );
@@ -428,18 +433,69 @@ describe("the Bitbucket MCP path", () => {
       },
       "mcp__bond-bitbucket__create_draft_pull_request",
     );
-    assert.deepEqual(errors, [JIRA_MISSING]);
+    assert.deepEqual(errors, [titleMissing("ERP-135"), JIRA_MISSING]);
   });
 
   it("does not demand it for an encoding name in the description", () => {
     const errors = checkMcp(
       {
-        title: "chore: write the export as UTF-8",
+        title: "write the export as UTF-8",
         source_branch: "chore/export-encoding",
         description: GOOD_BODY,
       },
       "mcp__bond-bitbucket__create_draft_pull_request",
     );
     assert.deepEqual(errors, []);
+  });
+});
+
+describe("the PR title", () => {
+  it("demands the branch's ticket ids as the prefix", () => {
+    const cmd = create(
+      "--head fix/erp-1155-alert-refresh",
+      BODY_WITH_JIRA,
+      "perf(accommodations): stop the alert reconcile",
+    );
+    assert.deepEqual(checkBash(cmd), [titleMissing("ERP-1155")]);
+  });
+
+  it("reads a lowercase branch key as the uppercase ticket", () => {
+    const cmd = create(
+      "--head fix/erp-1155-alert-refresh",
+      BODY_WITH_JIRA,
+      "ERP-1155: stop the alert reconcile",
+    );
+    assert.deepEqual(checkBash(cmd), []);
+  });
+
+  it("joins a multi-ticket branch with a comma", () => {
+    const cmd = create(
+      "--head feat/ERP-1169_ERP-923",
+      BODY_WITH_JIRA,
+      "ERP-1169, ERP-923: keep the shift type on save",
+    );
+    assert.deepEqual(checkBash(cmd), []);
+  });
+
+  it("rejects a commit subject when the branch carries no ticket", () => {
+    const cmd = create("--head chore/slim-the-docs", GOOD_BODY, "chore: slim the docs");
+    assert.deepEqual(checkBash(cmd), [COMMIT_SUBJECT_TITLE]);
+  });
+
+  it("accepts a bare description when the branch carries no ticket", () => {
+    const cmd = create("--head chore/slim-the-docs", GOOD_BODY, "slim the docs");
+    assert.deepEqual(checkBash(cmd), []);
+  });
+
+  it("checks the title on the Bitbucket path too", () => {
+    const errors = checkMcp(
+      {
+        title: "fix(export): tidy the export",
+        source_branch: "fix/erp-135-export",
+        description: BODY_WITH_JIRA,
+      },
+      "mcp__bond-bitbucket__create_draft_pull_request",
+    );
+    assert.deepEqual(errors, [titleMissing("ERP-135")]);
   });
 });

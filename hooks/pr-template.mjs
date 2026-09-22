@@ -19,6 +19,8 @@ const BONLIVA_REPO_FLAG = /^(?:(?:https?:\/\/)?[^/]+\/)?bonliva\//i;
 const WEB = /(?:^|\s)(?:-w|--web)(?:\s|$)/;
 const FILL = /(?:^|\s)--fill(?:-first|-verbose)?(?:\s|$)/;
 const DRAFT = /(?:^|\s)(?:-d|--draft)(?:\s|=|$)/;
+const CONVENTIONAL_SUBJECT =
+  /^(?:feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\([^)]*\))?!?:\s/i;
 
 /**
  * Project keys, not a generic `[A-Z]+-\d+`: that shape also spells UTF-8,
@@ -94,8 +96,52 @@ export function isBonlivaRepo(cwd, root = gitOutput(cwd, "rev-parse", "--show-to
  * the `ERP` tail of a longer word.
  */
 export function hasTicket(text) {
+  return extractTickets(text).length > 0;
+}
+
+/**
+ * Every ticket id in `text`, uppercased and in order of appearance. Matching is
+ * case-insensitive because Conventional Branch names are lowercase
+ * (`fix/erp-1155-...`) while the keys are written upppercase everywhere else —
+ * reading the branch case-sensitively found no ticket at all and let a whole
+ * sweep of PRs open with a commit subject for a title.
+ */
+export function extractTickets(text) {
+  if (typeof text !== "string") {
+    return [];
+  }
   const keys = jiraProjects().join("|");
-  return new RegExp(`(?<![A-Za-z0-9])(?:${keys})-\\d+(?![0-9])`).test(text);
+  const pattern = new RegExp(`(?<![A-Za-z0-9])(?:${keys})-\\d+(?![0-9])`, "gi");
+  return [...new Set((text.match(pattern) ?? []).map((id) => id.toUpperCase()))];
+}
+
+/**
+ * The PR title is `<TICKET_IDs>: <description>`, or the bare description when
+ * the branch carries no ticket. A commit subject (`fix(scope): ...`) is the one
+ * shape worth naming: it is what an agent reaches for when it builds the title
+ * out of the commits instead of out of the template.
+ */
+export function titleProblems(title, branch) {
+  if (typeof title !== "string" || title.trim() === "") {
+    return [];
+  }
+  const tickets = extractTickets(branch);
+  if (tickets.length > 0) {
+    const expected = `${tickets.join(", ")}: `;
+    return title.startsWith(expected)
+      ? []
+      : [`title must open with \`${expected.trim()}\` — the branch carries ${tickets.join(", ")}`];
+  }
+  return CONVENTIONAL_SUBJECT.test(title)
+    ? [
+        "title is a commit subject — a PR title reads `<TICKET_IDs>: <description>`, or just the description when there is no ticket",
+      ]
+    : [];
+}
+
+/** The branch `gh pr create` would open from when no --head names one. */
+export function currentBranch(cwd) {
+  return gitOutput(cwd, "rev-parse", "--abbrev-ref", "HEAD");
 }
 
 /**
@@ -145,7 +191,13 @@ export function isGhPrCreate(scrubbed) {
  * on every Bash call. It receives the PR's explicit target — true/false when
  * `--repo` names one, null otherwise — and the `cd` target, if any.
  */
-export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {}) {
+export function checkBash(
+  cmd,
+  {
+    requireDraft = (target) => target ?? true,
+    headBranch = (dir) => currentBranch(dir ?? process.cwd()),
+  } = {},
+) {
   const scrubbed = scrubShell(cmd);
   if (!isGhPrCreate(scrubbed)) {
     return null;
@@ -171,16 +223,20 @@ export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {
     }
   }
 
+  const title = flagValue(cmd, "-t|--title");
+  problems.push(
+    ...titleProblems(
+      title,
+      flagValue(cmd, "-H|--head") ?? headBranch(cdTarget(cmd)) ?? "",
+    ),
+  );
+
   const body = bodyFromCommand(cmd);
   if (body === null) {
     return problems.length > 0 ? problems : null;
   }
   // Flag values come from the raw command: scrubbing deleted their quoted text.
-  const haystack = [
-    flagValue(cmd, "-t|--title"),
-    flagValue(cmd, "-H|--head"),
-    body,
-  ]
+  const haystack = [title, flagValue(cmd, "-H|--head"), body]
     .filter((value) => value !== null)
     .join("\n");
   return [...problems, ...missingSections(body, haystack)];
@@ -202,14 +258,15 @@ export function checkMcp(
       ];
     }
   }
+  const titleErrors = titleProblems(input.title, input.source_branch ?? "");
   const body = typeof input.description === "string" ? input.description : null;
   if (body === null) {
-    return null;
+    return titleErrors.length > 0 ? titleErrors : null;
   }
   const haystack = [input.title, input.source_branch, body]
     .filter((value) => typeof value === "string")
     .join("\n");
-  return missingSections(body, haystack);
+  return [...titleErrors, ...missingSections(body, haystack)];
 }
 
 /**
