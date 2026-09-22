@@ -226,8 +226,16 @@ Every command reads that profile rather than assuming a host or a tracker:
 ## Tests
 
 The hook rules are unit-tested with the Node test runner — no dependencies, no
-install step. Both matchers, the ticket-key rule and the standing-rules
-rendering are covered, and `check-commit.mjs` is driven end to end over stdin:
+install step. Covered: the two matchers the commit and PR hooks decide on —
+whether a command really runs `git commit` or `gh pr`, and whether a call really
+opens a pull request — along with the AI-signature patterns they share with
+`check-doc.mjs`; the ticket-key rule; the standing-rules rendering; and the four
+context hooks through their decision functions, `decide` (branch-guard), `judge`
+(bash-budget), `route` (recon-router) and `check` (node-guard), each with its
+wrapper driven over stdin as well. `context-audit.py` is run against the
+hand-sized transcript under `tests/fixtures/projects/`, every `SKILL.md` is held
+to its size limit and to the `references/` files it links, and `check-commit.mjs`
+is driven end to end over stdin:
 
 ```sh
 node --test 'tests/**/*.test.mjs'
@@ -329,7 +337,8 @@ bond/
 │   ├── node-guard.test.mjs
 │   ├── context-audit.test.mjs
 │   ├── skill-size.test.mjs
-│   └── shell.test.mjs
+│   ├── shell.test.mjs
+│   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond
 │   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
