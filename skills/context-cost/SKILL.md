@@ -30,6 +30,8 @@ Measured over 30 days on one machine, 43.1M tokens of tool results:
 4. **Bound the output of a command.** `| head`, `| tail`, `| grep`, `--oneline`, `--stat`, a count instead of a list. An unbounded `cat`, `ls -R`, full test output or a whole log is a file read wearing a shell.
 5. **Give recon to a subagent.** "Where does X live", "what calls Y", "which files match Z" — the answer is a few lines; the search that found it is thousands. A subagent pays that cost in its own context and reports only the conclusion.
 6. **One task per session.** A session that has finished a task and starts an unrelated one carries the first task's whole transcript through the second. `/clear` first. Measured on the same machine: **the 15 largest sessions carried 42 % of all usage**, and the largest single one ran 3,852 turns.
+7. **One Bash call per question.** Chain with && or ;, run independent tools in one message. Every call re-reads the whole context; batching turns ten re-reads into one.
+8. **Unlink what does not fire.** `scripts/context-audit.py` lists the skills a project invoked in 30 days; a skill with zero fires costs its description on every turn — unlink it, relink on the day it is needed.
 
 ## Red flags
 
