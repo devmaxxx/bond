@@ -207,6 +207,7 @@ Every command reads that profile rather than assuming a host or a tracker:
 
 - `SessionStart` runs `hooks/standing-rules.mjs`: the standing rules above. Registered with no matcher, so it fires on every start reason — startup, resume, clear, compact and fork alike. That is deliberate: rules that do not survive a compaction quietly stop applying halfway through a long session, and a matcher that failed to parse would drop them silently.
 - `SessionStart` and `UserPromptSubmit` run `hooks/branch-guard.mjs`: the branch the session opened on is recorded under `<tmp>/bond/<session_id>.branch`, and the first prompt submitted after the working tree has moved to another branch gets one line of context naming both branches and suggesting `/clear`. Once per recorded baseline — a session that carries two branches pays the first one on every turn of the second, but a reminder repeated every turn costs the tokens it is trying to save, so it is said once and re-armed by the next `SessionStart` (resume and compact reuse the session id, and the drift after one of those deserves a second word). A detached HEAD, a directory that is no git tree or an unwritable tmp means no nudge, never a blocked prompt. The rule is `decide` in that file, unit-tested in `tests/branch-guard.test.mjs`.
+- `SessionStart` runs `hooks/node-guard.mjs`: a tree that pins node in `.nvmrc` (or `.node-version`) gets one line of context when the shell its Bash calls land in runs another version — both versions and the `PATH="$(nvm which <pin> | xargs dirname):$PATH"` prefix every `pnpm`/`node` command then needs. Each Bash call is a fresh shell that does not carry nvm's PATH, so the prefix is per command rather than per session; met mid-session instead of at the start, the same fact costs a failed command per call (`ERR_UNKNOWN_FILE_EXTENSION` on every TypeScript entry point). A shorter pin covers the releases under it — `24` is satisfied by `24.16.0`, `24.1` is not — while an alias only nvm could resolve (`lts/*`) and a tree with neither file say nothing. nvm is never invoked: the line names the prefix, it does not run it. The rule is `check` in that file, unit-tested in `tests/node-guard.test.mjs`.
 - `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
 - `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill.
 - `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where one is required (`"draft"` in `.bond/project.json`, else a Bonliva repo: origin under `bonliva/`, a Bitbucket `workspace: bonliva`, or `.bonliva-dev/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
@@ -300,6 +301,7 @@ bond/
 │   ├── branch-guard.mjs    # SessionStart + UserPromptSubmit: the branch moved under this session
 │   ├── bash-budget.mjs     # PreToolUse: a row of one-command calls, output with no bound
 │   ├── recon-router.mjs    # PreToolUse: who answers a "where is X" prompt cheaply
+│   ├── node-guard.mjs      # SessionStart: the shell node is not the version .nvmrc pins
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
@@ -311,6 +313,7 @@ bond/
 │   ├── branch-guard.test.mjs
 │   ├── bash-budget.test.mjs
 │   ├── recon-router.test.mjs
+│   ├── node-guard.test.mjs
 │   └── shell.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond
