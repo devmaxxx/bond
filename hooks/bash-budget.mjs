@@ -13,15 +13,19 @@
  * is unit-tested; everything below it is the I/O around that.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 const BATCH_AT = 10;
 
+// Calls dispatched in one message land within milliseconds of each other;
+// anything slower has a model turn between it and the call before it.
+const PARALLEL_WINDOW_MS = 1000;
+
 const NUDGE = {
   batch:
-    "10 Bash calls in a row, one command each — every call re-reads the whole context. Chain the next ones with && or ; in one call, or hand the loop to a subagent.",
+    "10 Bash calls in a row, each carrying one command — every call re-reads the whole context. Chain the next ones with && or ;, issue them in one message, or hand the loop to a subagent.",
   gitLog: "git log without a bound — add -n 20 or --oneline.",
   cat: "cat of a whole file — sed -n 'a,bp' the range you need.",
   listing: "unbounded listing — add -maxdepth or | head -50.",
@@ -152,12 +156,19 @@ function shapeNudge({ head, separator, rest }) {
 }
 
 /**
- * `singles` is how many calls in a row have each carried one command. The
- * batch nudge wins over a shape nudge on the same call: it is the larger of
- * the two costs, and two lines of advice at once is one line too many.
+ * `singles` is how many calls in a row have each carried one command, and
+ * `parallel` says this call was dispatched in the same message as the one
+ * before it. Such a call does not lengthen the row: one message carrying ten
+ * calls pays a single turn for all of them, which is the batching the nudge
+ * asks for. The batch nudge wins over a shape nudge on the same call: it is
+ * the larger of the two costs, and two lines of advice at once is one line too
+ * many.
  */
-export function judge(command, singles) {
+export function judge(command, singles, parallel = false) {
   const parts = split(command);
+  if (parallel) {
+    return { message: shapeNudge(parts), singles };
+  }
   const next = parts.separator === null ? singles + 1 : 0;
   if (next >= BATCH_AT) {
     return { message: NUDGE.batch, singles: 0 };
@@ -185,6 +196,22 @@ function writeCount(path, count) {
   }
 }
 
+/**
+ * The counter's own mtime is the clock: a sequential call has a model turn
+ * between it and the previous write, so a gap under a second is the only
+ * evidence the hook gets that both calls came from one message — PreToolUse
+ * fires once per call either way.
+ */
+function dispatchedInParallel(path) {
+  try {
+    return Date.now() - statSync(path).mtimeMs < PARALLEL_WINDOW_MS;
+  } catch {
+    // No counter yet, or an unreadable one: nothing says this call shares a
+    // message with another, and counting it costs at most one early nudge.
+    return false;
+  }
+}
+
 function main() {
   let payload;
   try {
@@ -199,7 +226,11 @@ function main() {
   }
 
   const state = join(tmpdir(), "bond", `${session}.bash-singles`);
-  const { message, singles } = judge(command, readCount(state));
+  const { message, singles } = judge(
+    command,
+    readCount(state),
+    dispatchedInParallel(state),
+  );
   writeCount(state, singles);
   if (message !== null) {
     // Context only, never a permissionDecision: this hook has an opinion about

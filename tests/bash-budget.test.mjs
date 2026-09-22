@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,7 @@ import { describe, it } from "node:test";
 import { judge } from "../hooks/bash-budget.mjs";
 
 const BATCH =
-  "10 Bash calls in a row, one command each — every call re-reads the whole context. Chain the next ones with && or ; in one call, or hand the loop to a subagent.";
+  "10 Bash calls in a row, each carrying one command — every call re-reads the whole context. Chain the next ones with && or ;, issue them in one message, or hand the loop to a subagent.";
 const GIT_LOG = "git log without a bound — add -n 20 or --oneline.";
 const CAT = "cat of a whole file — sed -n 'a,bp' the range you need.";
 const LISTING = "unbounded listing — add -maxdepth or | head -50.";
@@ -74,6 +74,21 @@ describe("nudging a row of one-command calls into one call", () => {
 
   it("never fires on a call that chains commands", () => {
     assert.deepEqual(judge("pwd && ls", 9), { message: null, singles: 0 });
+  });
+});
+
+describe("calls dispatched in one message", () => {
+  it("leaves the row where it is rather than counting them", () => {
+    assert.deepEqual(judge("pwd", 9, true), { message: null, singles: 9 });
+    assert.deepEqual(judge("pwd", 4, true), { message: null, singles: 4 });
+  });
+
+  it("counts the call when the one before it came from another turn", () => {
+    assert.deepEqual(judge("pwd", 9, false), { message: BATCH, singles: 0 });
+  });
+
+  it("still names the shape of a call whose output has no bound", () => {
+    assert.deepEqual(judge("cat a.txt", 3, true), { message: CAT, singles: 3 });
   });
 });
 
@@ -149,6 +164,17 @@ describe("the hook around the judgement", () => {
     new URL("../hooks/bash-budget.mjs", import.meta.url),
   );
 
+  const state = (session) => join(tmpdir(), "bond", `${session}.bash-singles`);
+
+  /**
+   * Age the counter past the parallel window, which is what a model turn
+   * between two calls does; the calls of this loop are milliseconds apart.
+   */
+  function fromAnotherTurn(session) {
+    const when = (Date.now() - 5000) / 1000;
+    utimesSync(state(session), when, when);
+  }
+
   function run(command, session) {
     return execFileSync(process.execPath, [hook], {
       encoding: "utf8",
@@ -172,9 +198,7 @@ describe("the hook around the judgement", () => {
         },
       });
     } finally {
-      rmSync(join(tmpdir(), "bond", `${session}.bash-singles`), {
-        force: true,
-      });
+      rmSync(state(session), { force: true });
     }
   });
 
@@ -183,9 +207,7 @@ describe("the hook around the judgement", () => {
     try {
       assert.equal(run("pwd", session), "");
     } finally {
-      rmSync(join(tmpdir(), "bond", `${session}.bash-singles`), {
-        force: true,
-      });
+      rmSync(state(session), { force: true });
     }
   });
 
@@ -194,15 +216,35 @@ describe("the hook around the judgement", () => {
     try {
       for (let i = 0; i < 9; i += 1) {
         assert.equal(run("pwd", session), "");
+        fromAnotherTurn(session);
       }
       const out = JSON.parse(run("pwd", session));
       assert.equal(out.hookSpecificOutput.additionalContext, BATCH);
       // The row starts over, so the eleventh call is quiet again.
+      fromAnotherTurn(session);
       assert.equal(run("pwd", session), "");
     } finally {
-      rmSync(join(tmpdir(), "bond", `${session}.bash-singles`), {
-        force: true,
-      });
+      rmSync(state(session), { force: true });
+    }
+  });
+
+  it("reads the gap off the counter and skips a call of the same message", () => {
+    const session = `bond-test-${process.pid}-parallel`;
+    try {
+      for (let i = 0; i < 8; i += 1) {
+        assert.equal(run("pwd", session), "");
+        fromAnotherTurn(session);
+      }
+      // The ninth leaves the counter freshly written, so the tenth reads a
+      // sub-second gap and does not lengthen the row — without the skip it
+      // would be the tenth in a row and would nudge here.
+      assert.equal(run("pwd", session), "");
+      assert.equal(run("pwd", session), "");
+      fromAnotherTurn(session);
+      const out = JSON.parse(run("pwd", session));
+      assert.equal(out.hookSpecificOutput.additionalContext, BATCH);
+    } finally {
+      rmSync(state(session), { force: true });
     }
   });
 });
