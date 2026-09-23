@@ -234,6 +234,26 @@ never a foreground poll — until **both** settle:
 
 A review of `APPROVED` with nothing new is a pass for this round.
 
+On GitHub, one poll is this — run it in the background loop, once a minute, until
+`pending` is 0 and `new` is non-zero (or the timeout passes). Write the JSON to a
+file and read it with `jq`; never `echo "$json" | jq` — zsh's `echo` expands the
+`\n` escapes inside comment bodies and every parse fails. Ids are GraphQL node
+ids (`IC_…`, `PRR_…`); store those in `handledCommentIds`.
+
+```sh
+gh pr view <n> --repo <OWNER>/<REPO_SLUG> \
+  --json author,statusCheckRollup,reviews,comments > "$poll"
+jq -r --slurpfile led "$LEDGER" '
+  ($led[0].handledCommentIds // [] | map(tostring)) as $seen | .author.login as $me
+  | "pending=\([.statusCheckRollup[] | select(.status != "COMPLETED")] | length)"
+  + " failed=\([.statusCheckRollup[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED") | .name] | join(","))"
+  + " new=\([(.comments[], .reviews[]) | select(.author.login != $me)
+               | .id | select(IN($seen[]) | not)] | length)"' "$poll"
+```
+
+Inline review threads are not in that payload; read them per `babysit-prs.md`
+step 4 once the poll settles.
+
 **b. Triage the review.** Per the `superpowers:receiving-code-review` skill:
 verify each claim against the code — bot reviews are routinely half right, so
 verify every numbered finding independently, with evidence (read the code, run
