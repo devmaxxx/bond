@@ -22,6 +22,7 @@ Output the following table verbatim:
 | `/bond:investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc           |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
 | `/bond:open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                   |
+| `/bond:finish-pr`      | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/bond:start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker          |
 
 Then output this second table verbatim — these need `bond-bonliva@devmaxxx` enabled in the repo's `.claude/settings.local.json`:
