@@ -1,5 +1,5 @@
 ---
-description: After /bond:implement or /bond-bonliva:fix-qa — test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI until only a human approval is left
+description: After /bond:implement or /bond-bonliva:fix-qa — test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
 ---
 
 # /bond:finish-pr
@@ -12,7 +12,8 @@ the way to *waiting only on a human's approval*:
    is not broken, and tick the PR's **Test plan**.
 2. **Mark ready** — only when step 1 passed.
 3. **Review loop** — wait for review, fix what is relevant, wait for CI, fix it if
-   red; a new review after a push starts the loop again.
+   red, resolve merge conflicts when the base moves; a new review after a push
+   starts the loop again.
 
 It never merges, never approves, never moves the Jira ticket, and never pings a
 human.
@@ -53,7 +54,8 @@ the session scratchpad, so a re-run continues instead of redoing:
 
 ```json
 { "rounds": 1, "handledCommentIds": [123], "handledThreadIds": ["PRRT_…"],
-  "failedCauses": { "<root cause>": 1 }, "testPlan": "passed | partial | failed" }
+  "failedCauses": { "<root cause>": 1 }, "mergedBase": "<base sha>",
+  "testPlan": "passed | partial | failed" }
 ```
 
 A comment is new when its id is not in `handledCommentIds` — **never** by
@@ -89,6 +91,8 @@ re-review in the same area arrives under a new id with a new finding.
    (`docs/plans/<KEY>.md`, or the branch slug), and under `TRACKER=jira` the
    ticket's acceptance criteria and any Figma link. Read the ticket; do not
    transition it.
+8. The PR conflicts with its base ⇒ run **Resolve merge conflicts** now, before
+   step 1 — verifying code that cannot merge verifies the wrong thing.
 
 ### 1. Verify
 
@@ -210,7 +214,10 @@ force-push — a rebase can flip it.
 
 Each iteration is one **round**; stop after `--rounds`, counted in the ledger.
 
-**a. Wait** in the background — a `run_in_background` loop or the Monitor tool,
+**a. Wait** — first, if the base moved and the PR now conflicts (GitHub
+`mergeable: CONFLICTING`; on Bitbucket the local trial merge below), run
+**Resolve merge conflicts** and push before waiting: CI does not run, and bots
+do not review, a PR that cannot merge. Then wait in the background — a `run_in_background` loop or the Monitor tool,
 never a foreground poll — until **both** settle:
 
 - **CI** — **PR details and CI status** reads **passed** or **failed**. Read the
@@ -263,7 +270,8 @@ then:
   code the round already touches.
 - Never `[skip ci]` — on GitHub it suppresses every later run on the PR,
   `ready_for_review` included, until another commit lands.
-- Never `--force`; `--force-with-lease` only for a rebase the user asked for.
+- Never `--force`; `--force-with-lease` only after a rebase (see **Resolve
+  merge conflicts**).
 - A fix that touches UI ⇒ re-run step 1 for the affected items and update the
   test plan before pushing.
 - Push failed ⇒ stop with the worktree intact.
@@ -282,8 +290,61 @@ to 3a. Otherwise settled — exit.
 
 Exit, whichever comes first: settled (CI passed, nothing new to address, nothing
 pushed this round); `--rounds` exhausted; a stop from 1e/3c/3d; the PR merged
-or closed meanwhile; the base moved and the PR now conflicts — report it, do
-not rebase unasked.
+or closed meanwhile; a conflict **Resolve merge conflicts** handed back.
+
+### Resolve merge conflicts
+
+Called from step 0.8 and step 3a.
+
+**Detect.** GitHub: `gh pr view <n> --json mergeable,mergeStateStatus` —
+`UNKNOWN` is still computing, re-read it; still unknown, fall through to the
+trial merge. Everywhere, and the only way on Bitbucket:
+
+```sh
+git fetch origin <BASE_BRANCH>
+git merge --no-commit --no-ff origin/<BASE_BRANCH>
+git diff --name-only --diff-filter=U        # the conflicted files
+```
+
+Clean ⇒ `git merge --abort` unless the branch is also `BEHIND` a base that
+requires up-to-date branches, in which case commit the clean merge.
+
+**Merge, don't rebase.** Merge `origin/<BASE_BRANCH>` into the branch: no
+force-push, review threads stay anchored to their commits, and the draft state
+cannot flip. Rebase instead only when the base's branch protection requires a
+linear history (`gh api repos/<OWNER>/<REPO_SLUG>/branches/<BASE_BRANCH>/protection`
+→ `required_linear_history`) or the user asked for it — then push
+`--force-with-lease` and re-check the draft state.
+
+**Resolve by file kind** — never take `--ours` or `--theirs` wholesale on code:
+
+| Kind | Resolution |
+| --- | --- |
+| generated (OpenAPI/GraphQL clients, `*.gen.*`, ORM clients) | take the base side, then regenerate from the merged sources — never hand-merge generated code |
+| lockfile | take the base side, then re-run install so this branch's dependency changes are re-applied |
+| migrations | keep both sides' migrations; when their order or numbering collides, renumber or re-timestamp **this branch's** migration, never the base's, and apply both to a fresh DB |
+| i18n / keyed JSON | union of keys; a key both changed keeps the base value unless this PR changed it on purpose |
+| changelog / version | base version, plus this branch's entries |
+| code | read both intents — the base commit behind the hunk (`git log -p origin/<BASE_BRANCH> -- <file>`) and this PR's plan — and write the version that keeps both |
+| deleted or moved on base, modified here | port this branch's change to where the code now lives |
+
+**Hand back instead of guessing.** When both sides rewrote the same logic
+differently and the plan does not say which wins, or the base deleted what this
+PR builds on: `git merge --abort` (or `git rebase --abort`), and report the
+files and both commits under *Needs you*. That is a stop.
+
+**Prove it.** Before committing:
+
+1. No markers left — `git diff --check` and a search for `<<<<<<<` / `>>>>>>>`
+   in the conflicted files.
+2. Typecheck and build, then **Test** and **Review and fix** scoped to the
+   resolved hunks.
+3. Re-run step 1 for every checklist item whose code the resolution touched,
+   and update the test plan.
+
+Commit with git's own `Merge …` subject (the commit hook passes it), push, and
+record the base head the merge was made against in the ledger. A second
+conflict on the same base head means the resolution was wrong — stop.
 
 ### 4. Teardown and report
 
@@ -307,8 +368,10 @@ goes with the worktree. Then print:
 - Do not resolve a thread you did not fix; do not reply to or resolve a human
   reviewer's thread.
 - Do not push local commits that were not already on the PR when it started.
-- Do not force-push a branch the user did not ask to rebase, and do not use
+- Do not force-push a branch this run did not rebase, and do not use
   `[skip ci]`.
+- Do not take `--ours`/`--theirs` wholesale on code, hand-merge generated files,
+  or renumber the base's migrations.
 - Do not open a BankID link, guess credentials, or test against production.
 - Do not flip a feature flag the ticket keeps off.
 - Do not fix a pre-existing, flaky or infrastructure failure as if this PR
