@@ -207,8 +207,7 @@ what triggers the review bot on repos that review on `ready_for_review`.
 - Bitbucket: the MCP's publish-draft / update-PR call. None available ⇒ tell the
   user to publish it by hand and continue.
 
-Record the time as `SINCE`. Re-check the draft state after any later
-force-push — a rebase can flip it.
+Re-check the draft state after any later force-push — a rebase can flip it.
 
 ### 3. Review → fix → CI loop
 
@@ -248,6 +247,17 @@ findings in test code lightly. Per finding, exactly one of:
 - **needs you** — a product/design question or out of scope ⇒ leave it, list it
   in the report.
 
+**Whose comments.** Every user but the PR author — colleagues and review bots
+alike — in all three places a comment lives: inline review threads, review
+bodies (`gh api repos/<OWNER>/<REPO_SLUG>/pulls/<n>/reviews`), and conversation
+comments. The first round takes every unhandled one, including those a
+colleague left while the PR was still a draft. A human's comment weighs more
+than a bot's: verify it the same way, but when it is a judgement call rather
+than a provable defect, fix it as asked unless it contradicts the ticket — and
+then it is **needs you**, not **decline**. A question ("why X?") is answered
+with a drafted reply, not a code change, unless the answer shows the code is
+wrong.
+
 Skip outdated and resolved threads, approvals, bot summaries, CI status noise.
 
 **c. Fix CI** — when **failed**: run `/bond:fix-pr` step 3 (diagnosis only),
@@ -285,8 +295,7 @@ Then answer the review:
 
 Record handled ids in the ledger. No CI-status comments on the PR, ever.
 
-**e. Next.** Pushed anything, or CI still running ⇒ `SINCE` = the push time, loop
-to 3a. Otherwise settled — exit.
+**e. Next.** Pushed anything, or CI still running ⇒ loop to 3a. Otherwise settled — exit.
 
 Exit, whichever comes first: settled (CI passed, nothing new to address, nothing
 pushed this round); `--rounds` exhausted; a stop from 1e/3c/3d; the PR merged
