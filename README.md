@@ -15,6 +15,7 @@ but every command resolves a per-repo profile, so they work outside it too.
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
+| `/finish-pr`      | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
 
 ## bond-bonliva (Bonliva-only companion)
