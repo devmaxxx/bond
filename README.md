@@ -52,7 +52,7 @@ symlinks into `bond`, which the plugin cache resolves into real copies.
 install those servers into the **local scope** of each Bonliva project, so they load only there. To avoid colliding with any servers you already run, each is
 installed under a `bond-` prefixed name and exposed as `mcp__bond-<name>__*`:
 
-- **bond-atlassian** — official Atlassian remote MCP server (`https://mcp.atlassian.com/v1/sse`, OAuth, no env vars). Opens a browser on first use.
+- **bond-atlassian** — official Atlassian remote MCP server (`https://mcp.atlassian.com/v1/mcp`, OAuth, no env vars). Opens a browser on first use.
 - **bond-bitbucket** — `bitbucket-mcp-py` (PRs, repositories, pipelines)
 - **bond-clockify** — `mcp_clockify` (time entries, projects, tasks, workspaces)
 - **bond-teams** — `@floriscornel/teams-mcp` (Microsoft Teams chats, channels, messages). No env vars; auth is a one-time CLI step (see below).
