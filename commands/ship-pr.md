@@ -50,7 +50,7 @@ open PR whose head is the current branch; none found ⇒ say so and stop (run
 the session scratchpad, so a re-run continues instead of redoing:
 
 ```json
-{ "rounds": 1, "handledCommentIds": [123], "handledThreadIds": ["PRRT_…"],
+{ "rounds": 1, "handledCommentIds": ["IC_…"], "handledThreadIds": ["PRRT_…"],
   "failedCauses": { "<root cause>": 1 }, "mergedBase": "<base sha>",
   "testPlan": "passed | partial | failed" }
 ```

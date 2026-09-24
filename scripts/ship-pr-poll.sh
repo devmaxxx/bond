@@ -20,6 +20,9 @@
 #     checks is there no CI.
 #   - At 5s this costs ~720 GraphQL points an hour of the 5000 budget; one
 #     loop per PR, never two.
+#   - A bad PR number, a revoked token, or a repo the token can't see makes
+#     every poll fail the same way forever; without a cap that burns the
+#     budget silently (stderr is suppressed) until something kills the loop.
 
 set -uo pipefail
 
@@ -36,6 +39,7 @@ fi
 pr=$1 repo=$2 ledger=$3 review_timeout=$(($4 * 60)) skip_review=$5
 interval=${POLL_INTERVAL:-5}
 no_ci_after=${NO_CI_AFTER:-300}
+max_fail_streak=${MAX_FAIL_STREAK:-60}
 gh=${GH:-gh}
 
 poll=$(mktemp)
@@ -62,10 +66,12 @@ summarize() {
 }
 
 started=$(date +%s)
+fail_streak=0
 while :; do
   if "$gh" pr view "$pr" --repo "$repo" \
       --json author,statusCheckRollup,reviews,comments >"$poll" 2>/dev/null \
     && IFS=$'\t' read -r total pending failed new < <(summarize); then
+    fail_streak=0
     age=$(($(date +%s) - started))
 
     ci_done=0
@@ -83,6 +89,12 @@ while :; do
     if [ "$ci_done" -eq 1 ] && [ "$review_done" -eq 1 ]; then
       echo "settled checks=$total failed=$failed new=$new age=${age}s"
       exit 0
+    fi
+  else
+    fail_streak=$((fail_streak + 1))
+    if [ "$fail_streak" -ge "$max_fail_streak" ]; then
+      echo "ship-pr-poll: gh pr view failed $fail_streak times in a row for PR $pr in $repo; giving up" >&2
+      exit 65
     fi
   fi
 
