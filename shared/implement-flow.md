@@ -18,15 +18,16 @@ chose, and a one-line rationale). Likewise **commit and push automatically**
 through the Ship + PR procedure — never ask the user to commit or push, just do
 it.
 
-Two things still stop the flow: a genuine blocker where no option is viable
+Three things still stop the flow: a genuine blocker where no option is viable
 (missing type, error response, no branch found) — surface it and abort/pause as
-the procedure says; and the explicit `--no-auto` flag, which pauses once for
-plan confirmation (see the Implementation plan procedure). Neither is a
-"choose between options" prompt.
+the procedure says; a blocker found in the ticket or its comments (see **Check
+for blockers**), which is asked once; and the explicit `--no-auto` flag, which
+pauses once for plan confirmation (see the Implementation plan procedure). None
+is a "choose between options" prompt.
 
 ## Procedure: Resolve Jira ticket(s)  *(`TRACKER=jira` only)*
 
-**Inputs:** `TICKET_IDS` (one or more); `WITH_COMMENTS` (bool).
+**Inputs:** `TICKET_IDS` (one or more).
 
 Every procedure marked `TRACKER=jira` is skipped wholesale where the project
 profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) resolves
@@ -43,8 +44,12 @@ requesting these fields:
 - `fields.summary`, `fields.issuetype.name`, `fields.status.name`,
   `fields.priority.name`, `fields.assignee.displayName`
 - `fields.description` — Atlassian Document Format; render as plain text
-- if `WITH_COMMENTS`: `fields.comment.comments` — full list with author,
-  created, body
+- `fields.comment.comments` — **every** comment with author, created, body. The
+  issue payload embeds only the first page: when `fields.comment.total` exceeds
+  the comments returned, page through the rest (`startAt` += `maxResults`)
+  until all are read. The latest comment often reverses the description.
+- `fields.issuelinks` (type, direction, linked key, its status),
+  `fields.subtasks` (key, summary, status), `fields.parent`
 - `fields.attachment` — for resolving the images referenced below
 
 If any ticket is not found or the tool errors, report which ticket failed and
@@ -54,8 +59,8 @@ If any ticket is not found or the tool errors, report which ticket failed and
 
 Jira embeds images as ADF `media` / `mediaSingle` / `mediaInline` nodes that
 reference an entry in `fields.attachment` (match by `id`/`filename`; keep only
-`mimeType` `image/*`). For **every** image referenced by the description or, when
-`WITH_COMMENTS`, the comments, view it and capture what it shows — mockups, error
+`mimeType` `image/*`). For **every** image referenced by the description or the
+comments, view it and capture what it shows — mockups, error
 screenshots, and diagrams usually carry implementation-critical detail that the
 text omits.
 
@@ -101,6 +106,36 @@ view the image **inline on the Jira issue page**:
 
 Hold each image's description (and which ticket/comment it came from) for the
 plan's per-ticket **Images** field.
+
+## Procedure: Check for blockers
+
+**Inputs:** the tickets read by **Resolve Jira ticket(s)**, or under
+`TRACKER=none` the free-text task.
+
+Read the description and every comment in `created` order before planning.
+Where a later comment contradicts the description, the comment wins — record
+that in the plan's **Open questions** with the comment quoted.
+
+A **blocker** is any of:
+
+- a question in a comment that no later comment answers;
+- an `is blocked by` / `depends on` link whose issue is not Done;
+- a comment that contradicts the description or another comment with no later
+  resolution, where the two lead to different code;
+- a missing design, access, credential, API contract or decision the work needs;
+- a comment saying to wait, hold, or not start yet.
+
+A blocker is a fact read off the ticket, not a scope choice — the Autonomy rule
+does not cover it. Any blocker ⇒ **one** `AskUserQuestion` listing each blocker
+with its source (the comment quoted with author and date, or the linked key and
+status) and, per blocker, the options to proceed as read, wait, or answer it.
+Do not start the plan until it is answered; record each answer in the plan's
+**Decisions**. No blocker ⇒ continue without asking. `--no-auto` does not change
+this.
+
+Under `TRACKER=none` there is nothing to fetch: apply the same checks to the
+free-text task (an unanswered question in it, a dependency it names, a decision
+it leaves open).
 
 ## Procedure: Claim unassigned ticket(s)  *(`TRACKER=jira` only)*
 
@@ -238,6 +273,9 @@ For each ticket:
   - Acceptance criteria: <extracted from description>
   - Images: <for each image in the description/comments — `<filename>`: what it
     shows and the detail relevant to implementation; omit the field if none>
+  - Comments: <what the comments change or add, newest last; where one overrides
+    the description, say so>
+  - Links: <blocking/blocked-by/subtasks with status; omit if none>
   - Open questions: <ambiguities or decisions flagged>
 
 ## Files to change
