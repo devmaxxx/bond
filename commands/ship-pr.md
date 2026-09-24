@@ -231,25 +231,23 @@ never a foreground poll — until **both** settle:
 
 A review of `APPROVED` with nothing new is a pass for this round.
 
-On GitHub, one poll is this — run it in the background loop, once a minute, until
-`pending` is 0 and `new` is non-zero (or the timeout passes). Write the JSON to a
-file and read it with `jq`; never `echo "$json" | jq` — zsh's `echo` expands the
-`\n` escapes inside comment bodies and every parse fails. Ids are GraphQL node
-ids (`IC_…`, `PRR_…`); store those in `handledCommentIds`.
+On GitHub, run the poll through the Monitor tool (or `run_in_background`) — it
+checks every **5 seconds** and prints one `settled …` line when both have
+settled, which is the wake-up:
 
 ```sh
-gh pr view <n> --repo <OWNER>/<REPO_SLUG> \
-  --json author,statusCheckRollup,reviews,comments > "$poll"
-jq -r --slurpfile led "$LEDGER" '
-  ($led[0].handledCommentIds // [] | map(tostring)) as $seen | .author.login as $me
-  | "pending=\([.statusCheckRollup[] | select(.status != "COMPLETED")] | length)"
-  + " failed=\([.statusCheckRollup[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED") | .name] | join(","))"
-  + " new=\([(.comments[], .reviews[]) | select(.author.login != $me)
-               | .id | select(IN($seen[]) | not)] | length)"' "$poll"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/ship-pr-poll.sh" \
+  <n> <OWNER>/<REPO_SLUG> "$LEDGER" <review-timeout> <1 under --skip-review, else 0>
 ```
 
-Inline review threads are not in that payload; read them per `babysit-prs.md`
-step 4 once the poll settles.
+`failed=` names the failed checks (`-` for none); `checks=0` means no CI ran.
+Never run two polls on one PR, and never pipe `gh --json` through `echo` — the
+script's header says why. Comment ids are GraphQL node ids (`IC_…`, `PRR_…`);
+store those in `handledCommentIds`. Inline review threads are not in the
+poll's payload: once settled, read them through the **Review threads**
+procedure in `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`. On Bitbucket,
+poll at the same 5s cadence through **PR details and CI status** and **Review
+threads**.
 
 **b. Triage the review.** Per the `superpowers:receiving-code-review` skill:
 verify each claim against the code — bot reviews are routinely half right, so
