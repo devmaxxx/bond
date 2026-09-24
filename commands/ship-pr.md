@@ -20,11 +20,8 @@ human.
 
 It reuses the procedures in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`
 (branch setup, Implement, Test, Review and fix, Teardown) and
-`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (PR coordinates, CI status).
-Review-thread reads, replies and resolution follow
-`${CLAUDE_PLUGIN_ROOT}/plugins/bond-bonliva/commands/babysit-prs.md` steps 4
-and 6 — thread state and resolution are GraphQL-only on GitHub, and that file
-has the queries.
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (PR coordinates, CI status,
+CI diagnosis, review threads).
 
 **Standing instructions win.** An instruction the user gave earlier in the
 session — "skip review", "don't push", "don't post comments" — overrides the
@@ -280,7 +277,8 @@ wrong.
 
 Skip outdated and resolved threads, approvals, bot summaries, CI status noise.
 
-**c. Fix CI** — when **failed**: run `/bond:fix-pr` step 3 (diagnosis only),
+**c. Fix CI** — when **failed**: run the **Diagnose CI failure** procedure in
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`,
 then:
 
 - also red on the base branch ⇒ not this PR's; note it.
