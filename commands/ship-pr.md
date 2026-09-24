@@ -2,7 +2,7 @@
 description: After /bond:implement or /bond-bonliva:fix-qa — test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
 ---
 
-# /bond:finish-pr
+# /bond:ship-pr
 
 The step after the code is written. `/bond:implement` and `/bond-bonliva:fix-qa`
 end with a pushed branch and an open PR; this command takes that PR the rest of
@@ -49,7 +49,7 @@ open PR whose head is the current branch; none found ⇒ say so and stop (run
 
 ## The ledger
 
-`~/.claude/bond/finish-pr-<OWNER>-<REPO_SLUG>-<n>.json` — outside the repo and
+`~/.claude/bond/ship-pr-<OWNER>-<REPO_SLUG>-<n>.json` — outside the repo and
 the session scratchpad, so a re-run continues instead of redoing:
 
 ```json
