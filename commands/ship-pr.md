@@ -2,7 +2,7 @@
 description: After /bond:implement or /bond-bonliva:fix-qa — test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
 ---
 
-# /bond:finish-pr
+# /bond:ship-pr
 
 The step after the code is written. `/bond:implement` and `/bond-bonliva:fix-qa`
 end with a pushed branch and an open PR; this command takes that PR the rest of
@@ -20,11 +20,8 @@ human.
 
 It reuses the procedures in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`
 (branch setup, Implement, Test, Review and fix, Teardown) and
-`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (PR coordinates, CI status).
-Review-thread reads, replies and resolution follow
-`${CLAUDE_PLUGIN_ROOT}/plugins/bond-bonliva/commands/babysit-prs.md` steps 4
-and 6 — thread state and resolution are GraphQL-only on GitHub, and that file
-has the queries.
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (PR coordinates, CI status,
+CI diagnosis, review threads).
 
 **Standing instructions win.** An instruction the user gave earlier in the
 session — "skip review", "don't push", "don't post comments" — overrides the
@@ -49,11 +46,11 @@ open PR whose head is the current branch; none found ⇒ say so and stop (run
 
 ## The ledger
 
-`~/.claude/bond/finish-pr-<OWNER>-<REPO_SLUG>-<n>.json` — outside the repo and
+`~/.claude/bond/ship-pr-<OWNER>-<REPO_SLUG>-<n>.json` — outside the repo and
 the session scratchpad, so a re-run continues instead of redoing:
 
 ```json
-{ "rounds": 1, "handledCommentIds": [123], "handledThreadIds": ["PRRT_…"],
+{ "rounds": 1, "handledCommentIds": ["IC_…"], "handledThreadIds": ["PRRT_…"],
   "failedCauses": { "<root cause>": 1 }, "mergedBase": "<base sha>",
   "testPlan": "passed | partial | failed" }
 ```
@@ -234,6 +231,24 @@ never a foreground poll — until **both** settle:
 
 A review of `APPROVED` with nothing new is a pass for this round.
 
+On GitHub, run the poll through the Monitor tool (or `run_in_background`) — it
+checks every **5 seconds** and prints one `settled …` line when both have
+settled, which is the wake-up:
+
+```sh
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/ship-pr-poll.sh" \
+  <n> <OWNER>/<REPO_SLUG> "$LEDGER" <review-timeout> <1 under --skip-review, else 0>
+```
+
+`failed=` names the failed checks (`-` for none); `checks=0` means no CI ran.
+Never run two polls on one PR, and never pipe `gh --json` through `echo` — the
+script's header says why. Comment ids are GraphQL node ids (`IC_…`, `PRR_…`);
+store those in `handledCommentIds`. Inline review threads are not in the
+poll's payload: once settled, read them through the **Review threads**
+procedure in `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`. On Bitbucket,
+poll at the same 5s cadence through **PR details and CI status** and **Review
+threads**.
+
 **b. Triage the review.** Per the `superpowers:receiving-code-review` skill:
 verify each claim against the code — bot reviews are routinely half right, so
 verify every numbered finding independently, with evidence (read the code, run
@@ -260,7 +275,8 @@ wrong.
 
 Skip outdated and resolved threads, approvals, bot summaries, CI status noise.
 
-**c. Fix CI** — when **failed**: run `/bond:fix-pr` step 3 (diagnosis only),
+**c. Fix CI** — when **failed**: run the **Diagnose CI failure** procedure in
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`,
 then:
 
 - also red on the base branch ⇒ not this PR's; note it.

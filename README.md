@@ -10,12 +10,11 @@ but every command resolves a per-repo profile, so they work outside it too.
 | `/help`           | List all bond plugin commands with their descriptions                                         |
 | `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
-| `/fix-pr`         | Diagnose why a PR's CI failed (Bitbucket or GitHub), fix the root causes, and push             |
 | `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
-| `/finish-pr`      | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
+| `/ship-pr`        | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
 
 ## bond-bonliva (Bonliva-only companion)
@@ -33,7 +32,6 @@ its commands or MCP tool listings:
 
 | Command                          | Purpose                                                                       |
 | -------------------------------- | ----------------------------------------------------------------------------- |
-| `/bond-bonliva:babysit-prs`      | Sweep every open PR you authored — review comments, red CI, stale branches   |
 | `/bond-bonliva:fix-qa`           | Re-run implementation against QA feedback — from a Jira ticket, or free text  |
 | `/bond-bonliva:log-plan`         | Generate a day/week/month time-log plan                                       |
 | `/bond-bonliva:projects`         | Manage the projects tracked by `log-plan` (add, remove, discover, clear)      |
@@ -201,7 +199,7 @@ tracker resolves to `none`, and `/implement` takes a free-text task, cuts a
 
 Every command reads that profile rather than assuming a host or a tracker:
 
-- **Host-flexible** — `/open-pr` and `/fix-pr` work against Bitbucket
+- **Host-flexible** — `/open-pr` and `/ship-pr` work against Bitbucket
   Pipelines and GitHub Actions alike; the profile's *Resolve PR coordinates* and
   *PR details and CI status* procedures normalise both to one vocabulary, so no
   command branches on a host-specific status string.
@@ -343,7 +341,7 @@ bond/
 │   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 │   ├── .claude-plugin/plugin.json  # depends on bond
-│   ├── commands/           # babysit-prs, fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
+│   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card
 │   ├── scripts/teams-post.sh
 │   ├── shared/             # symlinks into bond: project-profile, implement-flow, jira

@@ -175,6 +175,65 @@ Map both hosts onto one vocabulary before reporting: **running**, **passed**,
 **failed**. A command that branches on a host-specific status string anywhere
 except inside this procedure has leaked the host into its logic.
 
+## Procedure: Diagnose CI failure
+
+**Inputs:** the coordinates above.
+
+1. Resolve the CI state through **PR details and CI status**.
+2. **running** or **passed** — say so and stop; there is nothing to diagnose.
+3. **failed** — pull the logs of the failed steps only: `get_pipeline_step_logs`
+   per failed step on Bitbucket, `gh run view <run-id> --log-failed` on GitHub.
+4. From each, extract the concrete cause — failing test names, type errors, lint
+   rule + `file:line`, build/compile errors, or the failed command and its exit
+   code. Logs can be long; summarize, never echo them whole.
+5. Produce one **root cause** entry per distinct failure (e.g. "Type error in
+   `accommodations.service.ts:42`", "3 failing tests in `pricing.spec.ts`"), each
+   carrying the step name and the key log excerpt.
+
+Diagnosis only: fixing, committing and pushing belong to the caller.
+
+## Procedure: Review threads
+
+**Inputs:** the coordinates above.
+
+**Read — GitHub.** Thread resolution state is GraphQL-only — no REST endpoint
+exposes `isResolved`, and no REST endpoint resolves a thread:
+
+```
+gh api graphql -f query='
+  query($owner:String!,$repo:String!,$number:Int!){
+    repository(owner:$owner,name:$repo){ pullRequest(number:$number){
+      reviewThreads(first:100){ nodes{
+        id isResolved isOutdated
+        comments(first:50){ nodes{ databaseId path line body author{login} } } } } } } }
+' -f owner=<OWNER> -f repo=<REPO_SLUG> -F number=<n>
+```
+
+The thread `id` (a `PRRT_…` node id) is what a thread is resolved with; the
+per-comment `databaseId` is the REST id replies use. Conversation comments live
+outside threads — `gh api repos/<OWNER>/<REPO_SLUG>/issues/<n>/comments --paginate`
+— and have no resolution state, so only a caller's own record of handled ids
+keeps them from being re-worked.
+
+**Read — Bitbucket.** `mcp__bond-bitbucket__get_pull_request_comments`, whose
+comments carry their own resolution state.
+
+**Reply and resolve — GitHub.**
+
+- inline review comment —
+  `gh api -X POST repos/<OWNER>/<REPO_SLUG>/pulls/<n>/comments/<databaseId>/replies -f body='…'`
+  (this path takes **only** inline review-comment ids; a conversation-comment id
+  404s here);
+- conversation comment —
+  `gh api -X POST repos/<OWNER>/<REPO_SLUG>/issues/<n>/comments -f body='…'`;
+- resolve the thread, GraphQL-only:
+  `gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id=<thread node id>`.
+
+**Reply and resolve — Bitbucket.** `mcp__bond-bitbucket__add_pull_request_comment`
+and `mcp__bond-bitbucket__resolve_pull_request_comment`.
+
+Never resolve a thread that was not actually addressed.
+
 ## Worked examples
 
 **`bonliva-erp`** — origin `git@bitbucket.org:bonliva/bonliva-erp.git` ⇒ host
