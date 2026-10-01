@@ -417,13 +417,8 @@ Commit and push happen here automatically — do not ask the user first.
      exists, invoke `/bond:open-pr` to create it. Do **not** re-ping reviewers on
      a QA round — just tell the user they can run `/bond-bonliva:request-review` if the
      project has a channel for it.
-3. **Issue number in the PR title.** A PR found under `update` keeps its old
-   title, so check it leads with `TICKET_IDS` in the shared template's
-   `<TICKET_IDs>: <description>` shape. Missing ⇒ prefix it, keeping the rest:
-   `gh pr edit <n> --title` on GitHub, the update-PR call on Bitbucket. Empty
-   `TICKET_IDS` (no tracker) ⇒ leave the title as is.
 
-If any step fails, surface the error and stop — do not retry blindly, and do
+If either step fails, surface the error and stop — do not retry blindly, and do
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
 resume).
 
