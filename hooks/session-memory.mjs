@@ -152,7 +152,8 @@ export function render(memory, { session, source, now }) {
     lines.push("Last asks:", ...memory.prompts.map((prompt) => `- ${prompt}`));
   }
   if (memory.files.length > 0) {
-    lines.push(editedLine(memory.files, NOTE_BYTES - bytes(lines.join("\n"))));
+    // Two newlines join it: one before the line, one ending the note.
+    lines.push(editedLine(memory.files, NOTE_BYTES - bytes(lines.join("\n")) - 2));
   }
   return `${lines.join("\n")}\n`;
 }

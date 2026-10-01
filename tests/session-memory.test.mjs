@@ -95,7 +95,7 @@ describe("the note printed at the next start", () => {
   it("stays within a kilobyte and says how many files it left out", () => {
     const files = Array.from({ length: 15 }, (_, i) => `../worktrees/feature/apps/api/src/modules/module-${i}/module-${i}.service.ts`);
     const note = render(memory({ files }), { session: "new", source: "startup", now: NOW });
-    assert.ok(Buffer.byteLength(note) <= 1025, `${Buffer.byteLength(note)} bytes`);
+    assert.ok(Buffer.byteLength(note) <= 1024, `${Buffer.byteLength(note)} bytes`);
     assert.match(note, /\+\d+ more$/m);
   });
 
