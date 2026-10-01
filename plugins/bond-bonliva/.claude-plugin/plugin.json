@@ -1,7 +1,7 @@
 {
   "name": "bond-bonliva",
-  "version": "0.35.0",
-  "description": "Bonliva-only companion to bond. Enable it per Bonliva repo (.claude/settings.local.json), not globally. Ships babysit-prs (sweep every open PR for review comments, red CI and stale branches), fix-qa (QA feedback rounds), log-plan, publish-timelog, projects (Jira + Clockify time logging), request-review and teams-post (Teams), set-reviewers (Bitbucket reviewer defaults), and setup-plugin, which installs the Bitbucket, Atlassian, Clockify, Outline and Teams MCP servers into each Bonliva project's local scope.",
+  "version": "0.35.1",
+  "description": "Bonliva-only companion to bond. Enable it per Bonliva repo (.claude/settings.local.json), not globally. Ships fix-qa (QA feedback rounds), log-plan, publish-timelog, projects (Jira + Clockify time logging), request-review and teams-post (Teams), set-reviewers (Bitbucket reviewer defaults), and setup-plugin, which installs the Bitbucket, Atlassian, Clockify, Outline and Teams MCP servers into each Bonliva project's local scope.",
   "author": { "name": "Max Synenko", "email": "syn.max.13@gmail.com" },
   "homepage": "https://github.com/devmaxxx/bond",
   "repository": "https://github.com/devmaxxx/bond",

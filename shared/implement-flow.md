@@ -373,7 +373,7 @@ If either step fails, surface the error and stop — do not retry blindly, and d
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
 resume).
 
-Record the PR number or URL as `PR_REF` for the completion report. CI is not watched here; a red pipeline is `/bond:fix-pr <PR_REF>`, run by hand.
+Record the PR number or URL as `PR_REF` for the completion report. CI is not watched here; a red pipeline is `/bond:ship-pr <PR_REF>`, run by hand.
 
 ## Procedure: Transition to In Review  *(`TRACKER=jira` only)*
 
@@ -411,7 +411,7 @@ or PR keeps the worktree so the user can fix and resume.
   `/bonliva-dev:ship`.
 - Do not move a ticket to In Review on a red or still-running pipeline, and do
   not move it at all once the autofix rounds are exhausted.
-- Do not autofix a third time on the same PR, and do not widen `/bond:fix-pr`
+- Do not autofix a third time on the same PR, and do not widen a CI fix
   into unrelated work to get the pipeline green.
 - Do not force-remove a dirty worktree — surface the warning instead.
 - When `PR_HANDLING` is `update`, do not open a second PR and do not auto-ping

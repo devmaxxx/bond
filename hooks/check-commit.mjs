@@ -56,13 +56,16 @@ function extractSubject() {
   }
   // A heredoc is the message only when it feeds git: `-F -` reading stdin, or
   // `-m "$(cat <<EOF`. Any other heredoc in the same command — a script run
-  // after the commit — is data, and its first line is no subject.
-  const heredoc = cmd.match(/<<-?\s*["']?(\w+)["']?\s*\n([\s\S]*?)\n\s*\1\b/);
-  const heredocIsMessage =
-    /(?:^|\s)(?:-F|--file)[=\s]+["']?-["']?(?=\s|$)/.test(cmd) ||
-    /(?:^|\s)(?:-m|--message)[=\s]+"\$\(cat\s+<</.test(cmd);
-  if (heredoc && heredocIsMessage) {
-    return firstLine(heredoc[2]);
+  // after the commit — is data, and its first line is no subject. The
+  // heredoc must immediately follow one of those two markers — checking the
+  // marker and the heredoc as two independent facts (rather than tying the
+  // marker to the specific heredoc it introduces) misattributes an unrelated
+  // earlier heredoc when a command contains more than one.
+  const heredocMessage = cmd.match(
+    /(?:(?:^|\s)(?:-F|--file)[=\s]+["']?-["']?\s*|(?:^|\s)(?:-m|--message)[=\s]+"\$\(cat\s+)<<-?\s*["']?(\w+)["']?\s*\n([\s\S]*?)\n\s*\1\b/,
+  );
+  if (heredocMessage) {
+    return firstLine(heredocMessage[2]);
   }
   const inline = cmd.match(
     /(?:^|\s)(?:-m|--message)[=\s]+(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))/,

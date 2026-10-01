@@ -68,7 +68,7 @@ is no key at all — use the `<type>/<description>` shape of §1.
 Naming a branch by hand in a Bonliva repo? Match bond: `<feat|fix>/<KEY>` and
 **stop at the key**. `feat/ERP-587-export-timesheet-to-csv` is the natural thing
 to write and it is wrong here — no slug after the key, no lowercasing the key.
-`/bond-bonliva:fix-qa` and `/bond:fix-pr` look the branch up by that shape.
+`/bond-bonliva:fix-qa` looks the branch up by that shape.
 
 # Renaming a branch
 
