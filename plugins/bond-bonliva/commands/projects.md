@@ -55,9 +55,10 @@ Used by the interactive mode and by `add` when resolving a bare name.
    ```
    A glob that matches nothing is not an error — report it and let the user name
    paths directly, rather than insisting every project be called `bonliva-…`.
-3. **Drop worktrees.** `/bond:implement` creates sibling worktree directories
-   (`bonliva-crm-nx-feat-CRMDEV-7108`, `…-qa`, …) that are checkouts of a repo
-   already in the list, not separate projects. A worktree has `.git` as a **file**,
+3. **Drop worktrees.** `/bond:implement` puts its worktrees under
+   `$PROJECTS_ROOT/worktrees/`, which the glob does not reach, but older runs left
+   sibling directories (`bonliva-crm-nx-feat-CRMDEV-7108`, `…-qa`, …) that are
+   checkouts of a repo already in the list, not separate projects. A worktree has `.git` as a **file**,
    a real clone has it as a **directory** — keep only the latter:
    ```sh
    for d in "$PROJECTS_ROOT"/${BOND_PROJECT_GLOB:-bonliva-*}/; do [ -d "$d/.git" ] && echo "${d%/}"; done

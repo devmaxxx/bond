@@ -205,7 +205,9 @@ Do **not** require a clean working tree.
 
 1. Repo name: `basename "$(git rev-parse --show-toplevel)"`.
 2. Slug: `BRANCH_NAME` with `/` replaced by `-`.
-3. Worktree path: `../<repo>-<slug><WORKTREE_SUFFIX>` (sibling to the repo).
+3. Worktree path: `../worktrees/<repo>-<slug><WORKTREE_SUFFIX>` — inside one
+   `worktrees/` folder next to the repo, never a bare sibling, so checkouts do
+   not pile up among the real projects. `mkdir -p ../worktrees` first.
    Record this path **and** the original repo directory — the Teardown procedure
    needs both.
 4. `git fetch origin`.
