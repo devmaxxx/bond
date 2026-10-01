@@ -28,14 +28,16 @@ import { basename, dirname, join, relative } from "node:path";
 const PROMPTS_KEPT = 5;
 const PROMPT_CHARS = 160;
 const FILES_KEPT = 15;
+const NOTE_BYTES = 1024;
 const FRESH_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 const EDIT_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 
-// Slash commands, hook output and other harness-written turns arrive as user
-// messages wrapped in one of these tags; none of them is something the user
-// asked for. Named, so a prompt that opens with JSX or XML is still kept.
-const HARNESS_WRAPPED =
-  /^\s*<(command-|local-command-|system-reminder|task-notification|bash-|user-prompt-submit-hook)/;
+// Slash commands, hook output, artifact context and other harness-written text
+// arrive inside user messages wrapped in a lowercase hyphenated tag
+// (`<command-name>`, `<system-reminder>`, …); none of it is something the user
+// asked for. The harness keeps adding tags, so the shape is matched rather than
+// a list, and a prompt that opens with JSX or an HTML tag is still kept.
+const HARNESS_WRAPPED = /^\s*<[a-z]+(?:-[a-z]+)+[\s>]/;
 // The harness records an Esc as a user turn of its own; it is not an ask.
 const INTERRUPT_MARKER = /^\[Request interrupted by user/;
 
@@ -44,21 +46,20 @@ function promptText(entry) {
     return null;
   }
   const content = entry.message?.content;
-  const text =
+  const texts =
     typeof content === "string"
-      ? content
+      ? [content]
       : Array.isArray(content)
         ? content
             .filter((block) => block?.type === "text")
             .map((block) => block.text)
-            .join(" ")
-        : "";
-  const line = text.replace(/\s+/g, " ").trim();
-  if (
-    line === "" ||
-    HARNESS_WRAPPED.test(line) ||
-    INTERRUPT_MARKER.test(line)
-  ) {
+        : [];
+  const line = texts
+    .filter((text) => !HARNESS_WRAPPED.test(text))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (line === "" || INTERRUPT_MARKER.test(line)) {
     return null;
   }
   return line.length > PROMPT_CHARS
@@ -78,7 +79,7 @@ function editedPaths(entry) {
 
 /**
  * What a transcript leaves behind: the last prompts in order, and the edited
- * files most-recent first, as paths relative to `cwd` when they sit under it.
+ * files most-recent first, as paths relative to `cwd`.
  */
 export function digest(lines, cwd) {
   const prompts = [];
@@ -97,8 +98,7 @@ export function digest(lines, cwd) {
       prompts.push(prompt);
     }
     for (const path of editedPaths(entry)) {
-      const shown =
-        cwd && path.startsWith(`${cwd}/`) ? relative(cwd, path) : path;
+      const shown = cwd ? relative(cwd, path) : path;
       const at = files.indexOf(shown);
       if (at !== -1) {
         files.splice(at, 1);
@@ -111,6 +111,23 @@ export function digest(lines, cwd) {
     prompts: prompts.slice(-PROMPTS_KEPT),
     files: files.slice(0, FILES_KEPT),
   };
+}
+
+function bytes(text) {
+  return Buffer.byteLength(text, "utf8");
+}
+
+// Whatever SessionStart prints is re-read on every turn, so the file list
+// gives way to the budget and says how much it left out.
+function editedLine(files, budget) {
+  for (let shown = files.length; shown > 0; shown -= 1) {
+    const rest = files.length - shown;
+    const line = `Edited: ${files.slice(0, shown).join(", ")}${rest > 0 ? ` +${rest} more` : ""}`;
+    if (bytes(line) <= budget) {
+      return line;
+    }
+  }
+  return `Edited: ${files.length} files`;
 }
 
 /** The note to print at SessionStart, or null when there is nothing worth it. */
@@ -135,7 +152,7 @@ export function render(memory, { session, source, now }) {
     lines.push("Last asks:", ...memory.prompts.map((prompt) => `- ${prompt}`));
   }
   if (memory.files.length > 0) {
-    lines.push(`Edited: ${memory.files.join(", ")}`);
+    lines.push(editedLine(memory.files, NOTE_BYTES - bytes(lines.join("\n"))));
   }
   return `${lines.join("\n")}\n`;
 }

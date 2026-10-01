@@ -62,7 +62,21 @@ describe("what a transcript leaves behind", () => {
       ],
       CWD,
     );
-    assert.deepEqual(files, ["/elsewhere/d.md", "a.ts", "b.ts"]);
+    assert.deepEqual(files, ["../elsewhere/d.md", "a.ts", "b.ts"]);
+  });
+
+  it("drops harness blocks but keeps the prompt typed beside them", () => {
+    const { prompts } = digest(
+      [
+        user([
+          { type: "text", text: '<artifact-view-context artifact="x">{}</artifact-view-context>' },
+          { type: "text", text: "prepare PR" },
+        ]),
+        user("<div> is not centred"),
+      ],
+      CWD,
+    );
+    assert.deepEqual(prompts, ["prepare PR", "<div> is not centred"]);
   });
 
   it("survives lines that are not JSON", () => {
@@ -76,6 +90,13 @@ describe("the note printed at the next start", () => {
     assert.match(note, /branch feat\/x/);
     assert.match(note, /- add export/);
     assert.match(note, /Edited: src\/a\.ts/);
+  });
+
+  it("stays within a kilobyte and says how many files it left out", () => {
+    const files = Array.from({ length: 15 }, (_, i) => `../worktrees/feature/apps/api/src/modules/module-${i}/module-${i}.service.ts`);
+    const note = render(memory({ files }), { session: "new", source: "startup", now: NOW });
+    assert.ok(Buffer.byteLength(note) <= 1025, `${Buffer.byteLength(note)} bytes`);
+    assert.match(note, /\+\d+ more$/m);
   });
 
   it("says nothing after a compaction or a clear — the summary already has it", () => {
