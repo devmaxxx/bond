@@ -46,7 +46,7 @@ The rest of this step is the `TRACKER=jira` path. Exactly **one** token must rem
 
 ### 2. Resolve the ticket with comments  *(`TRACKER=jira` only)*
 
-Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the one ID and `WITH_COMMENTS=true`.
+Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the one ID, then **Check for blockers** — a QA question nobody answered or a "hold" comment is asked before the fix round starts.
 
 ### 3. Identify the QA failure feedback
 

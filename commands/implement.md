@@ -43,8 +43,9 @@ Strip all flags from `$ARGUMENTS` before parsing the remaining tokens.
 Resolve the **project profile** first
 (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Under `TRACKER=none` there
 is no Jira to read, create in, or transition: treat **all** of `$ARGUMENTS` as
-the free-text description of the work, set `TICKET_IDS` empty, skip step 2
-entirely, and continue at step 3. Report `--project` / `--task` / `--bug` as
+the free-text description of the work, set `TICKET_IDS` empty, run the shared
+**Check for blockers** procedure on that text, skip the rest of step 2, and
+continue at step 3. Report `--project` / `--task` / `--bug` as
 ignored rather than silently dropping them.
 
 The rest of this step is the `TRACKER=jira` path. After stripping flags, look at
@@ -59,9 +60,9 @@ the remaining tokens:
 
 ### 2. Resolve tickets, claim them, and move them to In Progress
 
-Skipped entirely under `TRACKER=none` — there is nothing to resolve or move.
+Skipped under `TRACKER=none` — there is nothing to resolve or move.
 
-Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs from step 1 and `WITH_COMMENTS=false`, then the **Claim unassigned ticket(s)** procedure (any ticket with no assignee becomes yours), then the **Transition to In Progress** procedure — all with the same IDs. (A freshly created ticket starts at `Todo`; the chain-walk moves it to In Progress.)
+Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs from step 1 (it reads the full issue and every comment), then **Check for blockers** — any blocker is asked before anything else happens, including the claim and the transition — then the **Claim unassigned ticket(s)** procedure (any ticket with no assignee becomes yours), then the **Transition to In Progress** procedure — all with the same IDs. (A freshly created ticket starts at `Todo`; the chain-walk moves it to In Progress.)
 
 ### 3. Determine the branch name
 
@@ -77,7 +78,7 @@ Run the shared **Set up the branch** procedure with `BRANCH_NAME` from step 3, `
 
 Run these shared procedures in order:
 
-1. **Analyse the codebase** — `FOCUS` = the ticket descriptions and acceptance criteria.
+1. **Analyse the codebase** — `FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed.
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
 3. **Implement** then **Test** — `SCOPE` = the whole plan — when the plan names three or more files, build through `superpowers:subagent-driven-development` (available when the superpowers plugin is installed; otherwise in-thread): the main thread keeps the plan and the verdicts, test output stays in the subagent.
 4. **Review and fix** — `/code-review` over the work at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
