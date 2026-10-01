@@ -15,6 +15,7 @@ Output the following table verbatim:
 | Command                | Purpose                                                                                         |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `/bond:help`           | List all bond plugin commands with their descriptions                                           |
+| `/bond:checkpoint`     | Save, compare against, list or restore named snapshots of the working tree without committing    |
 | `/bond:chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) and install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/bond:fix-ci`         | Fix a failed pipeline from its URL, a PR, or `--mine`: diagnose, fix, push, watch the re-run      |
 | `/bond:disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones           |

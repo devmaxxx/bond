@@ -8,6 +8,7 @@ but every command resolves a per-repo profile, so they work outside it too.
 | Command           | Purpose                                                                                       |
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | `/help`           | List all bond plugin commands with their descriptions                                         |
+| `/checkpoint`     | Save, compare against, list or restore named snapshots of the working tree without committing |
 | `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions, Bitbucket), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
@@ -240,6 +241,9 @@ Every command reads that profile rather than assuming a host or a tracker:
 - `PreToolUse` on the subagent dispatch — `Agent`, or `Task` where the harness still names it that — runs `hooks/recon-router.mjs`: context only, never a decision — the agent is dispatched either way. A prompt handed to the unnamed or the general-purpose agent that asks where something lives, what or who calls it, which file holds it or how it is wired gets one line naming who answers it cheaply — `repo-scout` where the working tree has one under `.claude/agents/`, otherwise `Explore` with a breadth. The general-purpose agent pays that search in full and returns everything it read; the other two return the conclusion. A prompt that already names an agent has made the choice, and saying it again costs the tokens this is trying to save; so has a prompt that builds — one carrying `implement`, `add`, `write`, `refactor`, `fix`, `update`, `create`, `migrate` or `edit` as a word — since the agent that writes the code reads it on the way there. The rule is `route` in that file, unit-tested in `tests/recon-router.test.mjs`.
 - `UserPromptSubmit`, and `PreToolUse` on `Bash` / `Write` / `Edit` / `MultiEdit` / `NotebookEdit` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls, run `hooks/secrets-guard.mjs`: a prompt carrying a live-looking secret — GitHub, Atlassian (API and Bitbucket access tokens), Figma, Slack (tokens and webhook URLs), OpenAI/Anthropic, AWS (key IDs and secret keys), PEM and PGP private keys, Telegram bot tokens, database URIs with an inline password (Postgres, MySQL, MongoDB, Redis, AMQP), JWTs — is blocked before it is stored in the session, naming the kind and never the value and without echoing the prompt back (`suppressOriginalPrompt`); `#allow-secret` sends it anyway. A tool call that would write a literal secret into a file git tracks, a commit, a `gh` body (inline, or in the `--body-file` / `-F` file it sends), a pull request title or description or a `curl` line is blocked, unless the file already held that secret; a gitignored file, a lone `echo` / `printf` / `cat` into a gitignored `.env*`, `claude mcp add` outside project scope, a `$VAR` reference, a placeholder and a localhost dev URI pass. Unit-tested in `tests/secrets-guard.test.mjs`.
 
+- `SessionStart`, `PreCompact` and `SessionEnd` run `hooks/session-memory.mjs`: `save` (PreCompact, SessionEnd) reads the transcript and keeps the last five prompts, each cut to one line, the files the session edited and its branch in `~/.claude/bond/sessions/<repo>.json`; `restore` (SessionStart) prints that note to the next session in the same directory — on startup or resume only, never after a compaction or a clear (the summary already carries it), never to the session that wrote it, and not once it is a week old. Well under a kilobyte, because whatever SessionStart prints is re-read on every turn. An empty session does not overwrite a real one's note. The rules are `digest` and `render`, unit-tested in `tests/session-memory.test.mjs`. Adapted from everything-claude-code's memory-persistence hooks.
+- `PreToolUse` on every tool runs `hooks/suggest-compact.mjs`: context only. At the 50th call since the last compaction, and every 25th after, one line suggests `/compact` if a phase just ended — auto-compaction fires wherever the window fills, a chosen one keeps what the next phase needs. `PreCompact` resets the count in `<tmp>/bond/<session_id>.tool-calls`. The rule is `judge`, unit-tested in `tests/suggest-compact.test.mjs`. Adapted from everything-claude-code's strategic-compact hook.
+
 ## Tests
 
 The hook rules are unit-tested with the Node test runner — no dependencies, no
@@ -248,7 +252,7 @@ whether a command really runs `git commit` or `gh pr`, and whether a call really
 opens a pull request — along with the AI-signature patterns they share with
 `check-doc.mjs`; the ticket-key rule; the standing-rules rendering; and the four
 context hooks through their decision functions, `decide` (branch-guard), `judge`
-(bash-budget), `route` (recon-router) and `check` (node-guard), each with its
+(bash-budget, suggest-compact), `digest`/`render` (session-memory), `route` (recon-router) and `check` (node-guard), each with its
 wrapper driven over stdin as well. `context-audit.py` is run against the
 hand-sized transcript under `tests/fixtures/projects/`, every `SKILL.md` is held
 to its size limit and to the `references/` files it links, and `check-commit.mjs`
@@ -270,6 +274,8 @@ node --test 'tests/**/*.test.mjs'
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/high by default, fable for planning only on the hard predicates, opus for every build unless a model is named, and a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
 - **context-cost** — what a screenshot, a whole-file read or an unbounded command costs once the session carries it, and the cheaper form that answers the same question. Measured: cache reads are 65 % of weighted cost, and the 15 largest sessions on one machine carried 42 % of its usage. Bundled under `skills/context-cost/`.
+- **verification-loop** — runs the repo's own build, typecheck, lint and tests (commands read from CI config first, then `package.json`/`Makefile`), scans the added lines for secrets and debug leftovers, and reports one `READY` / `NOT READY` line; a gate the repo lacks is `n/a`, never `PASS`. Sits before finishing-with-code-review. Bundled under `skills/verification-loop/`.
+- **security-checklist** — a checklist over the changed lines only, by section (secrets, input, injection, authn/authz, web, uploads, exposure, abuse), each picked by what the diff touches; findings as `file:line` with the attack and the fix. Bundled under `skills/security-checklist/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
 
 ## Agents
@@ -318,6 +324,8 @@ bond/
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
 │   ├── context-cost/        # what a read/screenshot costs once the session carries it
 │   │   └── scripts/context-audit.py  # per-session tool-result bytes, compactions, results over 40 KB
+│   ├── verification-loop/   # build, types, lint, tests, diff scan → READY / NOT READY
+│   ├── security-checklist/  # per-section security questions over the changed lines
 │   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
 │   ├── DocsExplorer.md     # look up official docs before using a third-party API
@@ -345,6 +353,8 @@ bond/
 │   ├── bash-budget.mjs     # PreToolUse: a row of one-command calls, output with no bound
 │   ├── recon-router.mjs    # PreToolUse: who answers a "where is X" prompt cheaply
 │   ├── node-guard.mjs      # SessionStart: the shell node is not the version .nvmrc pins
+│   ├── session-memory.mjs  # PreCompact/SessionEnd save, SessionStart restore: last session's note
+│   ├── suggest-compact.mjs # PreToolUse: a /compact reminder at 50 calls and every 25 after
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
