@@ -255,6 +255,8 @@ Explore the code relevant to `FOCUS`:
 - Identify which files need to change and why.
 - Locate related backend API endpoints and DTOs if data is touched.
 - Find existing tests covering the affected area.
+- A third-party library, SDK or CLI the change will call ⇒ confirm its current
+  API through the `bond:DocsExplorer` agent before the plan relies on it.
 
 ## Procedure: Implementation plan
 
@@ -323,7 +325,9 @@ group of changes, briefly say what was done and which files were modified.
 - Do **not** commit — leave staging and committing to the user or
   `/bonliva-dev:ship`.
 - If something blocks a step (missing type, unexpected API shape, etc.), pause
-  and ask the user rather than guessing.
+  and ask the user rather than guessing. An unexpected shape from a
+  third-party library is a `bond:DocsExplorer` lookup first, a question only if
+  the docs do not settle it.
 
 ## Procedure: Test
 
@@ -337,6 +341,9 @@ Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
   testing style.
 - Cover the golden path and at least one edge/error case for each new behaviour.
 - Do not write tests for code that was not changed.
+
+Run them, and the module's existing tests, through the `bond:TestRunner` agent —
+one command per call — so only the failures come back.
 
 ## Procedure: Review and fix
 
@@ -353,8 +360,9 @@ runs **after Test, before Report completion**, never later: `--fix` writes to
 the working tree, so its changes must be inside the diff that Ship + PR commits,
 and Teardown refuses a dirty worktree.
 
-- **Re-run the test commands from Test afterwards.** A review fix can break a
-  test, and an unverified fix is worth less than the finding it closed.
+- **Re-run the test commands from Test afterwards**, through
+  `bond:TestRunner`. A review fix can break a test, and an unverified fix is
+  worth less than the finding it closed.
 - Apply what the review returns without asking (see **Autonomy**). Log any
   finding you deliberately did not take under the plan file's `## Decisions`,
   with the reason.
@@ -390,14 +398,15 @@ Commit and push happen here automatically — do not ask the user first.
 1. Validate, commit, and push the branch. Inside Bonliva that is
    `/bonliva-dev:ship`; where the profile is not Bonliva that command belongs to
    a plugin the repo does not have, so run the repo's own checks (its test and
-   lint scripts) and then commit and push directly. Every
+   lint scripts, each through `bond:TestRunner`) and then commit and push directly. Every
    commit message follows the `authorship-conventions` skill: Conventional Commits
    subject, prose *why* body, and no AI signature — no `Co-Authored-By`
    naming a tool, no `Claude-Session:` link, no "generated with" footer. The
    plugin's `check-commit` hook blocks a commit that breaks this; fix the
    message rather than bypassing the hook.
 2. Then, by `PR_HANDLING`:
-   - `create` → invoke `/bond:open-pr <BASE_BRANCH>` to create the PR on
+   - `create` → invoke `/bond:open-pr <BASE_BRANCH> --issue <TICKET_IDS>`
+     (no `--issue` when `TICKET_IDS` is empty) to create the PR on
      whichever host the profile resolved, targeting the base branch (pass the
      resolved `BASE_BRANCH` explicitly so it matches the branch the work was cut
      from).

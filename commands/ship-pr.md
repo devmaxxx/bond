@@ -244,10 +244,12 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/ship-pr-poll.sh" \
 Never run two polls on one PR, and never pipe `gh --json` through `echo` — the
 script's header says why. Comment ids are GraphQL node ids (`IC_…`, `PRR_…`);
 store those in `handledCommentIds`. Inline review threads are not in the
-poll's payload: once settled, read them through the **Review threads**
-procedure in `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`. On Bitbucket,
-poll at the same 5s cadence through **PR details and CI status** and **Review
-threads**.
+poll's payload: once settled, hand the PR and the ledger's
+`handledCommentIds` to the `bond:PRStatus` agent — one read returns the CI
+verdict with each failed check's root cause and every unhandled thread, review
+body and conversation comment with its id, without the raw `gh` output landing
+here. On Bitbucket, poll at the same 5s cadence through **PR details and CI
+status** and **Review threads**, then read the settled state the same way.
 
 **b. Triage the review.** Per the `superpowers:receiving-code-review` skill:
 verify each claim against the code — bot reviews are routinely half right, so
@@ -275,9 +277,10 @@ wrong.
 
 Skip outdated and resolved threads, approvals, bot summaries, CI status noise.
 
-**c. Fix CI** — when **failed**: run the **Diagnose CI failure** procedure in
-`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`,
-then:
+**c. Fix CI** — when **failed**: start from the root causes `bond:PRStatus`
+returned; read a full step log yourself only when its one-line cause is not
+enough to fix it (the **Diagnose CI failure** procedure in
+`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Then:
 
 - also red on the base branch ⇒ not this PR's; note it.
 - flaky suspect ⇒ `gh run rerun <id> --failed` once before debugging; green on
@@ -362,8 +365,8 @@ files and both commits under *Needs you*. That is a stop.
 
 1. No markers left — `git diff --check` and a search for `<<<<<<<` / `>>>>>>>`
    in the conflicted files.
-2. Typecheck and build, then **Test** and **Review and fix** scoped to the
-   resolved hunks.
+2. Typecheck and build — each through the `bond:TestRunner` agent — then
+   **Test** and **Review and fix** scoped to the resolved hunks.
 3. Re-run step 1 for every checklist item whose code the resolution touched,
    and update the test plan.
 
@@ -382,7 +385,8 @@ goes with the worktree. Then print:
 - Per round: findings fixed / declined / needs you, CI verdict, commit shas.
 - **Needs you** — findings left alone, drafted replies to human reviewers,
   pre-existing and infrastructure failures, every stop reason.
-- Final state: CI, review decision, unresolved threads. Merging is the user's.
+- Final state: CI, review decision, unresolved threads — one last
+  `bond:PRStatus` read. Merging is the user's.
 
 ## Do NOT
 

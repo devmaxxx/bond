@@ -6,9 +6,10 @@ description: Open a pull request for the current branch (GitHub or Bitbucket) �
 
 Creates a pull request from the current branch into a base branch (`main` by default). The host is resolved from the `origin` remote: `gh` for a GitHub repo, the Bitbucket MCP server (`bond-bitbucket`) for a Bitbucket one.
 
-Usage: `/open-pr [base-branch]`
+Usage: `/open-pr [base-branch] [--issue <ID>…]`
 
-`$ARGUMENTS` — an optional **base branch** to target the PR at. If omitted, the base is resolved **per repo** (step 2). Examples: `/open-pr`, `/open-pr develop`, `/open-pr release/2.0`. Call this base `<base>` throughout the steps below.
+`$ARGUMENTS` — an optional **base branch** to target the PR at, and optional
+`--issue` IDs (`ERP-123`, or `#42` for a GitHub issue) the title must lead with. If omitted, the base is resolved **per repo** (step 2). Examples: `/open-pr`, `/open-pr develop`, `/open-pr release/2.0`. Call this base `<base>` throughout the steps below.
 
 Where the project profile resolves `DRAFT` (every Bonliva repo, unless `.bond/project.json` sets `draft`) PRs are created as drafts; the author publishes the draft when it is ready for review. Anywhere else the PR opens ready for review.
 
@@ -49,7 +50,14 @@ PR formatting. Read that file and set its inputs:
 - `<branch>` — current branch (step 1).
 - `<base>` — resolved base (step 2).
 - `<commits>` — `git log origin/<base>..<branch> --oneline`.
-- `<tickets>` — ticket IDs matching `[A-Z]+-\d+` from the branch name.
+- `<tickets>` — the issue the PR belongs to, first source that yields one:
+  1. `--issue` IDs from `$ARGUMENTS`;
+  2. ticket keys in the branch name, per the template's `<tickets>` rule;
+  3. the same keys in `<commits>`' subjects and bodies;
+  4. on GitHub, `Closes` / `Fixes` / `Resolves #<n>` in those commit bodies, as `#<n>`.
+
+  The title always leads with them. None found ⇒ the plain description, and say
+  in the report that the PR names no issue.
 
 Then produce the title and description exactly as the template defines them.
 
@@ -97,7 +105,7 @@ On success, print the PR URL. On failure, report the error and stop.
 
 ### 7. Transition Jira ticket to In Review
 
-For each ticket ID extracted in step 3 (if any), run the **transition** procedure
+For each Jira key in step 3's `<tickets>` (if any — a GitHub `#<n>` is not one), run the **transition** procedure
 in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md` with target status **In Review**. It
 resolves `cloudId` and walks the linear status chain (`Todo → In Progress → In
 Review → QA`) one hop at a time, so a ticket sitting at `Todo` is stepped through
