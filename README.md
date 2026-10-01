@@ -9,12 +9,17 @@ but every command resolves a per-repo profile, so they work outside it too.
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | `/help`           | List all bond plugin commands with their descriptions                                         |
 | `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
+| `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions, Bitbucket), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
+| `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
 | `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
+| `/pr-sweep`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
+| `/rebase`         | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
 | `/ship-pr`        | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
+| `/worktree`       | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
 | `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
 
 ## bond-bonliva (Bonliva-only companion)
@@ -33,13 +38,24 @@ its commands or MCP tool listings:
 | Command                          | Purpose                                                                       |
 | -------------------------------- | ----------------------------------------------------------------------------- |
 | `/bond-bonliva:fix-qa`           | Re-run implementation against QA feedback — from a Jira ticket, or free text  |
+| `/bond-bonliva:jira-sync`        | Move tickets of merged PRs to QA (with fixVersion) and open PRs to In Review; `--qa-plan` posts manual test plans |
 | `/bond-bonliva:log-plan`         | Generate a day/week/month time-log plan                                       |
 | `/bond-bonliva:projects`         | Manage the projects tracked by `log-plan` (add, remove, discover, clear)      |
 | `/bond-bonliva:publish-timelog`  | Publish a time-log md to Jira + Clockify (one entry/day) and reconcile totals  |
+| `/bond-bonliva:publish-doc`      | Publish a markdown doc to Outline, keeping its id and hash in frontmatter to catch remote edits |
 | `/bond-bonliva:request-review`   | Post a Teams card inviting reviewers to review a PR                           |
 | `/bond-bonliva:set-reviewers`    | Set or change the default reviewers added to PRs                              |
 | `/bond-bonliva:setup-plugin`     | Install the Bonliva MCP servers (local scope, per project) and env vars       |
 | `/bond-bonliva:teams-post`       | Post a message to a Teams channel via a Workflow webhook                      |
+
+Skills (`plugins/bond-bonliva/skills/`):
+
+- **port-from-prototype** — diff a bonliva-prototypes screen against the app page (components, columns, fonts, colours, states), then port it with ui-kit components and existing tokens only.
+- **crashlytics-triage** — a Crashlytics issue URL or `ios|android <version>, last N days`: find our frame, sort real / upstream / noise, file BON bugs after showing the list, optionally a fix PR on `release/*`.
+- **rn-mobile-build** — Expo / React Native chores for the mobile app: cache cleaning, fastlane and `ios:beta` failures, simulator and emulator login, library upgrades, git-flow release finish.
+- **mongo-migration** — idempotent, batched `bulkWrite` migrations with a 10-document dry run, a verification query and Atlas index notes for the release.
+
+Hook: `PreToolUse` on `Write` / `Edit` / `MultiEdit` runs `plugins/bond-bonliva/hooks/migration-guard.mjs` — a new file under a `migrations/` directory is blocked while this branch already adds an unmerged migration the base does not have (update that one instead), or when its name is not kebab-case with a timestamp prefix that sorts after everything there and in the base (prefix width taken from the files already there). `BOND_MIGRATION_GUARD=off` turns it off. Unit-tested in `tests/migration-guard.test.mjs`.
 
 Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
 symlinks into `bond`, which the plugin cache resolves into real copies.
@@ -222,6 +238,7 @@ Every command reads that profile rather than assuming a host or a tracker:
 - `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where one is required (`"draft"` in `.bond/project.json`, else a Bonliva repo: origin under `bonliva/`, a Bitbucket `workspace: bonliva`, or `.bonliva-dev/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
 - `PreToolUse` on `Bash` runs `hooks/bash-budget.mjs`: context only, never a decision — the command always runs. Ten calls in a row that each carry a single command get one line naming the three cheaper forms — chain the next ones with `&&` or `;`, issue them in one message, or hand the loop to a subagent; measured over thirty days in one repo, 6481 Bash calls averaging 1.6 KB of output, where the price is not that output but the whole conversation being re-read on every one of them. Four shapes whose output has no bound get one line naming the bounded form — `git log` without `-n`/`--oneline`, `cat` of one whole file, `ls -R` or `find` without `-maxdepth`, a test run without `--reporter`. At most one line per call and the batch nudge wins; the row is counted in `<tmp>/bond/<session_id>.bash-singles`, whose own mtime says whether the previous call came from a turn of its own — a counter written under a second ago means both calls were dispatched in one message, which is already the batching asked for, so that call does not lengthen the row. An unwritable tmp costs the batch nudge, never the call. Separators are read where the shell would run them, so `"a && b"` and a heredoc body carrying `&&` are each one command. The rule is `judge` in that file, unit-tested in `tests/bash-budget.test.mjs`.
 - `PreToolUse` on the subagent dispatch — `Agent`, or `Task` where the harness still names it that — runs `hooks/recon-router.mjs`: context only, never a decision — the agent is dispatched either way. A prompt handed to the unnamed or the general-purpose agent that asks where something lives, what or who calls it, which file holds it or how it is wired gets one line naming who answers it cheaply — `repo-scout` where the working tree has one under `.claude/agents/`, otherwise `Explore` with a breadth. The general-purpose agent pays that search in full and returns everything it read; the other two return the conclusion. A prompt that already names an agent has made the choice, and saying it again costs the tokens this is trying to save; so has a prompt that builds — one carrying `implement`, `add`, `write`, `refactor`, `fix`, `update`, `create`, `migrate` or `edit` as a word — since the agent that writes the code reads it on the way there. The rule is `route` in that file, unit-tested in `tests/recon-router.test.mjs`.
+- `UserPromptSubmit`, and `PreToolUse` on `Bash` / `Write` / `Edit` / `MultiEdit` / `NotebookEdit` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls, run `hooks/secrets-guard.mjs`: a prompt carrying a live-looking secret — GitHub, Atlassian (API and Bitbucket access tokens), Figma, Slack (tokens and webhook URLs), OpenAI/Anthropic, AWS (key IDs and secret keys), PEM and PGP private keys, Telegram bot tokens, database URIs with an inline password (Postgres, MySQL, MongoDB, Redis, AMQP), JWTs — is blocked before it is stored in the session, naming the kind and never the value and without echoing the prompt back (`suppressOriginalPrompt`); `#allow-secret` sends it anyway. A tool call that would write a literal secret into a file git tracks, a commit, a `gh` body (inline, or in the `--body-file` / `-F` file it sends), a pull request title or description or a `curl` line is blocked, unless the file already held that secret; a gitignored file, a lone `echo` / `printf` / `cat` into a gitignored `.env*`, `claude mcp add` outside project scope, a `$VAR` reference, a placeholder and a localhost dev URI pass. Unit-tested in `tests/secrets-guard.test.mjs`.
 
 ## Tests
 
@@ -259,6 +276,7 @@ node --test 'tests/**/*.test.mjs'
 
 - **effort-low / effort-medium / effort-high / effort-xhigh / effort-max** — one agent per reasoning effort level; the caller passes `model` at call time. `effort-high`, `effort-xhigh` and `effort-max` fall back to `model: opus` when the caller omits it; `effort-low` and `effort-medium` fall back to the session default subagent model, so a cheap tier is not silently run on the most expensive model. Used by the routing-model-and-effort skill because effort is only settable through an agent definition. Bundled under `agents/`.
 - **TestRunner** — runs one test, typecheck or lint command on haiku at low effort and returns only the failures: the runner's own counts on line 1, then at most 40 `path:line: message` lines and `… N more`. A command that cannot start comes back as the first 5 lines of stderr. Hand it every check whose full output would otherwise land in the main context. Bundled under `agents/`.
+- **CIDiagnose** — reads one failed pipeline (Woodpecker, GitHub Actions or Bitbucket URL) on sonnet at medium effort and returns per failed step its class — flaky, infra, code, or pre-existing on the base — a `file:line` cause and at most 5 log lines. Read-only; `/fix-ci` acts on it. Bundled under `agents/`.
 - **PRStatus** — reads one PR once on haiku at low effort, GitHub or Bitbucket: state, mergeable, the CI verdict with one root-cause line per failed check, the review decision, and every unhandled inline thread, review body and conversation comment with its id (minus the ids the caller already handled). Read-only — never replies, resolves, reruns or polls. `/ship-pr` reads each settled round and its final state through it. Bundled under `agents/`.
 
 ## Installation
@@ -305,9 +323,11 @@ bond/
 │   ├── DocsExplorer.md     # look up official docs before using a third-party API
 │   ├── TestRunner.md       # run one check, return only the failures
 │   ├── PRStatus.md         # one PR's CI, review and unhandled comments, compact
+│   ├── CIDiagnose.md       # one failed pipeline: class, cause, short excerpt
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
+│   ├── merge-conflicts.md  # detect, rebase or merge, resolve, prove — ship-pr, rebase, pr-sweep
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
 │   ├── pr-template.md      # single source of truth for PR title + description

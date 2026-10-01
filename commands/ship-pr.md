@@ -21,7 +21,7 @@ human.
 It reuses the procedures in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`
 (branch setup, Implement, Test, Review and fix, Teardown) and
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (PR coordinates, CI status,
-CI diagnosis, review threads).
+CI diagnosis, review threads) and `${CLAUDE_PLUGIN_ROOT}/shared/merge-conflicts.md`.
 
 **Standing instructions win.** An instruction the user gave earlier in the
 session — "skip review", "don't push", "don't post comments" — overrides the
@@ -322,57 +322,17 @@ or closed meanwhile; a conflict **Resolve merge conflicts** handed back.
 
 ### Resolve merge conflicts
 
-Called from step 0.8 and step 3a.
+Called from step 0.8 and step 3a. Run **Resolve merge conflicts** in
+`${CLAUDE_PLUGIN_ROOT}/shared/merge-conflicts.md` with `BASE_BRANCH` = the PR
+base, `STRATEGY=merge` (`rebase` when the user asked for one), and `PLAN` =
+what step 0.7 read. On top of its **Prove it**, before pushing:
 
-**Detect.** GitHub: `gh pr view <n> --json mergeable,mergeStateStatus` —
-`UNKNOWN` is still computing, re-read it; still unknown, fall through to the
-trial merge. Everywhere, and the only way on Bitbucket:
-
-```sh
-git fetch origin <BASE_BRANCH>
-git merge --no-commit --no-ff origin/<BASE_BRANCH>
-git diff --name-only --diff-filter=U        # the conflicted files
-```
-
-Clean ⇒ `git merge --abort` unless the branch is also `BEHIND` a base that
-requires up-to-date branches, in which case commit the clean merge.
-
-**Merge, don't rebase.** Merge `origin/<BASE_BRANCH>` into the branch: no
-force-push, review threads stay anchored to their commits, and the draft state
-cannot flip. Rebase instead only when the base's branch protection requires a
-linear history (`gh api repos/<OWNER>/<REPO_SLUG>/branches/<BASE_BRANCH>/protection`
-→ `required_linear_history`) or the user asked for it — then push
-`--force-with-lease` and re-check the draft state.
-
-**Resolve by file kind** — never take `--ours` or `--theirs` wholesale on code:
-
-| Kind | Resolution |
-| --- | --- |
-| generated (OpenAPI/GraphQL clients, `*.gen.*`, ORM clients) | take the base side, then regenerate from the merged sources — never hand-merge generated code |
-| lockfile | take the base side, then re-run install so this branch's dependency changes are re-applied |
-| migrations | keep both sides' migrations; when their order or numbering collides, renumber or re-timestamp **this branch's** migration, never the base's, and apply both to a fresh DB |
-| i18n / keyed JSON | union of keys; a key both changed keeps the base value unless this PR changed it on purpose |
-| changelog / version | base version, plus this branch's entries |
-| code | read both intents — the base commit behind the hunk (`git log -p origin/<BASE_BRANCH> -- <file>`) and this PR's plan — and write the version that keeps both |
-| deleted or moved on base, modified here | port this branch's change to where the code now lives |
-
-**Hand back instead of guessing.** When both sides rewrote the same logic
-differently and the plan does not say which wins, or the base deleted what this
-PR builds on: `git merge --abort` (or `git rebase --abort`), and report the
-files and both commits under *Needs you*. That is a stop.
-
-**Prove it.** Before committing:
-
-1. No markers left — `git diff --check` and a search for `<<<<<<<` / `>>>>>>>`
-   in the conflicted files.
-2. Typecheck and build — each through the `bond:TestRunner` agent — then
-   **Test** and **Review and fix** scoped to the resolved hunks.
-3. Re-run step 1 for every checklist item whose code the resolution touched,
+1. **Test** and **Review and fix** scoped to the resolved hunks.
+2. Re-run step 1 for every checklist item whose code the resolution touched,
    and update the test plan.
 
-Commit with git's own `Merge …` subject (the commit hook passes it), push, and
-record the base head the merge was made against in the ledger. A second
-conflict on the same base head means the resolution was wrong — stop.
+After the push, record the base head the merge was made against in the ledger
+(`mergedBase`). A hand-back from the procedure is a stop.
 
 ### 4. Teardown and report
 
