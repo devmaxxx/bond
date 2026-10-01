@@ -83,6 +83,27 @@ describe("check-commit.mjs end to end", () => {
     assert.equal(checkCommit(script).status, 0);
   });
 
+  it("reads -m, not a later unrelated heredoc, as the subject", () => {
+    // The shape that blocked a session: a conventional -m commit chained
+    // with a python heredoc whose first line was read as the subject.
+    const script = [
+      'git commit -q -m "fix(etl): keep NULL positions" && python3 - <<\'EOF\'',
+      "import json,os",
+      "EOF",
+    ].join("\n");
+    assert.equal(checkCommit(script).status, 0);
+  });
+
+  it("still reads a heredoc fed to git commit -F -", () => {
+    const script = ["git commit -F - <<'EOF'", "fixed the thing", "EOF"].join("\n");
+    assert.equal(checkCommit(script).status, 2);
+  });
+
+  it("still reads a heredoc inside -m \"$(cat <<EOF)\"", () => {
+    const script = ['git commit -m "$(cat <<\'EOF\'', "fixed the thing", "EOF", ')"'].join("\n");
+    assert.equal(checkCommit(script).status, 2);
+  });
+
   it("still blocks a non-conventional subject on a real commit", () => {
     const { status, stderr } = checkCommit('git commit -m "fixed the thing"');
     assert.equal(status, 2);

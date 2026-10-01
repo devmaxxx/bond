@@ -54,8 +54,14 @@ function extractSubject() {
   if (fileTexts.length > 0) {
     return firstLine(fileTexts[0]);
   }
+  // A heredoc is the message only when it feeds git: `-F -` reading stdin, or
+  // `-m "$(cat <<EOF`. Any other heredoc in the same command — a script run
+  // after the commit — is data, and its first line is no subject.
   const heredoc = cmd.match(/<<-?\s*["']?(\w+)["']?\s*\n([\s\S]*?)\n\s*\1\b/);
-  if (heredoc) {
+  const heredocIsMessage =
+    /(?:^|\s)(?:-F|--file)[=\s]+["']?-["']?(?=\s|$)/.test(cmd) ||
+    /(?:^|\s)(?:-m|--message)[=\s]+"\$\(cat\s+<</.test(cmd);
+  if (heredoc && heredocIsMessage) {
     return firstLine(heredoc[2]);
   }
   const inline = cmd.match(
