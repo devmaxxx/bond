@@ -25,10 +25,10 @@ command to the packages the diff touches (`turbo run … --filter`, `nx affected
 2. **Types** — `tsc --noEmit` or the repo's script.
 3. **Lint** — on the changed files when the linter allows it.
 4. **Tests** — through the `TestRunner` agent, so only failures come back.
-5. **Diff scan** — added lines only (`git diff <base>...HEAD -U0 | grep '^+'`): keys and
+5. **Diff scan** — added lines only (`git diff $(git merge-base <base> HEAD) -U0 | grep '^+'`, so uncommitted work is scanned too): keys and
    tokens (`sk-`, `AKIA`, `ghp_`, `-----BEGIN`, `password\s*=`), stray `console.log`,
    `debugger`, `.only(`, `TODO` added by this branch, and committed `.env` files.
-6. **Diff shape** — `git diff --stat <base>...HEAD`: a file nobody meant to touch is a
+6. **Diff shape** — `git diff --stat $(git merge-base <base> HEAD)`: a file nobody meant to touch is a
    finding, not noise.
 
 Run independent gates in one message. A failing gate gets fixed and the loop re-runs from

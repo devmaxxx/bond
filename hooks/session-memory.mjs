@@ -32,8 +32,12 @@ const FRESH_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 const EDIT_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 
 // Slash commands, hook output and other harness-written turns arrive as user
-// messages wrapped in a tag; none of them is something the user asked for.
-const HARNESS_WRAPPED = /^\s*</;
+// messages wrapped in one of these tags; none of them is something the user
+// asked for. Named, so a prompt that opens with JSX or XML is still kept.
+const HARNESS_WRAPPED =
+  /^\s*<(command-|local-command-|system-reminder|task-notification|bash-|user-prompt-submit-hook)/;
+// The harness records an Esc as a user turn of its own; it is not an ask.
+const INTERRUPT_MARKER = /^\[Request interrupted by user/;
 
 function promptText(entry) {
   if (entry?.type !== "user" || entry.isMeta || entry.isCompactSummary) {
@@ -50,7 +54,11 @@ function promptText(entry) {
             .join(" ")
         : "";
   const line = text.replace(/\s+/g, " ").trim();
-  if (line === "" || HARNESS_WRAPPED.test(line)) {
+  if (
+    line === "" ||
+    HARNESS_WRAPPED.test(line) ||
+    INTERRUPT_MARKER.test(line)
+  ) {
     return null;
   }
   return line.length > PROMPT_CHARS

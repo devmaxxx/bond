@@ -29,14 +29,16 @@ describe("what a transcript leaves behind", () => {
       [
         user("add a CSV export"),
         user("<command-name>/clear</command-name>"),
+        user("<Button> does not render"),
         user("rules", { isMeta: true }),
         user("summary", { isCompactSummary: true }),
         user([{ type: "tool_result", content: "ok" }]),
         user([{ type: "text", text: "now  the\ntests" }]),
+        user([{ type: "text", text: "[Request interrupted by user]" }]),
       ],
       CWD,
     );
-    assert.deepEqual(prompts, ["add a CSV export", "now the tests"]);
+    assert.deepEqual(prompts, ["add a CSV export", "<Button> does not render", "now the tests"]);
   });
 
   it("keeps only the last five prompts, each cut to one short line", () => {

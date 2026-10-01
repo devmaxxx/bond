@@ -16,7 +16,7 @@
  * hook of everything-claude-code (Affaan Mustafa, MIT).
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -39,13 +39,13 @@ function statePath(session) {
   return join(tmpdir(), "bond", `${session}.tool-calls`);
 }
 
-function readCount(path) {
-  try {
-    const count = Number.parseInt(readFileSync(path, "utf8"), 10);
-    return Number.isFinite(count) && count >= 0 ? count : 0;
-  } catch {
-    return 0;
-  }
+// One byte per call, counted by the file size: parallel tool calls run their
+// hooks at once, and an O_APPEND write cannot lose another's increment the way
+// a read-then-rewrite of a number can.
+function countCall(path) {
+  mkdirSync(dirname(path), { recursive: true });
+  appendFileSync(path, ".");
+  return statSync(path).size;
 }
 
 function main() {
@@ -59,9 +59,7 @@ function main() {
     rmSync(path, { force: true });
     return;
   }
-  const { calls, message } = judge(readCount(path));
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${calls}\n`);
+  const { message } = judge(countCall(path) - 1);
   if (message !== null) {
     process.stdout.write(
       `${JSON.stringify({

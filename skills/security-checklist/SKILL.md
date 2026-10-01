@@ -1,6 +1,6 @@
 ---
 name: security-checklist
-description: Use when a diff touches authentication or authorization, user input reaching a query, a file upload, a webhook or a public endpoint, secrets or env config, cookies or CORS, or logging of user data — and when bond:routing-code-review's card reads security≠none. Walks a short checklist over the changed lines only and reports each hit as file:line with the fix.
+description: Use when a diff touches authentication or authorization, user input reaching a query, a file upload, a webhook or a public endpoint, secrets or env config, cookies or CORS, or logging of user data — and when bond:routing-code-review's card reads `risk=security`. Walks a short checklist over the changed lines only and reports each hit as file:line with the fix.
 ---
 
 # Security checklist
@@ -14,7 +14,7 @@ sections applied — silence is not a verdict.
 
 ## Procedure
 
-1. `git diff <base>...HEAD --name-only`; pick the sections below whose trigger the diff hits.
+1. `git diff $(git merge-base <base> HEAD) --name-only` (committed and uncommitted work alike); pick the sections below whose trigger the diff hits.
 2. For each picked section, read the matching block of references/checklist.md and ask
    every question of the changed code. Follow a value from where it enters (request,
    queue message, webhook, file) to where it is used (query, shell, HTML, log, redirect).

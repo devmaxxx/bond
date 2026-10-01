@@ -14,7 +14,7 @@ committed and nothing is pushed.
 
 `$ARGUMENTS` — `<action> [name]`:
 
-- `create <name>` — snapshot now. Name defaults to `HH:MM`.
+- `create <name>` — snapshot now. Name defaults to `HH-MM`; a name must be a valid ref component (no `:`, spaces, `..`, `~`, `^`).
 - `verify <name>` — what changed since that snapshot, and do the tests still pass.
 - `list` — every checkpoint on this branch, newest first.
 - `restore <name>` — bring that snapshot back (asks first; see below).
@@ -25,13 +25,14 @@ Examples: `/bond:checkpoint create before-refactor`, `/bond:checkpoint verify be
 ## Storage
 
 Refs under `refs/bond-checkpoints/<branch>/<name>`, where `<branch>` has `/` replaced by
-`-`. Local to this clone, invisible to `git push` and `git stash list`.
+`-` (`detached` on a detached HEAD). Local to this clone, invisible to `git push` and `git stash list`.
 
 ## create
 
 ```bash
 sha=$(git stash create "bond-checkpoint: <name>")
-sha=${sha:-$(git rev-parse HEAD)}          # clean tree ⇒ the checkpoint is HEAD
+# clean tree ⇒ a commit of HEAD's tree, so the ref still carries its own date
+sha=${sha:-$(git commit-tree "HEAD^{tree}" -p HEAD -m "bond-checkpoint: <name>")}
 git update-ref "refs/bond-checkpoints/<branch>/<name>" "$sha"
 ```
 
@@ -61,9 +62,9 @@ git for-each-ref --sort=-creatordate \
 
 Restoring overwrites the working tree, so:
 
-1. Run **create** with the name `before-restore-<HH:MM>` first, always — that is the undo.
+1. Run **create** with the name `before-restore-<HH-MM>` first, always — that is the undo.
 2. Show `git diff --stat` between the tree and the target, and ask before going on.
-3. `git checkout <sha> -- .` for a stash commit restores its tracked files; tell the user
+3. From the repo root, `git restore --source=<sha> --worktree -- .` restores the snapshot's tracked files without touching the index; tell the user
    that files created after the checkpoint stay in place and list them.
 
 Never `git reset --hard`, `git clean` or `git stash pop` here.
