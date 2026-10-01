@@ -20,7 +20,7 @@
           },
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-memory.mjs restore\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-memory.mjs\" restore",
             "timeout": 10
           }
         ]
@@ -130,12 +130,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-memory.mjs save\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-memory.mjs\" save",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/suggest-compact.mjs reset\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/suggest-compact.mjs\" reset",
             "timeout": 10
           }
         ]
@@ -146,7 +146,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-memory.mjs save\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-memory.mjs\" save",
             "timeout": 10
           }
         ]
