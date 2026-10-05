@@ -7,3 +7,6 @@ node_modules/
 .claude/settings.local.json
 .impeccable/
 .worktrees/
+
+# Type declarations the Claude Code engine lays into a loaded mod
+plugins/bond-hud/.claude-plugin/types/
