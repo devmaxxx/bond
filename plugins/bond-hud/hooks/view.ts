@@ -148,14 +148,29 @@ function taskLines(tasks: readonly TaskItem[]): Line[] {
     return []
   }
   const done = tasks.filter(task => task.status === 'completed').length
-  const shown = tasks.slice(0, MAX_TASKS).map(task => ({
+  const start = windowStart(tasks)
+  const shown = tasks.slice(start, start + MAX_TASKS).map(task => ({
     text: `${TASK_MARK[task.status]} ${task.subject}`,
     tone: task.status === 'completed' ? ('dim' as const) : ('plain' as const),
   }))
-  const hidden = tasks.length - shown.length
-  const more: Line[] = hidden > 0 ? [{ text: `… ${hidden} more`, tone: 'dim' }] : []
+  const hiddenAfter = tasks.length - start - shown.length
+  const before: Line[] = start > 0 ? [{ text: `… ${start} earlier`, tone: 'dim' }] : []
+  const after: Line[] = hiddenAfter > 0 ? [{ text: `… ${hiddenAfter} more`, tone: 'dim' }] : []
 
-  return [{ text: `Tasks ${done}/${tasks.length}`, tone: done === tasks.length ? 'ok' : 'plain' }, ...shown, ...more]
+  return [
+    { text: `Tasks ${done}/${tasks.length}`, tone: done === tasks.length ? 'ok' : 'plain' },
+    ...before,
+    ...shown,
+    ...after,
+  ]
+}
+
+// A long checklist scrolls so the first unfinished task stays in view instead of finished ones.
+function windowStart(tasks: readonly TaskItem[]): number {
+  const firstOpen = tasks.findIndex(task => task.status !== 'completed')
+  const latestStart = Math.max(0, tasks.length - MAX_TASKS)
+
+  return firstOpen === -1 ? latestStart : Math.min(firstOpen, latestStart)
 }
 
 function agentLines(agents: readonly AgentItem[]): Line[] {

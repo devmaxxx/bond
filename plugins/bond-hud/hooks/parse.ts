@@ -45,7 +45,7 @@ function hostOf(domain: string): Host | null {
   if (domain === 'bitbucket.org') {
     return 'bitbucket'
   }
-  if (domain === 'github.com' || domain.startsWith('github-')) {
+  if (domain === 'github.com' || domain.startsWith('github-') || domain.startsWith('github.com-')) {
     return 'github'
   }
 

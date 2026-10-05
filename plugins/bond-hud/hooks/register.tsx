@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, PluginOptions, Register } from 'claude-code'
+import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
 import type { PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
 import { activeLoginOf, expectedLogin, isBonlivaRemote, parseJson, parseRemote, resolveTracker, toPrStatus } from './parse'
@@ -11,6 +11,7 @@ const PANE = 'bond-hud'
 const PANE_TITLE = 'bond'
 const PANE_COLUMNS = 46
 const POLL_MS = 60_000
+const REFRESH_DEBOUNCE_MS = 400
 const COMMAND_TIMEOUT_MS = 15_000
 const PR_FIELDS = 'number,title,state,isDraft,reviewDecision,url,statusCheckRollup'
 const IDLE_TURN: TurnProgress = { isRunning: false, startedAt: 0, toolCount: 0, lastTool: null }
@@ -34,6 +35,9 @@ const turn = atom({ plugin: 'bond-hud', key: 'turn' } as const, IDLE_TURN)
 
 // A slow refresh (gh goes to the network) that lands after a newer one must not overwrite it.
 let generation = 0
+// session.start fires again after /clear; a poll left running would stack with the new one.
+let poll: Timer | null = null
+let pendingRefresh: Timer | null = null
 
 export const register: Register = (on, options) => {
   const accounts = accountsOf(options)
@@ -41,9 +45,10 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await $.command.register({ name: 'bond-hud', description: 'Open the bond HUD pane and refresh its status' })
-    void openPane($)
+    openPane($).catch(() => undefined)
     refreshSoon($, accounts)
-    $.clock.every(POLL_MS, () => void refresh($, accounts))
+    poll?.cancel()
+    poll = $.clock.every(POLL_MS, () => void refreshQuietly($, accounts))
 
     return started
   })
@@ -154,8 +159,8 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column">
-        {lines.map(line => (
-          <Text wrap="truncate-end" {...TONE_PROPS[line.tone]}>
+        {lines.map((line, index) => (
+          <Text key={String(index)} wrap="truncate-end" {...TONE_PROPS[line.tone]}>
             {line.text || ' '}
           </Text>
         ))}
@@ -164,8 +169,14 @@ export const register: Register = (on, options) => {
   })
 }
 
+// Bursts (a turn ending right after a git command) collapse into one refresh instead of N gh round-trips.
 function refreshSoon($: EngineInterface, accounts: Accounts): void {
-  $.clock.after(1, () => void refresh($, accounts))
+  pendingRefresh?.cancel()
+  pendingRefresh = $.clock.after(REFRESH_DEBOUNCE_MS, () => void refreshQuietly($, accounts))
+}
+
+function refreshQuietly($: EngineInterface, accounts: Accounts): Promise<void> {
+  return refresh($, accounts).catch(() => undefined)
 }
 
 async function refresh($: EngineInterface, accounts: Accounts): Promise<void> {
