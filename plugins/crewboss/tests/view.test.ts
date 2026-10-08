@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { paneLines, statusLine } from '../hooks/view'
+import { paneCards, statusLine } from '../hooks/view'
 import type { TaskItem } from '../types'
 
 const IDLE = { isRunning: false, startedAt: 0, toolCount: 0, lastTool: null }
@@ -16,7 +16,7 @@ test('a long checklist keeps the first unfinished task in view', () => {
     ...Array.from({ length: 4 }, (_, index) => task(16 + index, 'pending' as const)),
   ]
 
-  const texts = paneLines({ crew: null, repo: null, pr: null, turn: IDLE, tasks, agents: [], now: 0 }).map(line => line.text)
+  const texts = paneCards({ crew: null, repo: null, pr: null, turn: IDLE, tasks, agents: [], now: 0 }).flatMap(card => card.rows.map(row => row.text))
 
   expect(texts).toContain('Tasks 15/20')
   expect(texts).toContain('▸ step 15')

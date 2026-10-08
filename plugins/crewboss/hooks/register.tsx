@@ -6,8 +6,8 @@ import { lastJson, pickProfileFile, toClaimable, toLoopTask, toOpenPrs, toProfil
 import type { CrewProfile } from './crew-parse'
 import { activeLoginOf, expectedLogin, isBonlivaRemote, parseJson, parseRemote, resolveTracker, toPrStatus } from './parse'
 import type { Accounts, Manifest, RawPr } from './parse'
-import { paneLines, statusLine } from './view'
-import type { Tone } from './view'
+import { paneCards, statusLine } from './view'
+import type { Action, Card, Row, Tone } from './view'
 
 const PANE = 'crewboss'
 const PANE_TITLE = 'crewboss'
@@ -18,7 +18,6 @@ const CREW_POLL_MS = 5 * 60_000
 const REFRESH_DEBOUNCE_MS = 400
 const COMMAND_TIMEOUT_MS = 15_000
 const PR_FIELDS = 'number,title,state,isDraft,reviewDecision,url,statusCheckRollup'
-const DIRS_SCRIPT = 'printf "%s\\n%s" "${CREWBOSS_STATE_DIR:-$HOME/.local/state/crewboss}" "${CREWBOSS_CONFIG_DIR:-$HOME/.config/crewboss}"'
 const OPEN_PR_FIELDS = 'number,title,isDraft,reviewDecision,url,statusCheckRollup'
 const GH_TIMEOUT_MS = 20_000
 // The task CLI boots tsx and lists every issue through gh, which takes far longer than a git call.
@@ -30,13 +29,14 @@ const REFRESH_AFTER = /\bgit\s+(checkout|switch|branch|push|pull|merge|rebase|re
 // `crewboss` counts only in command position, not as a path segment (`git diff plugins/crewboss/...`).
 const CREW_REFRESH_AFTER = /(?:^|[;&|(]\s*)crewboss(?:\s|$)|\bpnpm\s+tasks\b|\bgh\s+(pr|issue)\b/
 
-const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: string }> = {
-  heading: { bold: true },
-  plain: {},
-  dim: { dimColor: true },
-  ok: { color: 'green' },
-  bad: { color: 'red' },
-  warn: { color: 'yellow' },
+const TONE_COLOR: Record<Tone, string | undefined> = {
+  heading: undefined,
+  plain: undefined,
+  dim: 'gray',
+  ok: 'green',
+  bad: 'red',
+  warn: 'yellow',
+  accent: 'cyan',
 }
 
 const crew = atom({ plugin: 'crewboss', key: 'crew' } as const, null)
@@ -172,7 +172,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Link } = $.ui.resolve(e)
+    const { Box, Text, Link, Button } = $.ui.resolve(e)
     const [crewNow, repoNow, prNow, turnNow, taskList, agentList, now] = await Promise.all([
       read($, crew),
       read($, repo),
@@ -182,15 +182,49 @@ export const register: Register = (on, options) => {
       read($, agents),
       $.clock.now(),
     ])
-    const lines = paneLines({ crew: crewNow, repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
+    const cards = paneCards({ crew: crewNow, repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
+    const fill = (action: Action) => () => void $.prompt.fill({ text: action.fill })
+    const refreshAll = () => void Promise.all([refreshQuietly($, accounts), refreshCrewQuietly($)])
+
+    const actionButton = (action: Action) => (
+      <Button key={action.key} label={action.label} variant={action.isPrimary ? 'primary' : 'secondary'} onPress={fill(action)} />
+    )
+
+    const rowView = (row: Row, index: number) => (
+      <Box key={String(index)} flexDirection="row" gap={1}>
+        {row.badge ? <Text inverse bold color={TONE_COLOR[row.badge.tone]}>{` ${row.badge.text} `}</Text> : null}
+        <Box flexGrow={1} flexShrink={1}>
+          <Text wrap="truncate-end" color={TONE_COLOR[row.tone]} dimColor={row.tone === 'dim'}>
+            {row.href ? <Link href={row.href}>{row.text}</Link> : row.text || ' '}
+          </Text>
+        </Box>
+        {row.aside ? <Text color={TONE_COLOR[row.aside.tone]}>{row.aside.text}</Text> : null}
+        {row.action ? actionButton(row.action) : null}
+      </Box>
+    )
+
+    const cardView = (card: Card) => (
+      <Box key={card.key} flexDirection="column" borderStyle="round" borderColor={TONE_COLOR[card.tone] ?? 'gray'} paddingX={1}>
+        <Box flexDirection="row" justifyContent="space-between">
+          <Text bold color={TONE_COLOR[card.tone]}>{card.title}</Text>
+          {card.count === undefined ? null : <Text inverse bold>{` ${card.count} `}</Text>}
+        </Box>
+        {card.rows.map(rowView)}
+        {card.actions.length > 0 ? (
+          <Box flexDirection="row" gap={1} marginTop={1}>
+            {card.actions.map(actionButton)}
+          </Box>
+        ) : null}
+      </Box>
+    )
 
     return (
       <Box flexDirection="column">
-        {lines.map((line, index) => (
-          <Text key={String(index)} wrap="truncate-end" {...TONE_PROPS[line.tone]}>
-            {line.href ? <Link href={line.href}>{line.text}</Link> : line.text || ' '}
-          </Text>
-        ))}
+        <Box flexDirection="row" justifyContent="space-between" paddingX={1}>
+          <Text bold color="cyan">crewboss</Text>
+          <Button key="refresh" label="Refresh" onPress={refreshAll} />
+        </Box>
+        {cards.map(cardView)}
       </Box>
     )
   })
@@ -308,11 +342,17 @@ async function run($: EngineInterface, argv: string[], cwd: string): Promise<str
 }
 
 async function collectCrew($: EngineInterface): Promise<CrewStatus | null> {
-  const dirs = await exec($, ['sh', '-c', DIRS_SCRIPT])
-  const [stateDir = '', configDir = ''] = dirs.stdout.split('\n')
-  if (!dirs.ok || stateDir === '' || configDir === '') {
+  const [home, stateEnv, configEnv] = await Promise.all([
+    $.env.get('HOME'),
+    $.env.get('CREWBOSS_STATE_DIR'),
+    $.env.get('CREWBOSS_CONFIG_DIR'),
+  ])
+  if (!home && !(stateEnv && configEnv)) {
     return null
   }
+  // As crewboss reads them: an empty variable falls back to the default rather than to the working directory.
+  const stateDir = stateEnv || `${home}/.local/state/crewboss`
+  const configDir = configEnv || `${home}/.config/crewboss`
   const [task, profile] = await Promise.all([readTask($, stateDir), readProfile($, configDir)])
   if (profile === null) {
     return null

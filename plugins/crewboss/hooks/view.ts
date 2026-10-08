@@ -1,8 +1,29 @@
-import type { AgentItem, Checks, CrewStatus, LoopTask, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import type { AgentItem, Checks, CrewStatus, LoopTask, OpenPr, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
 
-export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn'
+export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn' | 'accent'
 
-export type Line = { text: string; tone: Tone; href?: string }
+// fill: the text a press puts in the prompt box. Nothing runs until the person submits it.
+export type Action = { key: string; label: string; fill: string; isPrimary?: boolean }
+
+export type Badge = { text: string; tone: Tone }
+
+export type Row = {
+  text: string
+  tone: Tone
+  href?: string
+  badge?: Badge
+  aside?: Badge
+  action?: Action
+}
+
+export type Card = {
+  key: string
+  title: string
+  count?: number
+  tone: Tone
+  rows: Row[]
+  actions: Action[]
+}
 
 export type HudState = {
   crew: CrewStatus | null
@@ -17,10 +38,16 @@ export type HudState = {
 const MAX_TASKS = 12
 const MAX_FAILING = 5
 const MAX_LISTED = 8
-const ATTENTION = new Set(['NeedsHuman', 'HumanControl'])
 const FINISHED_AGENT = new Set(['completed', 'failed', 'killed'])
 const TASK_MARK: Record<TaskItem['status'], string> = { completed: '✔', in_progress: '▸', pending: '○' }
-const GAP: Line = { text: '', tone: 'plain' }
+const STATE_TONE: Record<string, Tone> = {
+  NeedsHuman: 'warn',
+  HumanControl: 'warn',
+  ReadyToMerge: 'ok',
+  Merged: 'ok',
+  Canceled: 'dim',
+  Queued: 'dim',
+}
 
 export function statusLine(repo: RepoStatus | null, pr: PrStatus | null, crew: CrewStatus | null = null): string | undefined {
   const loop = crew?.task ? `⚑ #${crew.task.id} ${crew.task.state}` : null
@@ -63,143 +90,176 @@ function checksLabel(checks: Checks): string {
   return counts.filter(Boolean).join(' ')
 }
 
-export function paneLines(state: HudState): Line[] {
-  return [
-    ...crewLines(state.crew, state.now),
-    ...repoLines(state.repo),
-    GAP,
-    ...prLines(state.repo, state.pr),
-    GAP,
-    ...progressLines(state),
-  ]
-}
-
-// No crewboss profile on this machine: the sections are left out rather than shown empty.
-function crewLines(crew: CrewStatus | null, now: number): Line[] {
-  if (crew === null) {
-    return []
-  }
-
-  return [
-    { text: crew.profile === null ? 'Crewboss' : `Crewboss · ${crew.profile}`, tone: 'heading' },
-    ...loopLines(crew.task, crew.repo, now),
-    ...crew.problems.map(problem => ({ text: `⚠ ${problem}`, tone: 'bad' as const })),
-    GAP,
-    ...openPrLines(crew),
-    GAP,
-    ...claimableLines(crew),
-    GAP,
-  ]
-}
-
-function loopLines(task: LoopTask | null, repo: string | null, now: number): Line[] {
-  if (task === null) {
-    return [{ text: 'No task in progress', tone: 'dim' }]
-  }
-  const fix = task.fixCount > 0 ? ` · fix round ${task.fixCount}` : ''
-  const lines: Line[] = [
-    { text: `⚑ #${task.id} ${task.title}`, tone: 'plain' },
-    { text: `${task.state}${task.stateSince !== 0 ? ` ${elapsed(now - task.stateSince)}` : ''}${fix}`, tone: ATTENTION.has(task.state) ? 'warn' : 'dim' },
-  ]
-  if (task.branch !== null) {
-    lines.push({ text: `⎇ ${task.branch}`, tone: 'dim' })
-  }
-  if (task.pr !== null) {
-    lines.push({ text: `PR #${task.pr}`, tone: 'plain', ...(repo !== null && { href: `https://github.com/${repo}/pull/${task.pr}` }) })
-  }
-  if (task.state === 'NeedsHuman') {
-    lines.push(
-      { text: task.needsHumanReason ?? 'no reason recorded', tone: 'warn' },
-      { text: 'crewboss answer <text> · answer --continue · drop', tone: 'dim' },
-    )
-  }
-
-  return lines
-}
-
-function openPrLines(crew: CrewStatus): Line[] {
-  const heading: Line = { text: `My PRs ${crew.prs.length}`, tone: 'heading' }
-  if (crew.prs.length === 0) {
-    return [heading, { text: 'None open', tone: 'dim' }]
-  }
-
-  return [
-    heading,
-    ...crew.prs.slice(0, MAX_LISTED).map(pr => ({
-      text: `#${pr.number} ${pr.title} ${pr.isDraft ? 'draft ' : ''}${checksLabel(pr.checks)}`.trimEnd(),
-      tone: prTone(pr.checks, pr.review),
-      href: pr.url,
-    })),
-    ...more(crew.prs.length),
-  ]
-}
-
-function prTone(checks: Checks, review: string | null): Tone {
-  if (checks.failed > 0 || review === 'CHANGES_REQUESTED') {
+function checksTone(checks: Checks): Tone {
+  if (checks.failed > 0) {
     return 'bad'
   }
-  if (checks.pending > 0) {
-    return 'warn'
-  }
 
-  return review === 'APPROVED' ? 'ok' : 'plain'
+  return checks.pending > 0 ? 'warn' : 'ok'
 }
 
-function claimableLines(crew: CrewStatus): Line[] {
-  const heading: Line = { text: `To claim ${crew.claimable.length}`, tone: 'heading' }
-  if (crew.claimable.length === 0) {
-    return [heading, { text: 'Nothing claimable', tone: 'dim' }]
-  }
+export function paneCards(state: HudState): Card[] {
+  const crew = state.crew
 
   return [
-    heading,
-    ...crew.claimable.slice(0, MAX_LISTED).map(issue => ({
-      text: `#${issue.id} ${issue.title}`,
-      tone: 'plain' as const,
-      ...(issue.url !== null && { href: issue.url }),
-    })),
-    ...more(crew.claimable.length),
-    { text: 'crewboss run takes the next one', tone: 'dim' },
+    ...(crew === null ? [] : [loopCard(crew, state.now), openPrsCard(crew), claimableCard(crew)]),
+    repoCard(state.repo),
+    prCard(state.repo, state.pr),
+    progressCard(state),
   ]
 }
 
-function more(total: number): Line[] {
+function loopCard(crew: CrewStatus, now: number): Card {
+  const task = crew.task
+  const problems = crew.problems.map(problem => ({ text: `⚠ ${problem}`, tone: 'bad' as const }))
+  const title = crew.profile === null ? 'Crewboss' : `Crewboss · ${crew.profile}`
+  if (task === null) {
+    return {
+      key: 'loop',
+      title,
+      tone: problems.length > 0 ? 'bad' : 'accent',
+      rows: [{ text: 'No task in progress', tone: 'dim' }, ...problems],
+      actions: [{ key: 'run-next', label: 'Run next', fill: '! crewboss run --once', isPrimary: true }],
+    }
+  }
+  const tone = STATE_TONE[task.state] ?? 'accent'
+
+  return {
+    key: 'loop',
+    title,
+    tone: problems.length > 0 ? 'bad' : tone,
+    rows: [
+      { text: `#${task.id} ${task.title}`, tone: 'plain' },
+      { text: stateDetail(task, now), tone: 'dim', badge: { text: task.state, tone } },
+      ...(task.branch === null ? [] : [{ text: `⎇ ${task.branch}`, tone: 'dim' as const }]),
+      ...(task.pr === null ? [] : [loopPrRow(task.pr, crew.repo)]),
+      ...(task.state === 'NeedsHuman' ? [{ text: task.needsHumanReason ?? 'no reason recorded', tone: 'warn' as const }] : []),
+      ...problems,
+    ],
+    actions: loopActions(task),
+  }
+}
+
+function stateDetail(task: LoopTask, now: number): string {
+  const since = task.stateSince > 0 ? elapsed(now - task.stateSince) : ''
+  const fix = task.fixCount > 0 ? `fix round ${task.fixCount}` : ''
+
+  return [since, fix].filter(Boolean).join(' · ')
+}
+
+function loopPrRow(number: number, repo: string | null): Row {
+  return { text: `PR #${number}`, tone: 'plain', ...(repo !== null && { href: `https://github.com/${repo}/pull/${number}` }) }
+}
+
+function loopActions(task: LoopTask): Action[] {
+  if (task.state === 'NeedsHuman') {
+    return [
+      { key: 'answer', label: 'Answer', fill: '! crewboss answer ', isPrimary: true },
+      { key: 'continue', label: 'Continue', fill: '! crewboss answer --continue' },
+      { key: 'drop', label: 'Drop', fill: '! crewboss drop' },
+    ]
+  }
+
+  return [{ key: 'status', label: 'Status', fill: '! crewboss status' }]
+}
+
+function openPrsCard(crew: CrewStatus): Card {
+  const rows = crew.prs.slice(0, MAX_LISTED).map(openPrRow)
+
+  return {
+    key: 'prs',
+    title: 'My PRs',
+    count: crew.prs.length,
+    tone: crew.prs.some(pr => pr.checks.failed > 0) ? 'bad' : 'plain',
+    rows: rows.length === 0 ? [{ text: 'None open', tone: 'dim' }] : [...rows, ...more(crew.prs.length)],
+    actions: [],
+  }
+}
+
+function openPrRow(pr: OpenPr): Row {
+  const label = checksLabel(pr.checks)
+
+  return {
+    text: `#${pr.number} ${pr.title}`,
+    tone: pr.isDraft ? 'dim' : 'plain',
+    href: pr.url,
+    ...(reviewBadge(pr) && { badge: reviewBadge(pr) }),
+    ...(label !== '' && { aside: { text: label, tone: checksTone(pr.checks) } }),
+    ...(pr.checks.failed > 0 && { action: { key: `fix-${pr.number}`, label: 'Fix CI', fill: `/bond:fix-ci ${pr.url}` } }),
+  }
+}
+
+function reviewBadge(pr: OpenPr): Badge | undefined {
+  if (pr.isDraft) {
+    return { text: 'draft', tone: 'dim' }
+  }
+  if (pr.review === 'APPROVED') {
+    return { text: 'approved', tone: 'ok' }
+  }
+
+  return pr.review === 'CHANGES_REQUESTED' ? { text: 'changes', tone: 'bad' } : undefined
+}
+
+function claimableCard(crew: CrewStatus): Card {
+  const rows = crew.claimable.slice(0, MAX_LISTED).map(issue => ({
+    text: `#${issue.id} ${issue.title}`,
+    tone: 'plain' as const,
+    ...(issue.url !== null && { href: issue.url }),
+  }))
+  const isIdle = crew.task === null || crew.task.state === 'Merged' || crew.task.state === 'Canceled'
+
+  return {
+    key: 'claim',
+    title: 'To claim',
+    count: crew.claimable.length,
+    tone: 'plain',
+    rows: rows.length === 0 ? [{ text: 'Nothing claimable', tone: 'dim' }] : [...rows, ...more(crew.claimable.length)],
+    actions: rows.length > 0 && isIdle ? [{ key: 'claim-next', label: 'Run next', fill: '! crewboss run --once' }] : [],
+  }
+}
+
+function more(total: number): Row[] {
   return total > MAX_LISTED ? [{ text: `… ${total - MAX_LISTED} more`, tone: 'dim' }] : []
 }
 
-function repoLines(repo: RepoStatus | null): Line[] {
-  const heading: Line = { text: 'Repo', tone: 'heading' }
+function repoCard(repo: RepoStatus | null): Card {
   if (repo === null) {
-    return [heading, { text: 'Not in a git repository', tone: 'dim' }]
+    return { key: 'repo', title: 'Repo', tone: 'dim', rows: [{ text: 'Not in a git repository', tone: 'dim' }], actions: [] }
   }
-  const lines: Line[] = [
-    heading,
+  const rows: Row[] = [
     { text: `⎇ ${repo.branch}`, tone: 'plain' },
     { text: `${repo.host ?? 'unknown host'} · tracker ${repo.tracker}`, tone: 'dim' },
   ]
   if (repo.login !== null) {
-    lines.push({ text: accountLabel(repo), tone: isWrongAccount(repo) ? 'warn' : 'ok' })
+    rows.push({ text: accountLabel(repo), tone: isWrongAccount(repo) ? 'warn' : 'ok' })
   }
 
-  return lines
+  return { key: 'repo', title: 'Repo', tone: isWrongAccount(repo) ? 'warn' : 'plain', rows, actions: [] }
 }
 
-function prLines(repo: RepoStatus | null, pr: PrStatus | null): Line[] {
-  const heading: Line = { text: 'Pull request', tone: 'heading' }
+function prCard(repo: RepoStatus | null, pr: PrStatus | null): Card {
+  const card = { key: 'pr', title: 'This branch', actions: [] }
   if (repo?.host !== 'github') {
-    return [heading, { text: 'Tracked for GitHub repos only', tone: 'dim' }]
+    return { ...card, tone: 'dim', rows: [{ text: 'PRs tracked for GitHub repos only', tone: 'dim' }] }
   }
   if (pr === null) {
-    return [heading, { text: 'No PR for this branch', tone: 'dim' }]
+    return { ...card, tone: 'dim', rows: [{ text: 'No PR for this branch', tone: 'dim' }] }
   }
+  const total = pr.checks.passed + pr.checks.failed + pr.checks.pending
 
-  return [
-    heading,
-    { text: `#${pr.number} ${pr.title}`, tone: 'plain' },
-    { text: prStateLabel(pr), tone: 'dim' },
-    checksLine(pr),
-    ...pr.checks.failing.slice(0, MAX_FAILING).map(name => ({ text: `  ✗ ${name}`, tone: 'bad' as const })),
-  ]
+  return {
+    ...card,
+    tone: pr.checks.failed > 0 ? 'bad' : 'plain',
+    rows: [
+      { text: `#${pr.number} ${pr.title}`, tone: 'plain', href: pr.url },
+      { text: prStateLabel(pr), tone: 'dim' },
+      total === 0
+        ? { text: 'No checks', tone: 'dim' }
+        : { text: `CI ✓ ${pr.checks.passed}  ✗ ${pr.checks.failed}  … ${pr.checks.pending}`, tone: checksTone(pr.checks) },
+      ...pr.checks.failing.slice(0, MAX_FAILING).map(name => ({ text: `  ✗ ${name}`, tone: 'bad' as const })),
+    ],
+    actions: pr.checks.failed > 0 ? [{ key: 'fix-branch', label: 'Fix CI', fill: `/bond:fix-ci ${pr.url}`, isPrimary: true }] : [],
+  }
 }
 
 function prStateLabel(pr: PrStatus): string {
@@ -209,33 +269,21 @@ function prStateLabel(pr: PrStatus): string {
   return `${state} · ${review}`
 }
 
-function checksLine(pr: PrStatus): Line {
-  const { passed, failed, pending } = pr.checks
-  if (passed + failed + pending === 0) {
-    return { text: 'No checks', tone: 'dim' }
+function progressCard(state: HudState): Card {
+  return {
+    key: 'progress',
+    title: 'Progress',
+    tone: state.turn.isRunning ? 'warn' : 'dim',
+    rows: [turnRow(state.turn, state.now), ...taskRows(state.tasks), ...agentRows(state.agents)],
+    actions: [],
   }
-  const text = `CI ✓ ${passed}  ✗ ${failed}  … ${pending}`
-  if (failed > 0) {
-    return { text, tone: 'bad' }
-  }
-
-  return { text, tone: pending > 0 ? 'warn' : 'ok' }
 }
 
-function progressLines(state: HudState): Line[] {
-  return [
-    { text: 'Progress', tone: 'heading' },
-    turnLine(state.turn, state.now),
-    ...taskLines(state.tasks),
-    ...agentLines(state.agents),
-  ]
-}
-
-function turnLine(turn: TurnProgress, now: number): Line {
+function turnRow(turn: TurnProgress, now: number): Row {
   const tools = `${turn.toolCount} tool${turn.toolCount === 1 ? '' : 's'}`
   if (turn.isRunning) {
     const last = turn.lastTool === null ? '' : ` · last ${turn.lastTool}`
-    return { text: `● working ${elapsed(now - turn.startedAt)} · ${tools}${last}`, tone: 'warn' }
+    return { text: `${elapsed(now - turn.startedAt)} · ${tools}${last}`, tone: 'plain', badge: { text: 'working', tone: 'warn' } }
   }
   if (turn.startedAt === 0) {
     return { text: 'Idle', tone: 'dim' }
@@ -244,7 +292,7 @@ function turnLine(turn: TurnProgress, now: number): Line {
   return { text: `Idle · last turn ${tools}`, tone: 'dim' }
 }
 
-function taskLines(tasks: readonly TaskItem[]): Line[] {
+function taskRows(tasks: readonly TaskItem[]): Row[] {
   if (tasks.length === 0) {
     return []
   }
@@ -255,8 +303,8 @@ function taskLines(tasks: readonly TaskItem[]): Line[] {
     tone: task.status === 'completed' ? ('dim' as const) : ('plain' as const),
   }))
   const hiddenAfter = tasks.length - start - shown.length
-  const before: Line[] = start > 0 ? [{ text: `… ${start} earlier`, tone: 'dim' }] : []
-  const after: Line[] = hiddenAfter > 0 ? [{ text: `… ${hiddenAfter} more`, tone: 'dim' }] : []
+  const before: Row[] = start > 0 ? [{ text: `… ${start} earlier`, tone: 'dim' }] : []
+  const after: Row[] = hiddenAfter > 0 ? [{ text: `… ${hiddenAfter} more`, tone: 'dim' }] : []
 
   return [
     { text: `Tasks ${done}/${tasks.length}`, tone: done === tasks.length ? 'ok' : 'plain' },
@@ -274,7 +322,7 @@ function windowStart(tasks: readonly TaskItem[]): number {
   return firstOpen === -1 ? latestStart : Math.min(firstOpen, latestStart)
 }
 
-function agentLines(agents: readonly AgentItem[]): Line[] {
+function agentRows(agents: readonly AgentItem[]): Row[] {
   if (agents.length === 0) {
     return []
   }

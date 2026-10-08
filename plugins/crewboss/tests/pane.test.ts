@@ -51,12 +51,14 @@ function stubHost(
   outputs: Record<string, string>,
   files: Record<string, string> = {},
   failures: Record<string, string> = {},
+  env: Record<string, string> = {},
 ): { statuses: (string | undefined)[]; envs: Record<string, Record<string, string> | undefined> } {
   const envs: Record<string, Record<string, string> | undefined> = {}
   const statuses: (string | undefined)[] = []
   on('session.cwd', () => ({ value: '/work/bond' }))
-  on('clock.now', () => ({ value: 1_000_000 }))
+  on('clock.now', () => ({ value: 10_000_000 }))
   on('fs.exists', () => ({ value: false }))
+  on('env.get', (_, e) => ({ value: env[e.name] }))
   on('fs.read', (_, e) => {
     const text = files[e.path]
     if (text === undefined) {
@@ -149,7 +151,7 @@ test('a TodoWrite call becomes the task checklist in the pane', async ($, on) =>
   }
 })
 
-const DIRS = 'sh -c printf "%s\\n%s" "${CREWBOSS_STATE_DIR:-$HOME/.local/state/crewboss}" "${CREWBOSS_CONFIG_DIR:-$HOME/.config/crewboss}"'
+const CREW_ENV = { HOME: '/home/max', CREWBOSS_STATE_DIR: '/state', CREWBOSS_CONFIG_DIR: '/cfg' }
 
 const CREW_FILES: Record<string, string> = {
   '/cfg/profiles/beauty-crm.json': JSON.stringify({
@@ -159,12 +161,11 @@ const CREW_FILES: Record<string, string> = {
   }),
   '/state/current.json': JSON.stringify({
     v: 1,
-    task: { id: 1407, title: 'Alert channel', state: 'NeedsHuman', stateSince: 1_000_000 - 7_200_000, branch: 'platform/1407-alert', pr: null, fixCount: 0, needsHumanReason: 'protected path touched' },
+    task: { id: 1407, title: 'Alert channel', state: 'NeedsHuman', stateSince: 10_000_000 - 7_200_000, branch: 'platform/1407-alert', pr: null, fixCount: 0, needsHumanReason: 'protected path touched' },
   }),
 }
 
 const CREW_OUTPUTS: Record<string, string> = {
-  [DIRS]: '/state\n/cfg',
   'gh auth token --user devmaxxx': 'gho_secret',
   'gh pr list --repo acme/beauty-crm --author devmaxxx --state open --json number,title,isDraft,reviewDecision,url,statusCheckRollup': JSON.stringify([
     { number: 41, title: 'feat: kuma ui', isDraft: false, reviewDecision: 'APPROVED', url: 'https://github.com/acme/beauty-crm/pull/41', statusCheckRollup: [] },
@@ -173,7 +174,7 @@ const CREW_OUTPUTS: Record<string, string> = {
 }
 
 test('crewboss shows its loop task, my open PRs and the issues to claim', async ($, on) => {
-  const { statuses } = stubHost(on, CREW_OUTPUTS, CREW_FILES)
+  const { statuses } = stubHost(on, CREW_OUTPUTS, CREW_FILES, {}, CREW_ENV)
 
   await $.command.run(RUN_HUD)
 
@@ -181,12 +182,13 @@ test('crewboss shows its loop task, my open PRs and the issues to claim', async 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ plugin: 'crewboss', surface, ...PANE })
     expect(await ui.find({ type: 'Text', text: /Crewboss · beauty-crm/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /⚑ #1407 Alert channel/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /NeedsHuman 2h 0m/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^#1407 Alert channel$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^ NeedsHuman $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^2h 0m$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /protected path touched/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /My PRs 1/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^My PRs$/ })).toBeDefined()
     expect((await ui.find({ type: 'Link', text: /#41 feat: kuma ui/ }))?.props.href).toBe('https://github.com/acme/beauty-crm/pull/41')
-    expect(await ui.find({ type: 'Text', text: /To claim 1/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^To claim$/ })).toBeDefined()
     expect((await ui.find({ type: 'Link', text: /#1500 Wave 1 audit log/ }))?.props.href).toBe('https://github.com/acme/beauty-crm/issues/1500')
     await ui.unmount()
   }
@@ -195,7 +197,7 @@ test('crewboss shows its loop task, my open PRs and the issues to claim', async 
 test('the gh token pins the claimable command and never shows in a problem line', async ($, on) => {
   const claim = 'sh -c pnpm tasks next --json'
   const outputs = Object.fromEntries(Object.entries(CREW_OUTPUTS).filter(([command]) => command !== claim))
-  const { envs } = stubHost(on, outputs, CREW_FILES, { [claim]: 'gh: bad credentials gho_secret' })
+  const { envs } = stubHost(on, outputs, CREW_FILES, { [claim]: 'gh: bad credentials gho_secret' }, CREW_ENV)
 
   await $.command.run(RUN_HUD)
 
@@ -204,4 +206,22 @@ test('the gh token pins the claimable command and never shows in a problem line'
   expect(await ui.find({ type: 'Text', text: /bad credentials <GH_TOKEN>/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /gho_secret/ })).toBeUndefined()
   await ui.unmount()
+})
+
+test('the Answer button puts the crewboss answer command in the prompt box without running it', async ($, on) => {
+  stubHost(on, CREW_OUTPUTS, CREW_FILES, {}, CREW_ENV)
+  const fills: string[] = []
+  on('prompt.fill', (_, e) => {
+    fills.push(e.text)
+    return { isFilled: true }
+  })
+  await $.command.run(RUN_HUD)
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ plugin: 'crewboss', surface, ...PANE })
+    await ui.press({ key: 'answer' })
+    await ui.unmount()
+  }
+
+  expect(fills).toEqual(['! crewboss answer ', '! crewboss answer '])
 })
