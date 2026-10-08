@@ -19,13 +19,15 @@ Review once. Report verified findings. Stop.
 
 ## Inputs
 
-- **Target** — `pr #<n>`, `branch` (against its base), or a path.
+- **Target** — `pr #<n>` with its head sha, `branch` (against its base), or a path.
 - **Working directory** — the checkout to review in.
 - **Focus** — optional; the areas the caller wants looked at first.
 
 ## Job
 
-1. **Scope.** The diff (`git diff origin/<base>...HEAD`) or the path's files.
+1. **Scope.** A branch: `git diff origin/<base>...HEAD`. A PR: fetch its head
+   (`git fetch origin <head sha>`) and `git diff origin/<base>...<head sha>`
+   — no checkout, so the caller's tree is untouched. A path: its files.
    Read each changed hunk with its callers and its route, guard or handler —
    an authorization gap lives outside the hunk as often as inside it.
 2. **Map the trust boundary.** Where untrusted input enters (request body,
