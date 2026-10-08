@@ -185,7 +185,7 @@ test('crewboss shows its loop task, my open PRs and the issues to claim', async 
     expect(await ui.find({ type: 'Text', text: /^#1407 Alert channel$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^ NeedsHuman $/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^2h 0m$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /protected path touched/ })).toBeDefined()
+    expect(await ui.find({ type: 'Markdown', text: /protected path touched/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^My PRs$/ })).toBeDefined()
     expect((await ui.find({ type: 'Link', text: /#41 feat: kuma ui/ }))?.props.href).toBe('https://github.com/acme/beauty-crm/pull/41')
     expect(await ui.find({ type: 'Text', text: /^To claim$/ })).toBeDefined()

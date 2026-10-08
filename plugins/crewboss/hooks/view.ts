@@ -11,6 +11,8 @@ export type Row = {
   text: string
   tone: Tone
   href?: string
+  // Drawn whole as Markdown: an agent's question to the owner is unreadable cut to one line.
+  isMarkdown?: boolean
   badge?: Badge
   aside?: Badge
   action?: Action
@@ -133,7 +135,7 @@ function loopCard(crew: CrewStatus, now: number): Card {
       { text: stateDetail(task, now), tone: 'dim', badge: { text: task.state, tone } },
       ...(task.branch === null ? [] : [{ text: `⎇ ${task.branch}`, tone: 'dim' as const }]),
       ...(task.pr === null ? [] : [loopPrRow(task.pr, crew.repo)]),
-      ...(task.state === 'NeedsHuman' ? [{ text: task.needsHumanReason ?? 'no reason recorded', tone: 'warn' as const }] : []),
+      ...(task.state === 'NeedsHuman' ? [{ text: task.needsHumanReason ?? 'no reason recorded', tone: 'warn' as const, isMarkdown: true }] : []),
       ...problems,
     ],
     actions: loopActions(task),

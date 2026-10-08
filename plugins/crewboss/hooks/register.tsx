@@ -172,7 +172,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Link, Button } = $.ui.resolve(e)
+    const { Box, Text, Link, Button, Markdown } = $.ui.resolve(e)
     const [crewNow, repoNow, prNow, turnNow, taskList, agentList, now] = await Promise.all([
       read($, crew),
       read($, repo),
@@ -190,7 +190,11 @@ export const register: Register = (on, options) => {
       <Button key={action.key} label={action.label} variant={action.isPrimary ? 'primary' : 'secondary'} onPress={fill(action)} />
     )
 
-    const rowView = (row: Row, index: number) => (
+    const rowView = (row: Row, index: number) => row.isMarkdown ? (
+      <Box key={String(index)} marginY={1}>
+        <Markdown text={row.text} />
+      </Box>
+    ) : (
       <Box key={String(index)} flexDirection="row" gap={1}>
         {row.badge ? <Text inverse bold color={TONE_COLOR[row.badge.tone]}>{` ${row.badge.text} `}</Text> : null}
         <Box flexGrow={1} flexShrink={1}>
