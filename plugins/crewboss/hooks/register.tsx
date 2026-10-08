@@ -27,7 +27,8 @@ const IDLE_TURN: TurnProgress = { isRunning: false, startedAt: 0, toolCount: 0, 
 // Commands after which the branch, the remote, the gh account or the PR may have moved.
 const REFRESH_AFTER = /\bgit\s+(checkout|switch|branch|push|pull|merge|rebase|reset|worktree|remote)\b|\bgh\s+(auth\s+switch|pr)\b/
 // Commands after which the crewboss loop, its pull requests or the claimable queue may have moved.
-const CREW_REFRESH_AFTER = /\bcrewboss\b|\bpnpm\s+tasks\b|\bgh\s+(pr|issue)\b/
+// `crewboss` counts only in command position, not as a path segment (`git diff plugins/crewboss/...`).
+const CREW_REFRESH_AFTER = /(?:^|[;&|(]\s*)crewboss(?:\s|$)|\bpnpm\s+tasks\b|\bgh\s+(pr|issue)\b/
 
 const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: string }> = {
   heading: { bold: true },
@@ -54,6 +55,7 @@ let crewGeneration = 0
 let poll: Timer | null = null
 let crewPoll: Timer | null = null
 let pendingRefresh: Timer | null = null
+let pendingCrewRefresh: Timer | null = null
 
 export const register: Register = (on, options) => {
   const accounts = accountsOf(options)
@@ -63,11 +65,11 @@ export const register: Register = (on, options) => {
     await $.command.register({ name: 'crewboss', description: 'Open the crewboss pane: loop task, my PRs, issues to claim, repo and progress' })
     openPane($).catch(() => undefined)
     refreshSoon($, accounts)
-    void refreshCrew($)
+    void refreshCrewQuietly($)
     poll?.cancel()
     poll = $.clock.every(POLL_MS, () => void refreshQuietly($, accounts))
     crewPoll?.cancel()
-    crewPoll = $.clock.every(CREW_POLL_MS, () => void refreshCrew($))
+    crewPoll = $.clock.every(CREW_POLL_MS, () => void refreshCrewQuietly($))
 
     return started
   })
@@ -130,7 +132,7 @@ export const register: Register = (on, options) => {
       refreshSoon($, accounts)
     }
     if (CREW_REFRESH_AFTER.test(e.command)) {
-      void refreshCrew($)
+      refreshCrewSoon($)
     }
 
     return ran
@@ -198,6 +200,16 @@ export const register: Register = (on, options) => {
 function refreshSoon($: EngineInterface, accounts: Accounts): void {
   pendingRefresh?.cancel()
   pendingRefresh = $.clock.after(REFRESH_DEBOUNCE_MS, () => void refreshQuietly($, accounts))
+}
+
+// The crew refresh boots the task CLI for up to 90 s; a burst of gh commands must not queue one run each.
+function refreshCrewSoon($: EngineInterface): void {
+  pendingCrewRefresh?.cancel()
+  pendingCrewRefresh = $.clock.after(REFRESH_DEBOUNCE_MS, () => void refreshCrewQuietly($))
+}
+
+function refreshCrewQuietly($: EngineInterface): Promise<void> {
+  return refreshCrew($).catch(() => undefined)
 }
 
 function refreshQuietly($: EngineInterface, accounts: Accounts): Promise<void> {
@@ -318,7 +330,7 @@ async function collectCrew($: EngineInterface): Promise<CrewStatus | null> {
     claimable.problem,
   ]
     .filter(Boolean)
-    .map(problem => (token.ok ? problem.replaceAll(token.stdout, '<GH_TOKEN>') : problem))
+    .map(problem => (token.ok && token.stdout !== '' ? problem.replaceAll(token.stdout, '<GH_TOKEN>') : problem))
 
   return {
     profile: profile.name,

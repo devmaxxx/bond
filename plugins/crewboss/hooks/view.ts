@@ -99,7 +99,7 @@ function loopLines(task: LoopTask | null, repo: string | null, now: number): Lin
   const fix = task.fixCount > 0 ? ` · fix round ${task.fixCount}` : ''
   const lines: Line[] = [
     { text: `⚑ #${task.id} ${task.title}`, tone: 'plain' },
-    { text: `${task.state} ${elapsed(now - task.stateSince)}${fix}`, tone: ATTENTION.has(task.state) ? 'warn' : 'dim' },
+    { text: `${task.state}${task.stateSince !== 0 ? ` ${elapsed(now - task.stateSince)}` : ''}${fix}`, tone: ATTENTION.has(task.state) ? 'warn' : 'dim' },
   ]
   if (task.branch !== null) {
     lines.push({ text: `⎇ ${task.branch}`, tone: 'dim' })
