@@ -13,6 +13,7 @@ but every command resolves a per-repo profile, so they work outside it too.
 | `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions, Bitbucket), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
 | `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
+| `/crewboss`      | Deliver tasks from the crewboss queue end to end with this session as the boss: claim, implement, verify, PR, review, CI, merge, each phase an agent; a question goes to the owner with drafted answers |
 | `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |

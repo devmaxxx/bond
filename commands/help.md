@@ -20,6 +20,7 @@ Output the following table verbatim:
 | `/bond:fix-ci`         | Fix a failed pipeline from its URL, a PR, or `--mine`: diagnose, fix, push, watch the re-run      |
 | `/bond:disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones           |
 | `/bond:implement-batch`| Implement many tickets in parallel worktrees, scheduled so no two touch the same files           |
+| `/bond:crewboss`      | Deliver the crewboss queue: claim, implement, verify, PR, review, CI, merge — each phase an agent |
 | `/bond:implement`      | Take a Jira ticket or a free-text task, create a typed branch, plan, and code                    |
 | `/bond:investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc           |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
