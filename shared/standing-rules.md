@@ -92,3 +92,16 @@ router on every task it is wrong about.
 A task reported done with the review unrun is not done. The router's card names
 the skips — a docs-only or comment-only diff, or a small low-risk one — and a skip is said in words,
 as is a review that found nothing.
+
+## Lessons go into bond, not memory — always on
+
+Do not write memory files: not the auto-memory directory, not a repo's
+`.claude/memory/`, not a `MEMORY.md` index line. A memory file reaches one
+machine and one checkout, nobody reviews it, and it goes stale without a test
+noticing.
+
+When something worth keeping comes up — a correction, a trap, a preference, a
+workaround — propose implementing it in bond instead: name the skill, command,
+hook or standing rule it belongs in and the change, one line, and make it on
+the user's yes in a branch of the bond repo. A fact true of one repo only goes
+to that repo's own `CLAUDE.md` or skill, also on a yes.
