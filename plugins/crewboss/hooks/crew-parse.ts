@@ -154,22 +154,41 @@ export function answerPrompt(reason: string): string {
     `Reply with JSON only: [{"label": "<= ${MAX_LABEL} chars", "answer": "..."}].`,
     '',
     '<message>',
-    reason,
+    // The agent wrote this text; a closing tag inside it must not end the data block early.
+    reason.replaceAll('</message>', '<\\/message>'),
     '</message>',
   ].join('\n')
 }
 
 export function toAnswerOptions(text: string): AnswerOption[] {
-  const raw = lastJson(text.replace(/```(?:json)?/g, ''))
-  if (!Array.isArray(raw)) {
+  const raw = arrayIn(text)
+  if (raw === null) {
     return []
   }
+  const seen = new Set<string>()
 
   return (raw as { label?: unknown; answer?: unknown }[])
     .flatMap(item => typeof item.answer === 'string' && item.answer.trim() !== ''
       ? [{ label: labelOf(item.label, item.answer), answer: item.answer.trim() }]
       : [])
+    // Select tells options apart by value; a repeated reply would be two rows for one pick.
+    .filter(option => !seen.has(option.answer) && Boolean(seen.add(option.answer)))
     .slice(0, MAX_OPTIONS)
+}
+
+// A model wraps its JSON in a fence or a sentence either side; the outermost brackets hold the array.
+function arrayIn(text: string): unknown[] | null {
+  const start = text.indexOf('[')
+  const end = text.lastIndexOf(']')
+  if (start === -1 || end <= start) {
+    return null
+  }
+  try {
+    const parsed: unknown = JSON.parse(text.slice(start, end + 1))
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
 }
 
 function labelOf(label: unknown, answer: string): string {

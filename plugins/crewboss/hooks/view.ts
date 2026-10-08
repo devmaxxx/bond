@@ -1,4 +1,5 @@
 import type { AgentItem, AnswerOptions, Checks, CrewStatus, LoopTask, OpenPr, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import { answerKey } from './crew-parse'
 
 export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn' | 'accent'
 
@@ -155,8 +156,7 @@ function loopCard(crew: CrewStatus, now: number, answers: AnswerOptions | null):
 
 // Options drafted for an earlier question are stale the moment the agent asks another.
 function answerChoice(task: LoopTask, answers: AnswerOptions | null): { choice?: Choice } {
-  const key = task.needsHumanReason === null ? null : `${task.id}:${task.needsHumanReason}`
-  if (task.state !== 'NeedsHuman' || answers === null || answers.key !== key || answers.options.length === 0) {
+  if (answers === null || answers.options.length === 0 || answers.key !== answerKey(task)) {
     return {}
   }
 
@@ -168,6 +168,11 @@ function answerChoice(task: LoopTask, answers: AnswerOptions | null): { choice?:
       options: answers.options.map(option => ({ value: option.answer, label: option.label })),
     },
   }
+}
+
+// The drafted text is model output headed for a `!` shell line: one word, nothing in it for the shell to read.
+export function shellWord(text: string): string {
+  return `'${text.replace(/\s*\n\s*/g, ' ').replace(/'/g, `'\\''`)}'`
 }
 
 function stateDetail(task: LoopTask, now: number): string {

@@ -256,7 +256,7 @@ test('a drafted answer picked from the list fills the prompt with crewboss answe
     await ui.unmount()
   }
   expect(fills).toEqual([
-    '! crewboss answer Split T27: my Kuma sign-in now, salon rows later.',
-    '! crewboss answer Split T27: my Kuma sign-in now, salon rows later.',
+    "! crewboss answer 'Split T27: my Kuma sign-in now, salon rows later.'",
+    "! crewboss answer 'Split T27: my Kuma sign-in now, salon rows later.'",
   ])
 })

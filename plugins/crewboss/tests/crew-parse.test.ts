@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { answerKey, fillRepoPath, toAnswerOptions, lastJson, pickProfileFile, toClaimable, toLoopTask, toProfile } from '../hooks/crew-parse'
+import { answerKey, fillRepoPath, lastJson, pickProfileFile, toAnswerOptions, toClaimable, toLoopTask, toProfile } from '../hooks/crew-parse'
 
 test('only a lone profile is picked, as crewboss v1 runs exactly one', () => {
   expect(pickProfileFile(['beauty-crm.json', 'notes.txt'])).toBe('beauty-crm.json')
@@ -58,6 +58,9 @@ test('drafted answers are read from the model reply, fenced or not, and capped a
     { label: 'c', answer: 'd' },
   ])
   expect(toAnswerOptions('I cannot help with that')).toEqual([])
+  expect(toAnswerOptions('Here:\n[\n  {"label": "x", "answer": "Same."},\n  {"label": "y", "answer": "Same."}\n]\nLet me know.')).toEqual([
+    { label: 'x', answer: 'Same.' },
+  ])
 })
 
 test('only a NeedsHuman task with a question gets answer options', () => {

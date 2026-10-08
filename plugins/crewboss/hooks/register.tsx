@@ -1,12 +1,12 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
-import type { AnswerOption, AnswerOptions, CrewStatus, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import type { AnswerOption, CrewStatus, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
 import { answerKey, answerPrompt, lastJson, pickProfileFile, toAnswerOptions, toClaimable, toLoopTask, toOpenPrs, toProfile } from './crew-parse'
 import type { CrewProfile } from './crew-parse'
 import { activeLoginOf, expectedLogin, isBonlivaRemote, parseJson, parseRemote, resolveTracker, toPrStatus } from './parse'
 import type { Accounts, Manifest, RawPr } from './parse'
-import { paneCards, statusLine } from './view'
+import { paneCards, shellWord, statusLine } from './view'
 import type { Action, Card, Choice, Row, Tone } from './view'
 
 const PANE = 'crewboss'
@@ -59,6 +59,8 @@ let poll: Timer | null = null
 let crewPoll: Timer | null = null
 let pendingRefresh: Timer | null = null
 let pendingCrewRefresh: Timer | null = null
+// The question whose answers are being drafted; set before the first await so overlapping refreshes draft once.
+let draftingKey: string | null = null
 
 export const register: Register = (on, options) => {
   const accounts = accountsOf(options)
@@ -214,7 +216,7 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
-    const pick = (choice: Choice, value: string) => void $.prompt.fill({ text: `${choice.fillPrefix}${value}` }).catch(() => undefined)
+    const pick = (choice: Choice, value: string) => void $.prompt.fill({ text: `${choice.fillPrefix}${shellWord(value)}` }).catch(() => undefined)
 
     const choiceView = (choice: Choice) => Select ? (
       <Select key={choice.key} label={choice.label} options={choice.options} onSelect={(value: string) => pick(choice, value)} />
@@ -298,20 +300,31 @@ async function refreshCrew($: EngineInterface): Promise<void> {
   await update($, crew, () => crewNow)
   const [repoNow, prNow] = await Promise.all([read($, repo), read($, pr)])
   $.ui.status(statusLine(repoNow, prNow, crewNow))
-  await draftAnswers($, crewNow?.task ?? null).catch(() => undefined)
+  // Not awaited: a 30 s model call must not hold up the command or the next poll.
+  void draftAnswers($, crewNow?.task ?? null).catch(() => undefined)
 }
 
 // Once per question: the key holds until the agent asks something else, so polls do not re-ask the model.
-// A draft that failed clears the key, so the next refresh tries again.
+// A draft that failed stores nothing, so the next refresh tries again.
 async function draftAnswers($: EngineInterface, task: CrewStatus['task']): Promise<void> {
   const key = task === null ? null : answerKey(task)
-  const current: AnswerOptions | null = await read($, answers)
-  if (key === null || task?.needsHumanReason == null || current?.key === key) {
+  if (key === null || task?.needsHumanReason == null || draftingKey === key) {
     return
   }
-  await update($, answers, () => ({ key, options: [] }))
-  const options = await completeAnswers($, task.needsHumanReason)
-  await update($, answers, now => (now?.key !== key ? now : options.length > 0 ? { key, options } : null))
+  draftingKey = key
+  try {
+    if ((await read($, answers))?.key === key) {
+      return
+    }
+    const options = await completeAnswers($, task.needsHumanReason)
+    if (options.length > 0 && draftingKey === key) {
+      await update($, answers, () => ({ key, options }))
+    }
+  } finally {
+    if (draftingKey === key) {
+      draftingKey = null
+    }
+  }
 }
 
 async function completeAnswers($: EngineInterface, reason: string): Promise<AnswerOption[]> {
