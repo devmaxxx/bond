@@ -184,7 +184,7 @@ before it starts. `failed` / `blocked` ⇒ its chained successors become
 
 ### 6. Report
 
-When nothing is `pending` or `running`: one `bond:PRStatus` agent per PR, all in
+When nothing is `pending` or `running`: one `bond:pr-status` agent per PR, all in
 one message, for the CI verdict. Do not watch or fix CI here — a red PR is
 `/bond:ship-pr <PR>`.
 

@@ -10,7 +10,7 @@ re-run where infrastructure killed it. With `--merge` the PRs that are ready
 are squash-merged and their branches and worktrees removed.
 
 It reuses `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (profile, PR
-coordinates, CI status), `bond:PRStatus` for every PR read, `/bond:rebase` for
+coordinates, CI status), `bond:pr-status` for every PR read, `/bond:rebase` for
 conflicts, and **Teardown** from `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`.
 
 **Standing instructions win.** "Don't push", "don't merge #12" given earlier in
@@ -60,7 +60,7 @@ None ⇒ say so and stop.
 
 ### 2. Read each PR
 
-One `bond:PRStatus` read per PR — in parallel subagents when there are more
+One `bond:pr-status` read per PR — in parallel subagents when there are more
 than three. Its report is the row: draft, mergeable, CI verdict with causes,
 review decision, unhandled comment count.
 
@@ -121,7 +121,7 @@ the end table says *re-run the sweep once CI settles*.
 ### 5. Merge (`--merge` only)
 
 Merge order: oldest first, and a stacked PR only after the PR it sits on. Per
-PR, re-read it through `bond:PRStatus` immediately before merging — an earlier
+PR, re-read it through `bond:pr-status` immediately before merging — an earlier
 merge in this sweep may have moved its base. Merge only when **all** hold:
 
 - open and **not a draft**;

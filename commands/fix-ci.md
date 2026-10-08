@@ -82,11 +82,11 @@ a checkout.
 
 ### 1. Diagnose
 
-- **PR target** — `bond:PRStatus` first: `MERGED` / `CLOSED` ⇒ skip it; CI
+- **PR target** — `bond:pr-status` first: `MERGED` / `CLOSED` ⇒ skip it; CI
   **running** ⇒ say so and skip; **passed** ⇒ nothing to fix. It gives the
   head, base, mergeability and each failed check's link.
-- Then `bond:CIDiagnose` once per failed pipeline — the raw URL, or each failed
-  check link from PRStatus — with the base from `--base` or the PR, and the
+- Then `bond:ci-diagnose` once per failed pipeline — the raw URL, or each failed
+  check link from pr-status — with the base from `--base` or the PR, and the
   checkout as working directory. It returns the branch, the PR (or none), and
   per failed step a class, a `file:line` cause, and a short excerpt. Read a
   full step log yourself only when that cause is not enough to fix it.
@@ -143,7 +143,7 @@ is gone after the rebase — re-run its failing command before fixing it.
    change (`.woodpecker/*.yaml`, `.github/workflows/*`, `bitbucket-pipelines.yml`)
    is linted locally first (`woodpecker-cli lint`).
 3. Reproduce the failing step locally — the exact command the step ran, through
-   `bond:TestRunner` — then **Test** and **Review and fix** with `SCOPE` = the fix.
+   `bond:test-runner` — then **Test** and **Review and fix** with `SCOPE` = the fix.
    A step that cannot run locally (needs secrets or a deploy target) ⇒ say so in
    the report; the re-run is the proof.
 4. Commit per `bond:authorship-conventions` — `fix(<scope>): …` or `ci: …`, one

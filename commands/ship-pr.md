@@ -92,7 +92,7 @@ re-review in the same area arrives under a new id with a new finding.
    transition it.
 8. The PR conflicts with its base ⇒ run **Resolve merge conflicts** now, before
    step 1 — verifying code that cannot merge verifies the wrong thing.
-9. **Review before verifying.** Spawn the `bond:PRReview` agent with the PR
+9. **Review before verifying.** Spawn the `bond:pr-review` agent with the PR
    number and the absolute checkout path. Verify each finding it returns, fix
    the real ones (one commit per concern), push, and record
    `"reviewed": "<head sha>"` in the ledger. A re-run whose ledger already holds the current head skips it.
@@ -253,7 +253,7 @@ Never run two polls on one PR, and never pipe `gh --json` through `echo` — the
 script's header says why. Comment ids are GraphQL node ids (`IC_…`, `PRR_…`);
 store those in `handledCommentIds`. Inline review threads are not in the
 poll's payload: once settled, hand the PR and the ledger's
-`handledCommentIds` to the `bond:PRStatus` agent — one read returns the CI
+`handledCommentIds` to the `bond:pr-status` agent — one read returns the CI
 verdict with each failed check's root cause and every unhandled thread, review
 body and conversation comment with its id, without the raw `gh` output landing
 here. On Bitbucket, poll at the same 5s cadence through **PR details and CI
@@ -285,7 +285,7 @@ wrong.
 
 Skip outdated and resolved threads, approvals, bot summaries, CI status noise.
 
-**c. Fix CI** — when **failed**: start from the root causes `bond:PRStatus`
+**c. Fix CI** — when **failed**: start from the root causes `bond:pr-status`
 returned; read a full step log yourself only when its one-line cause is not
 enough to fix it (the **Diagnose CI failure** procedure in
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Then:
@@ -354,7 +354,7 @@ goes with the worktree. Then print:
 - **Needs you** — findings left alone, drafted replies to human reviewers,
   pre-existing and infrastructure failures, every stop reason.
 - Final state: CI, review decision, unresolved threads — one last
-  `bond:PRStatus` read. Merging is the user's.
+  `bond:pr-status` read. Merging is the user's.
 
 ## Do NOT
 

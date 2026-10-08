@@ -1,5 +1,5 @@
 ---
-name: CIDiagnose
+name: ci-diagnose
 description: >
   Diagnoses one failed CI pipeline — a Woodpecker pipeline URL, a GitHub
   Actions run/job URL, a Bitbucket pipeline URL, or a PR — and returns, per

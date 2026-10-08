@@ -14,7 +14,7 @@ const GIT_LOG = "git log without a bound — add -n 20 or --oneline.";
 const CAT = "cat of a whole file — sed -n 'a,bp' the range you need.";
 const LISTING = "unbounded listing — add -maxdepth or | head -50.";
 const TEST_RUN =
-  "test run without a terse reporter — --reporter=dot, or hand it to TestRunner.";
+  "test run without a terse reporter — --reporter=dot, or hand it to test-runner.";
 
 /** The count the judge hands back, which the wrapper's state file carries. */
 const count = (command, singles = 0) => judge(command, singles).singles;

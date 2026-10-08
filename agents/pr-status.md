@@ -1,5 +1,5 @@
 ---
-name: PRStatus
+name: pr-status
 description: >
   Reads one pull request's state once — open/merged, draft, mergeable, CI
   verdict with the root cause of every failed check, review decision, and every

@@ -1,5 +1,5 @@
 ---
-name: PRReview
+name: pr-review
 description: >
   Reviews one open pull request's diff against its base — GitHub or Bitbucket —
   and returns verified findings ranked most severe first, each with file:line,

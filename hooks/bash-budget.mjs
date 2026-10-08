@@ -31,7 +31,7 @@ const NUDGE = {
   cat: "cat of a whole file — sed -n 'a,bp' the range you need.",
   listing: "unbounded listing — add -maxdepth or | head -50.",
   testRun:
-    "test run without a terse reporter — --reporter=dot, or hand it to TestRunner.",
+    "test run without a terse reporter — --reporter=dot, or hand it to test-runner.",
 };
 
 const SEPARATORS = ["&&", "||", ";", "|", "\n"];

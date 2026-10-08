@@ -123,7 +123,7 @@ does the rest. Inputs: the original repo dir, the worktree path.
    | `Gemfile.lock` | `bundle install` |
 
    None of these ⇒ nothing to install (Cargo and Go fetch on build). Run it
-   through the `bond:TestRunner` agent so only a failure comes back. A 401/403
+   through the `bond:test-runner` agent so only a failure comes back. A 401/403
    is registry auth, not the code — report it, keep the worktree.
 
 ### close

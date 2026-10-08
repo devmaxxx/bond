@@ -1,5 +1,5 @@
 ---
-name: DocsExplorer
+name: docs-explorer
 description: >
   Looks up official, current documentation for a third-party library, API, or
   tool before it gets used in code. Use whenever a task touches a third-party

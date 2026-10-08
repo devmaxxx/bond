@@ -51,7 +51,7 @@ designer changed recently. Present the checklist and plan; this list is
 
 Run both apps, same route, same viewport, screenshot side by side, walk the
 checklist until every item matches or is explicitly deferred. Details in
-references/kit-and-parity.md. Then typecheck, tests via `bond:TestRunner`,
+references/kit-and-parity.md. Then typecheck, tests via `bond:test-runner`,
 and `bond:vertical-horizontal-review` (do sibling pages now look off?).
 
 ## 5. When the prototype is the source of truth

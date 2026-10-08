@@ -24,7 +24,7 @@ command to the packages the diff touches (`turbo run … --filter`, `nx affected
 1. **Build** — fails ⇒ stop; nothing after it means anything.
 2. **Types** — `tsc --noEmit` or the repo's script.
 3. **Lint** — on the changed files when the linter allows it.
-4. **Tests** — through the `TestRunner` agent, so only failures come back.
+4. **Tests** — through the `test-runner` agent, so only failures come back.
 5. **Diff scan** — added lines only (`git diff $(git merge-base <base> HEAD) -U0 | grep '^+'`, so uncommitted work is scanned too): keys and
    tokens (`sk-`, `AKIA`, `ghp_`, `-----BEGIN`, `password\s*=`), stray `console.log`,
    `debugger`, `.only(`, `TODO` added by this branch, and committed `.env` files.

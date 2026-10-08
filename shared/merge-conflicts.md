@@ -97,7 +97,7 @@ Before committing (merge) or pushing (rebase):
 2. Base moved generated code or the lockfile ⇒ regenerate / install, even
    without a conflict there.
 3. Typecheck and build, then the tests covering the resolved files and the
-   branch's own changed files — each command through the `bond:TestRunner`
+   branch's own changed files — each command through the `bond:test-runner`
    agent. A rebase can break a commit with no conflict at all, so run them
    after a clean rebase too.
 4. A failure that is also red on `origin/<BASE_BRANCH>` is the base's: note
