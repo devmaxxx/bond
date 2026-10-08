@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { fillRepoPath, lastJson, pickProfileFile, toClaimable, toLoopTask, toProfile } from '../hooks/crew-parse'
+import { answerKey, fillRepoPath, toAnswerOptions, lastJson, pickProfileFile, toClaimable, toLoopTask, toProfile } from '../hooks/crew-parse'
 
 test('only a lone profile is picked, as crewboss v1 runs exactly one', () => {
   expect(pickProfileFile(['beauty-crm.json', 'notes.txt'])).toBe('beauty-crm.json')
@@ -46,4 +46,24 @@ test('a state file without a task reads as no task in progress', () => {
   expect(toLoopTask(null)).toBe(null)
   expect(toLoopTask({ v: 1 })).toBe(null)
   expect(toLoopTask({ task: { id: 9, state: 'WaitingCI', pr: 41 } })?.pr).toBe(41)
+})
+
+test('drafted answers are read from the model reply, fenced or not, and capped at four', () => {
+  const reply = '```json\n[{"label":"Split it","answer":"Split T27 in two."},{"label":"","answer":"Wait in alpha."},{"answer":""},{"label":"a","answer":"b"},{"label":"c","answer":"d"},{"label":"e","answer":"f"}]\n```'
+
+  expect(toAnswerOptions(reply)).toEqual([
+    { label: 'Split it', answer: 'Split T27 in two.' },
+    { label: 'Wait in alpha.', answer: 'Wait in alpha.' },
+    { label: 'a', answer: 'b' },
+    { label: 'c', answer: 'd' },
+  ])
+  expect(toAnswerOptions('I cannot help with that')).toEqual([])
+})
+
+test('only a NeedsHuman task with a question gets answer options', () => {
+  const task = { id: 7, title: '', state: 'NeedsHuman', stateSince: 0, branch: null, pr: null, fixCount: 0, needsHumanReason: 'Wait or split?' }
+
+  expect(answerKey(task)).toBe('7:Wait or split?')
+  expect(answerKey({ ...task, state: 'WaitingCI' })).toBe(null)
+  expect(answerKey({ ...task, needsHumanReason: null })).toBe(null)
 })

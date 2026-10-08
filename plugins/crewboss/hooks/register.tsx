@@ -1,13 +1,13 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
-import type { CrewStatus, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
-import { lastJson, pickProfileFile, toClaimable, toLoopTask, toOpenPrs, toProfile } from './crew-parse'
+import type { AnswerOption, AnswerOptions, CrewStatus, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import { answerKey, answerPrompt, lastJson, pickProfileFile, toAnswerOptions, toClaimable, toLoopTask, toOpenPrs, toProfile } from './crew-parse'
 import type { CrewProfile } from './crew-parse'
 import { activeLoginOf, expectedLogin, isBonlivaRemote, parseJson, parseRemote, resolveTracker, toPrStatus } from './parse'
 import type { Accounts, Manifest, RawPr } from './parse'
 import { paneCards, statusLine } from './view'
-import type { Action, Card, Row, Tone } from './view'
+import type { Action, Card, Choice, Row, Tone } from './view'
 
 const PANE = 'crewboss'
 const PANE_TITLE = 'crewboss'
@@ -22,6 +22,8 @@ const OPEN_PR_FIELDS = 'number,title,isDraft,reviewDecision,url,statusCheckRollu
 const GH_TIMEOUT_MS = 20_000
 // The task CLI boots tsx and lists every issue through gh, which takes far longer than a git call.
 const CLAIMABLE_TIMEOUT_MS = 90_000
+const ANSWER_MODEL = 'haiku'
+const ANSWER_TIMEOUT_MS = 30_000
 const IDLE_TURN: TurnProgress = { isRunning: false, startedAt: 0, toolCount: 0, lastTool: null }
 // Commands after which the branch, the remote, the gh account or the PR may have moved.
 const REFRESH_AFTER = /\bgit\s+(checkout|switch|branch|push|pull|merge|rebase|reset|worktree|remote)\b|\bgh\s+(auth\s+switch|pr)\b/
@@ -40,6 +42,7 @@ const TONE_COLOR: Record<Tone, string | undefined> = {
 }
 
 const crew = atom({ plugin: 'crewboss', key: 'crew' } as const, null)
+const answers = atom({ plugin: 'crewboss', key: 'answers' } as const, null)
 const repo = atom({ plugin: 'crewboss', key: 'repo' } as const, null)
 const pr = atom({ plugin: 'crewboss', key: 'pr' } as const, null)
 const tasks = atom({ plugin: 'crewboss', key: 'tasks' } as const, [])
@@ -172,9 +175,13 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Link, Button, Markdown } = $.ui.resolve(e)
-    const [crewNow, repoNow, prNow, turnNow, taskList, agentList, now] = await Promise.all([
+    const table = $.ui.resolve(e)
+    const { Box, Text, Link, Button, Markdown } = table
+    // Mobile draws no Select; there each drafted answer is a button of its own.
+    const Select = 'Select' in table ? table.Select : null
+    const [crewNow, answersNow, repoNow, prNow, turnNow, taskList, agentList, now] = await Promise.all([
       read($, crew),
+      read($, answers),
       read($, repo),
       read($, pr),
       read($, turn),
@@ -182,7 +189,7 @@ export const register: Register = (on, options) => {
       read($, agents),
       $.clock.now(),
     ])
-    const cards = paneCards({ crew: crewNow, repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
+    const cards = paneCards({ crew: crewNow, answers: answersNow, repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
     const fill = (action: Action) => () => void $.prompt.fill({ text: action.fill }).catch(() => undefined)
     const refreshAll = () => void Promise.all([refreshQuietly($, accounts), refreshCrewQuietly($)])
 
@@ -207,6 +214,18 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
+    const pick = (choice: Choice, value: string) => void $.prompt.fill({ text: `${choice.fillPrefix}${value}` }).catch(() => undefined)
+
+    const choiceView = (choice: Choice) => Select ? (
+      <Select key={choice.key} label={choice.label} options={choice.options} onSelect={(value: string) => pick(choice, value)} />
+    ) : (
+      <Box flexDirection="column">
+        {choice.options.map((option, index) => (
+          <Button key={`${choice.key}-${index}`} label={option.label} onPress={() => pick(choice, option.value)} />
+        ))}
+      </Box>
+    )
+
     const cardView = (card: Card) => (
       <Box key={card.key} flexDirection="column" borderStyle="round" borderColor={TONE_COLOR[card.tone] ?? 'gray'} paddingX={1}>
         <Box flexDirection="row" justifyContent="space-between">
@@ -214,6 +233,7 @@ export const register: Register = (on, options) => {
           {card.count === undefined ? null : <Text inverse bold>{` ${card.count} `}</Text>}
         </Box>
         {card.rows.map(rowView)}
+        {card.choice ? <Box marginTop={1}>{choiceView(card.choice)}</Box> : null}
         {card.actions.length > 0 ? (
           <Box flexDirection="row" gap={1} marginTop={1}>
             {card.actions.map(actionButton)}
@@ -278,6 +298,34 @@ async function refreshCrew($: EngineInterface): Promise<void> {
   await update($, crew, () => crewNow)
   const [repoNow, prNow] = await Promise.all([read($, repo), read($, pr)])
   $.ui.status(statusLine(repoNow, prNow, crewNow))
+  await draftAnswers($, crewNow?.task ?? null).catch(() => undefined)
+}
+
+// Once per question: the key holds until the agent asks something else, so polls do not re-ask the model.
+// A draft that failed clears the key, so the next refresh tries again.
+async function draftAnswers($: EngineInterface, task: CrewStatus['task']): Promise<void> {
+  const key = task === null ? null : answerKey(task)
+  const current: AnswerOptions | null = await read($, answers)
+  if (key === null || task?.needsHumanReason == null || current?.key === key) {
+    return
+  }
+  await update($, answers, () => ({ key, options: [] }))
+  const options = await completeAnswers($, task.needsHumanReason)
+  await update($, answers, now => (now?.key !== key ? now : options.length > 0 ? { key, options } : null))
+}
+
+async function completeAnswers($: EngineInterface, reason: string): Promise<AnswerOption[]> {
+  try {
+    const result = await $.model.complete({
+      model: ANSWER_MODEL,
+      prompt: answerPrompt(reason),
+      maxTokens: 1024,
+      timeoutMs: ANSWER_TIMEOUT_MS,
+    })
+    return result.isAnswered ? toAnswerOptions(result.text) : []
+  } catch {
+    return []
+  }
 }
 
 async function collectRepo($: EngineInterface, cwd: string, accounts: Accounts): Promise<RepoStatus | null> {

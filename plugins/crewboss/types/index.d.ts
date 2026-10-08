@@ -80,10 +80,22 @@ export type CrewStatus = {
   problems: string[]
 }
 
+export type AnswerOption = {
+  label: string
+  answer: string
+}
+
+// key: the task and question the options were drafted for, so a new question drafts again.
+export type AnswerOptions = {
+  key: string
+  options: AnswerOption[]
+}
+
 declare module 'claude-code' {
   interface PluginState {
     crewboss: {
       crew: CrewStatus | null
+      answers: AnswerOptions | null
       repo: RepoStatus | null
       pr: PrStatus | null
       tasks: TaskItem[]

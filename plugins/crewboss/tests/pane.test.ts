@@ -225,3 +225,38 @@ test('the Answer button puts the crewboss answer command in the prompt box witho
 
   expect(fills).toEqual(['! crewboss answer ', '! crewboss answer '])
 })
+
+test('a drafted answer picked from the list fills the prompt with crewboss answer and that text', async ($, on) => {
+  stubHost(on, CREW_OUTPUTS, CREW_FILES, {}, CREW_ENV)
+  const prompts: string[] = []
+  on('model.complete', (_, e) => {
+    prompts.push(e.prompt)
+    return {
+      value: {
+        isAnswered: true as const,
+        text: '[{"label":"Split it","answer":"Split T27: my Kuma sign-in now, salon rows later."}]',
+        usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+      },
+    }
+  })
+  const fills: string[] = []
+  on('prompt.fill', (_, e) => {
+    fills.push(e.text)
+    return { isFilled: true }
+  })
+
+  await $.command.run(RUN_HUD)
+  await $.command.run(RUN_HUD)
+
+  expect(prompts).toHaveLength(1)
+  expect(prompts[0]).toContain('protected path touched')
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ plugin: 'crewboss', surface, ...PANE })
+    await ui.select({ key: 'answer-option', value: 'Split T27: my Kuma sign-in now, salon rows later.' })
+    await ui.unmount()
+  }
+  expect(fills).toEqual([
+    '! crewboss answer Split T27: my Kuma sign-in now, salon rows later.',
+    '! crewboss answer Split T27: my Kuma sign-in now, salon rows later.',
+  ])
+})

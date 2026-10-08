@@ -1,4 +1,4 @@
-import type { ClaimableIssue, LoopTask, OpenPr } from '../types'
+import type { AnswerOption, ClaimableIssue, LoopTask, OpenPr } from '../types'
 import { countChecks } from './parse'
 import type { RawPr } from './parse'
 
@@ -137,4 +137,42 @@ function issueUrl(url: unknown, id: string, github: string): string | null {
   }
 
   return /^\d+$/.test(id) ? `https://github.com/${github}/issues/${id}` : null
+}
+
+const MAX_OPTIONS = 4
+const MAX_LABEL = 48
+
+export function answerKey(task: LoopTask): string | null {
+  return task.state === 'NeedsHuman' && task.needsHumanReason !== null ? `${task.id}:${task.needsHumanReason}` : null
+}
+
+export function answerPrompt(reason: string): string {
+  return [
+    'An autonomous coding agent stopped and asked its owner the message below.',
+    `Draft 2 to ${MAX_OPTIONS} distinct answers the owner could send back, one per real choice the message offers.`,
+    'Each answer is the full reply in the owner\'s voice, specific enough for the agent to act on; where the agent asked for a fact the owner must supply (a date, a name), leave a <placeholder> for it.',
+    `Reply with JSON only: [{"label": "<= ${MAX_LABEL} chars", "answer": "..."}].`,
+    '',
+    '<message>',
+    reason,
+    '</message>',
+  ].join('\n')
+}
+
+export function toAnswerOptions(text: string): AnswerOption[] {
+  const raw = lastJson(text.replace(/```(?:json)?/g, ''))
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  return (raw as { label?: unknown; answer?: unknown }[])
+    .flatMap(item => typeof item.answer === 'string' && item.answer.trim() !== ''
+      ? [{ label: labelOf(item.label, item.answer), answer: item.answer.trim() }]
+      : [])
+    .slice(0, MAX_OPTIONS)
+}
+
+function labelOf(label: unknown, answer: string): string {
+  const text = typeof label === 'string' && label.trim() !== '' ? label.trim() : answer
+  return text.length > MAX_LABEL ? `${text.slice(0, MAX_LABEL - 1)}…` : text
 }

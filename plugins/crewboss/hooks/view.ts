@@ -1,4 +1,4 @@
-import type { AgentItem, Checks, CrewStatus, LoopTask, OpenPr, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import type { AgentItem, AnswerOptions, Checks, CrewStatus, LoopTask, OpenPr, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
 
 export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn' | 'accent'
 
@@ -18,17 +18,27 @@ export type Row = {
   action?: Action
 }
 
+// A pick fills the prompt with `fillPrefix` + the option's value.
+export type Choice = {
+  key: string
+  label: string
+  fillPrefix: string
+  options: { value: string; label: string }[]
+}
+
 export type Card = {
   key: string
   title: string
   count?: number
   tone: Tone
   rows: Row[]
+  choice?: Choice
   actions: Action[]
 }
 
 export type HudState = {
   crew: CrewStatus | null
+  answers?: AnswerOptions | null
   repo: RepoStatus | null
   pr: PrStatus | null
   turn: TurnProgress
@@ -104,14 +114,14 @@ export function paneCards(state: HudState): Card[] {
   const crew = state.crew
 
   return [
-    ...(crew === null ? [] : [loopCard(crew, state.now), openPrsCard(crew), claimableCard(crew)]),
+    ...(crew === null ? [] : [loopCard(crew, state.now, state.answers ?? null), openPrsCard(crew), claimableCard(crew)]),
     repoCard(state.repo),
     prCard(state.repo, state.pr),
     progressCard(state),
   ]
 }
 
-function loopCard(crew: CrewStatus, now: number): Card {
+function loopCard(crew: CrewStatus, now: number, answers: AnswerOptions | null): Card {
   const task = crew.task
   const problems = crew.problems.map(problem => ({ text: `⚠ ${problem}`, tone: 'bad' as const }))
   const title = crew.profile === null ? 'Crewboss' : `Crewboss · ${crew.profile}`
@@ -138,7 +148,25 @@ function loopCard(crew: CrewStatus, now: number): Card {
       ...(task.state === 'NeedsHuman' ? [{ text: task.needsHumanReason ?? 'no reason recorded', tone: 'warn' as const, isMarkdown: true }] : []),
       ...problems,
     ],
+    ...answerChoice(task, answers),
     actions: loopActions(task),
+  }
+}
+
+// Options drafted for an earlier question are stale the moment the agent asks another.
+function answerChoice(task: LoopTask, answers: AnswerOptions | null): { choice?: Choice } {
+  const key = task.needsHumanReason === null ? null : `${task.id}:${task.needsHumanReason}`
+  if (task.state !== 'NeedsHuman' || answers === null || answers.key !== key || answers.options.length === 0) {
+    return {}
+  }
+
+  return {
+    choice: {
+      key: 'answer-option',
+      label: 'Pick an answer',
+      fillPrefix: '! crewboss answer ',
+      options: answers.options.map(option => ({ value: option.answer, label: option.label })),
+    },
   }
 }
 
