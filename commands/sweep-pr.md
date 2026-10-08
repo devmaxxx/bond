@@ -11,7 +11,8 @@ are squash-merged and their branches and worktrees removed.
 
 It reuses `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (profile, PR
 coordinates, CI status), `bond:pr-status` for every PR read,
-`bond:security-review` before a PR is merged or called ready, `/bond:rebase` for
+**Review a PR** (`${CLAUDE_PLUGIN_ROOT}/shared/pr-review-flow.md`) before a PR
+is merged or called ready, `/bond:rebase` for
 conflicts, and **Teardown** from `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`.
 
 **Standing instructions win.** "Don't push", "don't merge #12" given earlier in
@@ -77,14 +78,13 @@ Classify each PR into exactly one action:
 | CI running | wait — report |
 | unhandled comments, `CHANGES_REQUESTED`, or approval required and missing | report |
 | draft | report |
-| security finding `critical` or `high` on the current head | report — `/bond:ship-pr <n>` |
+| review finding `critical` or `high` on the current head | report — `/bond:ship-pr <n>` |
 | green, ready, approved where required, no unhandled comments | merge (`--merge`) / ready |
 
-**Security pass.** Every PR headed for *merge* / *ready* gets one
-`bond:security-review` with target `pr #<n>` at the head sha `pr-status` read —
-in parallel with the other PRs. A `critical` or `high` finding moves the PR to
-*report*, its findings listed under *Needs you*; `medium` and `low` are listed
-there too but do not block. The sweep never fixes them.
+**Review pass.** Every PR headed for *merge* / *ready* gets **Review a PR** at
+the head sha `pr-status` read — PRs in parallel. A blocking finding moves the
+PR to *report*, its findings listed under *Needs you*; `medium` and `low` are
+listed there too. The sweep never fixes them.
 
 **Restartable infrastructure**, not code: a cancelled run, a runner that never
 picked the job up or lost contact, a network timeout fetching dependencies,
@@ -141,8 +141,8 @@ merge in this sweep may have moved its base. Merge only when **all** hold:
   the repo's branch restrictions require are present (unreadable ⇒ at least
   one approval from someone other than the author);
 - `new comments: 0`;
-- no `critical` or `high` security finding on that head — a head that moved
-  since step 2 gets a fresh `bond:security-review` first;
+- no blocking finding from **Review a PR** on that head — a head that moved
+  since step 2 is reviewed again first;
 - no standing instruction excludes it.
 
 Then:
@@ -179,7 +179,7 @@ the base, `git pull --ff-only`.
 
 Same columns as step 3, with the result: *merged*, *rebased (CI running)*,
 *retargeted*, *restarted*, *conflict — needs you*, *CI red in code —
-/bond:fix-ci*, *security — /bond:ship-pr*, *waiting on review*, *draft*. Then *Needs you*: hand-backs,
+/bond:fix-ci*, *review findings — /bond:ship-pr*, *waiting on review*, *draft*. Then *Needs you*: hand-backs,
 refused merges with the reason, comments to address, dirty worktrees left.
 
 ## Do NOT
@@ -190,7 +190,7 @@ refused merges with the reason, comments to address, dirty worktrees left.
 - Do not merge on a head that was not the one read just before the merge.
 - Do not restart a pipeline more than once per PR, or restart one that failed
   in code.
-- Do not fix a code CI failure, a security finding or a review comment here — that is
+- Do not fix a code CI failure, a review finding or a review comment here — that is
   `/bond:fix-ci` and `/bond:ship-pr`.
 - Do not force-push a branch another author committed to, `--force` anything,
   or use `[skip ci]`.

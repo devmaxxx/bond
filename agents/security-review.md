@@ -27,7 +27,8 @@ Review once. Report verified findings. Stop.
 
 1. **Scope.** A branch: `git diff origin/<base>...HEAD`. A PR: fetch its head
    (`git fetch origin <head sha>`) and `git diff origin/<base>...<head sha>`
-   — no checkout, so the caller's tree is untouched. A path: its files.
+   — no checkout, so the caller's tree is untouched; read files at the head
+   with `git show <head sha>:<path>`. A path: its files.
    Read each changed hunk with its callers and its route, guard or handler —
    an authorization gap lives outside the hunk as often as inside it.
 2. **Map the trust boundary.** Where untrusted input enters (request body,

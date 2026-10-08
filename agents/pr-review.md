@@ -16,7 +16,7 @@ Review the PR once. Report verified findings. Stop.
 
 ## Inputs
 
-- **PR** — a number or a full URL.
+- **PR** — a number or a full URL, and its head sha.
 - **Working directory** — the checkout holding the PR head; review there.
 - **Focus** — optional; areas the caller wants looked at first.
 
@@ -24,9 +24,9 @@ Review the PR once. Report verified findings. Stop.
 
 1. **Coordinates.** GitHub: `gh pr view <n> --json number,title,headRefOid,baseRefName,body,url`.
    Bitbucket: `get_pull_request`. `MERGED` / `CLOSED` / `DECLINED` ⇒ one line, stop.
-2. **The diff.** `git fetch origin <base>`, then `git diff origin/<base>...HEAD`
-   in the working directory. The local `HEAD` must equal the PR head commit;
-   otherwise return `FAIL head <local> != PR <head>`.
+2. **The diff.** `git fetch origin <base> <head sha>`, then
+   `git diff origin/<base>...<head sha>`. No checkout: read files at the head
+   with `git show <head sha>:<path>` when the working tree is elsewhere.
 3. **Read for intent.** The PR body, the commit subjects, and the plan or task
    file the body names. A finding against intent cites the line it contradicts.
 4. **Review.** For each changed hunk, read the surrounding code and its callers,
@@ -53,7 +53,8 @@ PR #42 @a1b2c3d — 3 findings (1 high, 1 medium, 1 low)
 3. low test/list.test.ts:12 — asserts a value the setup hard-codes, cannot fail
 ```
 
-- One finding per item: severity, `file:line`, the defect in one line, then
+- One finding per item: severity (`critical`, `high`, `medium`, `low` — the
+  scale `bond:security-review` uses), `file:line`, the defect in one line, then
   `breaks:` with the concrete input or state. At most 15 findings.
 - Nothing survived ⇒ `PR #42 @a1b2c3d — no findings`.
 - No praise, no summary of the change, no suggested diff longer than one line.

@@ -92,9 +92,9 @@ re-review in the same area arrives under a new id with a new finding.
    transition it.
 8. The PR conflicts with its base ⇒ run **Resolve merge conflicts** now, before
    step 1 — verifying code that cannot merge verifies the wrong thing.
-9. **Review before verifying.** Spawn the `bond:pr-review` agent with the PR
-   number and the absolute checkout path. Verify each finding it returns, fix
-   the real ones (one commit per concern), push, and record
+9. **Review before verifying.** Run **Review a PR**
+   (`${CLAUDE_PLUGIN_ROOT}/shared/pr-review-flow.md`) on the PR. Verify each
+   finding, fix the real ones (one commit per concern), push, and record
    `"reviewed": "<head sha>"` in the ledger. A re-run whose ledger already holds the current head skips it.
    Verifying first and reviewing after means verifying twice whenever the
    review changes the code.

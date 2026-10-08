@@ -284,8 +284,8 @@ node --test 'tests/**/*.test.mjs'
 - **test-runner** — runs one test, typecheck or lint command on haiku at low effort and returns only the failures: the runner's own counts on line 1, then at most 40 `path:line: message` lines and `… N more`. A command that cannot start comes back as the first 5 lines of stderr. Hand it every check whose full output would otherwise land in the main context. Bundled under `agents/`.
 - **ci-diagnose** — reads one failed pipeline (Woodpecker, GitHub Actions or Bitbucket URL) on sonnet at medium effort and returns per failed step its class — flaky, infra, code, or pre-existing on the base — a `file:line` cause and at most 5 log lines. Read-only; `/fix-ci` acts on it. Bundled under `agents/`.
 - **pr-status** — reads one PR once on haiku at low effort, GitHub or Bitbucket: state, mergeable, the CI verdict with one root-cause line per failed check, the review decision, and every unhandled inline thread, review body and conversation comment with its id (minus the ids the caller already handled). Read-only — never replies, resolves, reruns or polls. `/ship-pr` reads each settled round and its final state through it. Bundled under `agents/`.
-- **pr-review** — reviews one open PR's diff on opus at high effort, GitHub or Bitbucket: reads each hunk with its callers, verifies every finding before reporting it, and returns at most 15 ranked findings with `file:line` and the input that breaks it. Read-only — never edits, pushes or comments. `/ship-pr` runs it right after the PR is opened, before the browser check. Bundled under `agents/`.
-- **security-review** — reviews a diff, PR or path for security defects on opus at high effort: access control and IDOR, injection, auth and sessions, SSRF, XSS, secrets, races on money, data exposure, and an audit when a lockfile changed. Verifies each finding and returns at most 15 with `file:line`, the attack and the fix. Read-only. `/sweep-pr` runs it on every PR it would merge; a critical or high finding holds the merge. Bundled under `agents/`.
+- **pr-review** — reviews one open PR's diff on opus at high effort, GitHub or Bitbucket: reads each hunk with its callers, verifies every finding before reporting it, and returns at most 15 ranked findings with `file:line` and the input that breaks it. Read-only — never edits, pushes or comments. Paired with **security-review** through `shared/pr-review-flow.md`; `/ship-pr` runs the pair right after the PR is opened, before the browser check. Bundled under `agents/`.
+- **security-review** — reviews a diff, PR or path for security defects on opus at high effort: access control and IDOR, injection, auth and sessions, SSRF, XSS, secrets, races on money, data exposure, and an audit when a lockfile changed. Verifies each finding and returns at most 15 with `file:line`, the attack and the fix. Read-only. Always runs paired with **pr-review** through `shared/pr-review-flow.md` (`/ship-pr`, `/sweep-pr`); a critical or high finding from either blocks. Bundled under `agents/`.
 
 ## Installation
 
@@ -342,6 +342,7 @@ bond/
 │   ├── merge-conflicts.md  # detect, rebase or merge, resolve, prove — ship-pr, rebase, sweep-pr
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
+│   ├── pr-review-flow.md   # code + security review as one pair — ship-pr, sweep-pr
 │   ├── pr-template.md      # single source of truth for PR title + description
 │   └── permissions-readonly.json  # read-only allowlist to copy into a project
 ├── scripts/
