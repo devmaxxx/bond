@@ -1,6 +1,6 @@
 {
   "name": "bond-hud",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "description": "Heads-up display for bond: a status line (branch, PR host, tracker, active gh account, PR checks) and a docked pane with repo, pull request and CI status plus turn, task and subagent progress. A mod of function hooks; needs a Claude Code build with plugin hooks modules.",
   "author": { "name": "Max Synenko", "email": "syn.max.13@gmail.com" },
   "homepage": "https://github.com/devmaxxx/bond",
