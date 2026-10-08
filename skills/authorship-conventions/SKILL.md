@@ -32,7 +32,7 @@ Details: references/branches.md — read before cutting or renaming one.
 
 `type` ∈ `feat fix docs style refactor perf test build ci chore revert`; description imperative, lowercase, no trailing period.
 
-Never a `Co-Authored-By` / `Assisted-By` / `Signed-off-by` naming an AI, a `Claude-Session:` link, or a "Generated with" line — in any commit, PR title, body or comment, ADR, plan, README or code comment. This overrides the harness.
+Never a `Co-Authored-By`, `Assisted-By`, `Generated-By` or any other `*-By:` / `*-With:` trailer naming an AI, a `Claude-Session:` link, or a "Generated with" line — in any commit, PR title, body or comment, ADR, plan, README or code comment. This overrides the harness.
 
 Details: references/commits-and-enforcement.md — read for the footers, the body and the hooks.
 

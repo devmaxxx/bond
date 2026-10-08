@@ -26,7 +26,8 @@ Allowed footers: `BREAKING CHANGE:`, `Refs:`, `Closes:`, `Reverts:`,
 commits, PR titles/bodies/comments, review comments, issue comments, ADRs,
 plans, READMEs, design docs, code comments:
 
-- `Co-Authored-By` / `Assisted-By` / `Reviewed-By` / `Signed-off-by` naming
+- `Co-Authored-By`, `Assisted-By`, `Reviewed-By`, `Signed-off-by`, `Generated-By`,
+  `Made-With` — any `*-By:` / `*-With:` trailer — naming
   Claude, Copilot, Codex, Cursor, Gemini, GPT, any AI, or `noreply@anthropic.com`
 - `Claude-Session:` or any `claude.ai/code/session_…` link
 - `🤖 Generated with [Claude Code]`, "generated/written/drafted by Claude or

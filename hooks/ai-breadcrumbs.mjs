@@ -10,14 +10,14 @@ const TOOLS =
 
 export const AI_BREADCRUMBS = [
   new RegExp(
-    `^\\s*(Co-Authored-By|Assisted-By|Reviewed-By|Signed-Off-By):.*\\b${TOOLS}\\b`,
+    `^\\s*[\\w-]+-(By|With):.*\\b${TOOLS}\\b`,
     "i",
   ),
   /noreply@anthropic\.com|copilot@github\.com/i,
   /^\s*Claude-Session:|claude\.ai\/code\/session_/i,
   new RegExp(`Generated (with|by) \\[?${TOOLS}\\b`, "i"),
   new RegExp(
-    `(written|created|authored|drafted) (with|by) (an? )?${TOOLS}\\b( assist)?`,
+    `(written|created|authored|drafted|made|built|produced|generated) (with|by|using) (an? )?${TOOLS}\\b( assist)?`,
     "i",
   ),
   /^\s*🤖/u,
