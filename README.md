@@ -61,6 +61,33 @@ Hook: `PreToolUse` on `Write` / `Edit` / `MultiEdit` runs `plugins/bond-bonliva/
 Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
 symlinks into `bond`, which the plugin cache resolves into real copies.
 
+## bond-hud (status line and docked pane)
+
+`plugins/bond-hud/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
+`modules`) that runs inside Claude Code rather than as spawned `node` processes,
+so it needs a build with plugin hook modules. It is opt-in and depends on `bond`:
+
+```json
+// ~/.claude/settings.json
+{ "enabledPlugins": { "bond-hud@devmaxxx": true } }
+```
+
+- **Status line** — `⎇ <branch> · <host> · [jira] · gh <login> · PR #<n> ✗ … ✓`.
+  The gh login gets `⚠ want <account>` when it is not the one
+  `authorship-conventions` expects for the repo (remote owner first, Bonliva
+  second, otherwise no expectation).
+- **Pane** — docks to the right of the transcript in the fullscreen layout from
+  110 columns (opened unasked, from 144), inline above the prompt otherwise.
+  Repo (branch, host, tracker, gh account), pull request (state, review,
+  CI counts and the failing checks), and progress (the running turn, the
+  `TodoWrite` / task checklist, live subagents). `/bond-hud` opens it and
+  refreshes.
+
+It refreshes on session start, after `git checkout|switch|push|…` and
+`gh auth switch|pr` commands, at the end of each turn, on a cwd change and every
+60 s. The PR section is GitHub-only (`gh pr view`). The expected accounts are
+`userConfig` fields (`personalAccount`, `workAccount`) in `/config`.
+
 ## MCP Servers
 
 `bond-bonliva` ships an MCP server template in `plugins/bond-bonliva/.mcp.json`. Run `/bond-bonliva:setup-plugin` to
@@ -262,6 +289,14 @@ is driven end to end over stdin:
 node --test 'tests/**/*.test.mjs'
 ```
 
+`bond-hud` is tested by Claude Code's own plugin runner — its parsers directly,
+and the status line and pane on the terminal and desktop surfaces with git and
+`gh` answered by the test:
+
+```sh
+claude plugin validate plugins/bond-hud && claude plugin test plugins/bond-hud
+```
+
 ## Skills
 
 - **readable-code-structure** — splits long functions into small named ones and replaces awkward/clever control flow (search loops, N+1 in loops, nested ternaries, flag params) with plain expressions. Triggers on clean-up/refactor/"make this readable" requests and during review. Also carries the two mechanical rules that share its trigger exactly: brace every control body (one-liners and guard clauses included), and collapse repeated passes over one collection. Bundled under `skills/readable-code-structure/`.
@@ -372,6 +407,7 @@ bond/
 │   ├── shell.test.mjs
 │   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
+├── plugins/bond-hud/       # status line + docked pane mod (function hooks)
 │   ├── .claude-plugin/plugin.json  # depends on bond
 │   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card
