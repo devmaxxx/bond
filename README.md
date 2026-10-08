@@ -17,7 +17,7 @@ but every command resolves a per-repo profile, so they work outside it too.
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
-| `/pr-sweep`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
+| `/sweep-pr`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
 | `/rebase`         | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
 | `/ship-pr`        | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/worktree`       | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
@@ -337,7 +337,7 @@ bond/
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
-│   ├── merge-conflicts.md  # detect, rebase or merge, resolve, prove — ship-pr, rebase, pr-sweep
+│   ├── merge-conflicts.md  # detect, rebase or merge, resolve, prove — ship-pr, rebase, sweep-pr
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
 │   ├── pr-template.md      # single source of truth for PR title + description

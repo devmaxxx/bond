@@ -2,7 +2,7 @@
 description: Sweep every open PR — retarget, rebase and resolve conflicts, restart infra-failed pipelines, and with --merge squash-merge the green approved ones and clean up their branches and worktrees
 ---
 
-# /bond:pr-sweep
+# /bond:sweep-pr
 
 One pass over a repo's open pull requests. Without `--merge` it is a report and
 repair pass: each PR comes out rebased, conflict-free and with its pipeline
@@ -19,12 +19,12 @@ the session override the matching step here.
 ## Usage
 
 ```
-/bond:pr-sweep [--mine|--all] [--base <branch>] [--retarget <branch>] [--merge] [--dry-run]
+/bond:sweep-pr [--mine|--all] [--base <branch>] [--retarget <branch>] [--merge] [--dry-run]
 ```
 
-Examples: `/bond:pr-sweep`, `/bond:pr-sweep --merge`,
-`/bond:pr-sweep --all --base hotfix/5.18.3`,
-`/bond:pr-sweep --base main --retarget release/5.16.0`.
+Examples: `/bond:sweep-pr`, `/bond:sweep-pr --merge`,
+`/bond:sweep-pr --all --base hotfix/5.18.3`,
+`/bond:sweep-pr --base main --retarget release/5.16.0`.
 
 ### Flags
 

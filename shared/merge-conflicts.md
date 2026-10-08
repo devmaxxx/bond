@@ -2,7 +2,7 @@
 
 > **Not an invocable command.** One procedure for bringing a branch up to date
 > with its base and resolving what conflicts. `/bond:ship-pr`, `/bond:rebase`
-> and `/bond:pr-sweep` run it; each states its inputs and what it adds after.
+> and `/bond:sweep-pr` run it; each states its inputs and what it adds after.
 
 ## Procedure: Resolve merge conflicts
 
