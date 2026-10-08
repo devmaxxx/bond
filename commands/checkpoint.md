@@ -46,7 +46,7 @@ Report: `checkpoint <name> → <short sha> (<n> files changed vs HEAD, <m> untra
 
 1. `git diff --stat refs/bond-checkpoints/<branch>/<name>` — the working tree against
    the snapshot.
-2. Run the test suite through the `TestRunner` agent.
+2. Run the test suite through the `test-runner` agent.
 3. Report: files changed since the checkpoint, tests pass/fail, and any test that names a
    file in that diff.
 

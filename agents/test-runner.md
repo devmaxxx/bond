@@ -1,5 +1,5 @@
 ---
-name: TestRunner
+name: test-runner
 description: >
   Runs one test or check command and returns only the failures — file:line:
   message, at most 40 lines, plus the pass/fail counts. Use for every test,

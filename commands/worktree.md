@@ -123,7 +123,7 @@ does the rest. Inputs: the original repo dir, the worktree path.
    | `Gemfile.lock` | `bundle install` |
 
    None of these ⇒ nothing to install (Cargo and Go fetch on build). Run it
-   through the `bond:TestRunner` agent so only a failure comes back. A 401/403
+   through the `bond:test-runner` agent so only a failure comes back. A 401/403
    is registry auth, not the code — report it, keep the worktree.
 
 ### close
@@ -153,6 +153,17 @@ does the rest. Inputs: the original repo dir, the worktree path.
    upstream or `HEAD`, not the base.) Not merged ⇒ keep
    it, and say it is kept and why. Never delete the remote branch.
 5. `git worktree prune`. Report: removed path, branch deleted or kept.
+6. **Shared hooks.** Worktrees share one `.git/hooks`, and a hook manager's
+   postinstall (lefthook, husky) writes absolute paths into it — so a
+   dependency install inside the removed worktree may have left the hooks
+   pointing at it. `grep -l "<wt>" "$(git rev-parse --git-common-dir)/hooks/"*`
+   finds them; reinstall from the main checkout (`pnpm exec lefthook install`,
+   or the repo's equivalent).
+
+A repo-local CLI that resolves its root from its own script path acts on the
+checkout the script lives in, not on the current directory. Inside a worktree
+run the worktree's copy of the script — calling the main checkout's copy edits
+the main checkout's files.
 
 ### prune
 

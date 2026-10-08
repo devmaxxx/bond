@@ -24,7 +24,7 @@ Output the following table verbatim:
 | `/bond:investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc           |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
 | `/bond:open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                   |
-| `/bond:pr-sweep`       | Sweep open PRs: retarget, rebase, restart infra CI, merge the green ones under `--merge`          |
+| `/bond:sweep-pr`       | Sweep open PRs: retarget, rebase, restart infra CI, merge the green ones under `--merge`          |
 | `/bond:rebase`         | Rebase (or merge) a branch on its base, resolve conflicts, re-test, push with lease               |
 | `/bond:ship-pr`        | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/bond:worktree`       | Open a worktree for a branch, ticket or PR; close it; prune merged and stale ones                  |

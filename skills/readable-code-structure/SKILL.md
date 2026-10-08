@@ -44,6 +44,10 @@ One pass per collection: N results over the _same_ source in N passes does N× t
 
 Details: references/mechanical-rules.md — read for the examples and the leave-it rows.
 
+## Layout
+
+Blank lines, `function` declarations, no `await` in `?:`/`??`: references/layout-and-declarations.md.
+
 ## When to leave it
 
 Leave a clear short function, a sequential procedure, a measured hot path, an over-extracted helper. A refactor preserves behaviour exactly.

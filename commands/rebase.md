@@ -45,7 +45,7 @@ Examples: `/bond:rebase`, `/bond:rebase main`, `/bond:rebase 381`,
 ### 1. Resolve the target
 
 1. Resolve the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`).
-2. A PR ⇒ **Resolve PR coordinates**, then one `bond:PRStatus` read for head,
+2. A PR ⇒ **Resolve PR coordinates**, then one `bond:pr-status` read for head,
    base, state and draft. `MERGED` / `CLOSED` / `DECLINED` ⇒ skip it.
 3. **Base**, first match: the `base` argument; the PR's base; the profile's
    `BASE_BRANCH`. On the current branch with no PR and no argument, the
@@ -82,7 +82,7 @@ as it was; report it and go to the next target.
 ### 4. Verify
 
 The procedure's **Prove it** runs typecheck and the affected tests through
-`bond:TestRunner`. Find the commands from the repo, not by guess:
+`bond:test-runner`. Find the commands from the repo, not by guess:
 `package.json` scripts (`typecheck`, `lint`, `test` with a path filter), the
 workspace tool for a monorepo (`nx affected`, `turbo --filter`), `cargo check`,
 `go vet ./...`. No typecheck script in a TypeScript repo ⇒ `npx tsc --noEmit -p

@@ -59,7 +59,7 @@ it has one): index name, collection, definition, before or after deploy.
 
 Dry run against a local or staging copy (never production), show the 10 ids,
 then a real run, then the verification query → 0, then run again → 0
-modified. Typecheck and tests via `bond:TestRunner`.
+modified. Typecheck and tests via `bond:test-runner`.
 
 ## Do NOT
 

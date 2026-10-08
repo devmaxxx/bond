@@ -17,7 +17,7 @@ but every command resolves a per-repo profile, so they work outside it too.
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
-| `/pr-sweep`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
+| `/sweep-pr`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
 | `/rebase`         | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
 | `/ship-pr`        | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/worktree`       | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
@@ -316,9 +316,11 @@ claude plugin validate plugins/bond-hud && claude plugin test plugins/bond-hud
 ## Agents
 
 - **effort-low / effort-medium / effort-high / effort-xhigh / effort-max** — one agent per reasoning effort level; the caller passes `model` at call time. `effort-high`, `effort-xhigh` and `effort-max` fall back to `model: opus` when the caller omits it; `effort-low` and `effort-medium` fall back to the session default subagent model, so a cheap tier is not silently run on the most expensive model. Used by the routing-model-and-effort skill because effort is only settable through an agent definition. Bundled under `agents/`.
-- **TestRunner** — runs one test, typecheck or lint command on haiku at low effort and returns only the failures: the runner's own counts on line 1, then at most 40 `path:line: message` lines and `… N more`. A command that cannot start comes back as the first 5 lines of stderr. Hand it every check whose full output would otherwise land in the main context. Bundled under `agents/`.
-- **CIDiagnose** — reads one failed pipeline (Woodpecker, GitHub Actions or Bitbucket URL) on sonnet at medium effort and returns per failed step its class — flaky, infra, code, or pre-existing on the base — a `file:line` cause and at most 5 log lines. Read-only; `/fix-ci` acts on it. Bundled under `agents/`.
-- **PRStatus** — reads one PR once on haiku at low effort, GitHub or Bitbucket: state, mergeable, the CI verdict with one root-cause line per failed check, the review decision, and every unhandled inline thread, review body and conversation comment with its id (minus the ids the caller already handled). Read-only — never replies, resolves, reruns or polls. `/ship-pr` reads each settled round and its final state through it. Bundled under `agents/`.
+- **test-runner** — runs one test, typecheck or lint command on haiku at low effort and returns only the failures: the runner's own counts on line 1, then at most 40 `path:line: message` lines and `… N more`. A command that cannot start comes back as the first 5 lines of stderr. Hand it every check whose full output would otherwise land in the main context. Bundled under `agents/`.
+- **ci-diagnose** — reads one failed pipeline (Woodpecker, GitHub Actions or Bitbucket URL) on sonnet at medium effort and returns per failed step its class — flaky, infra, code, or pre-existing on the base — a `file:line` cause and at most 5 log lines. Read-only; `/fix-ci` acts on it. Bundled under `agents/`.
+- **pr-status** — reads one PR once on haiku at low effort, GitHub or Bitbucket: state, mergeable, the CI verdict with one root-cause line per failed check, the review decision, and every unhandled inline thread, review body and conversation comment with its id (minus the ids the caller already handled). Read-only — never replies, resolves, reruns or polls. `/ship-pr` reads each settled round and its final state through it. Bundled under `agents/`.
+- **pr-review** — reviews one open PR's diff on opus at high effort, GitHub or Bitbucket: reads each hunk with its callers, verifies every finding before reporting it, and returns at most 15 ranked findings with `file:line` and the input that breaks it. Read-only — never edits, pushes or comments. Paired with **security-review** through `shared/pr-review-flow.md`; `/ship-pr` runs the pair right after the PR is opened, before the browser check. Bundled under `agents/`.
+- **security-review** — reviews a diff, PR or path for security defects on opus at high effort: access control and IDOR, injection, auth and sessions, SSRF, XSS, secrets, races on money, data exposure, and an audit when a lockfile changed. Verifies each finding and returns at most 15 with `file:line`, the attack and the fix. Read-only. Always runs paired with **pr-review** through `shared/pr-review-flow.md` (`/ship-pr`, `/sweep-pr`); a critical or high finding from either blocks. Bundled under `agents/`.
 
 ## Installation
 
@@ -363,16 +365,19 @@ bond/
 │   ├── security-checklist/  # per-section security questions over the changed lines
 │   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
-│   ├── DocsExplorer.md     # look up official docs before using a third-party API
-│   ├── TestRunner.md       # run one check, return only the failures
-│   ├── PRStatus.md         # one PR's CI, review and unhandled comments, compact
-│   ├── CIDiagnose.md       # one failed pipeline: class, cause, short excerpt
+│   ├── docs-explorer.md     # look up official docs before using a third-party API
+│   ├── test-runner.md       # run one check, return only the failures
+│   ├── pr-status.md         # one PR's CI, review and unhandled comments, compact
+│   ├── pr-review.md         # one PR's diff reviewed, verified findings ranked
+│   ├── security-review.md   # security defects in a diff, PR or path, verified
+│   ├── ci-diagnose.md       # one failed pipeline: class, cause, short excerpt
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
-│   ├── merge-conflicts.md  # detect, rebase or merge, resolve, prove — ship-pr, rebase, pr-sweep
+│   ├── merge-conflicts.md  # detect, rebase or merge, resolve, prove — ship-pr, rebase, sweep-pr
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook
+│   ├── pr-review-flow.md   # code + security review as one pair — ship-pr, sweep-pr
 │   ├── pr-template.md      # single source of truth for PR title + description
 │   └── permissions-readonly.json  # read-only allowlist to copy into a project
 ├── scripts/

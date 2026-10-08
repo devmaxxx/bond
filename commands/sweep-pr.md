@@ -2,7 +2,7 @@
 description: Sweep every open PR — retarget, rebase and resolve conflicts, restart infra-failed pipelines, and with --merge squash-merge the green approved ones and clean up their branches and worktrees
 ---
 
-# /bond:pr-sweep
+# /bond:sweep-pr
 
 One pass over a repo's open pull requests. Without `--merge` it is a report and
 repair pass: each PR comes out rebased, conflict-free and with its pipeline
@@ -10,7 +10,9 @@ re-run where infrastructure killed it. With `--merge` the PRs that are ready
 are squash-merged and their branches and worktrees removed.
 
 It reuses `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md` (profile, PR
-coordinates, CI status), `bond:PRStatus` for every PR read, `/bond:rebase` for
+coordinates, CI status), `bond:pr-status` for every PR read,
+**Review a PR** (`${CLAUDE_PLUGIN_ROOT}/shared/pr-review-flow.md`) before a PR
+is merged or called ready, `/bond:rebase` for
 conflicts, and **Teardown** from `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`.
 
 **Standing instructions win.** "Don't push", "don't merge #12" given earlier in
@@ -19,12 +21,12 @@ the session override the matching step here.
 ## Usage
 
 ```
-/bond:pr-sweep [--mine|--all] [--base <branch>] [--retarget <branch>] [--merge] [--dry-run]
+/bond:sweep-pr [--mine|--all] [--base <branch>] [--retarget <branch>] [--merge] [--dry-run]
 ```
 
-Examples: `/bond:pr-sweep`, `/bond:pr-sweep --merge`,
-`/bond:pr-sweep --all --base hotfix/5.18.3`,
-`/bond:pr-sweep --base main --retarget release/5.16.0`.
+Examples: `/bond:sweep-pr`, `/bond:sweep-pr --merge`,
+`/bond:sweep-pr --all --base hotfix/5.18.3`,
+`/bond:sweep-pr --base main --retarget release/5.16.0`.
 
 ### Flags
 
@@ -60,7 +62,7 @@ None ⇒ say so and stop.
 
 ### 2. Read each PR
 
-One `bond:PRStatus` read per PR — in parallel subagents when there are more
+One `bond:pr-status` read per PR — in parallel subagents when there are more
 than three. Its report is the row: draft, mergeable, CI verdict with causes,
 review decision, unhandled comment count.
 
@@ -76,7 +78,13 @@ Classify each PR into exactly one action:
 | CI running | wait — report |
 | unhandled comments, `CHANGES_REQUESTED`, or approval required and missing | report |
 | draft | report |
+| review finding `critical` or `high` on the current head | report — `/bond:ship-pr <n>` |
 | green, ready, approved where required, no unhandled comments | merge (`--merge`) / ready |
+
+**Review pass.** Every PR headed for *merge* / *ready* gets **Review a PR** at
+the head sha `pr-status` read — PRs in parallel. A blocking finding moves the
+PR to *report*, its findings listed under *Needs you*; `medium` and `low` are
+listed there too. The sweep never fixes them.
 
 **Restartable infrastructure**, not code: a cancelled run, a runner that never
 picked the job up or lost contact, a network timeout fetching dependencies,
@@ -121,7 +129,7 @@ the end table says *re-run the sweep once CI settles*.
 ### 5. Merge (`--merge` only)
 
 Merge order: oldest first, and a stacked PR only after the PR it sits on. Per
-PR, re-read it through `bond:PRStatus` immediately before merging — an earlier
+PR, re-read it through `bond:pr-status` immediately before merging — an earlier
 merge in this sweep may have moved its base. Merge only when **all** hold:
 
 - open and **not a draft**;
@@ -133,6 +141,8 @@ merge in this sweep may have moved its base. Merge only when **all** hold:
   the repo's branch restrictions require are present (unreadable ⇒ at least
   one approval from someone other than the author);
 - `new comments: 0`;
+- no blocking finding from **Review a PR** on that head — a head that moved
+  since step 2 is reviewed again first;
 - no standing instruction excludes it.
 
 Then:
@@ -169,7 +179,7 @@ the base, `git pull --ff-only`.
 
 Same columns as step 3, with the result: *merged*, *rebased (CI running)*,
 *retargeted*, *restarted*, *conflict — needs you*, *CI red in code —
-/bond:fix-ci*, *waiting on review*, *draft*. Then *Needs you*: hand-backs,
+/bond:fix-ci*, *review findings — /bond:ship-pr*, *waiting on review*, *draft*. Then *Needs you*: hand-backs,
 refused merges with the reason, comments to address, dirty worktrees left.
 
 ## Do NOT
@@ -180,7 +190,7 @@ refused merges with the reason, comments to address, dirty worktrees left.
 - Do not merge on a head that was not the one read just before the merge.
 - Do not restart a pipeline more than once per PR, or restart one that failed
   in code.
-- Do not fix a code CI failure or a review comment here — that is
+- Do not fix a code CI failure, a review finding or a review comment here — that is
   `/bond:fix-ci` and `/bond:ship-pr`.
 - Do not force-push a branch another author committed to, `--force` anything,
   or use `[skip ci]`.

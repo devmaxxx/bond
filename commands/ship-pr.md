@@ -1,5 +1,5 @@
 ---
-description: After /bond:implement or /bond-bonliva:fix-qa — test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
+description: After /bond:implement or /bond-bonliva:fix-qa — open the PR if there is none, review it, test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
 ---
 
 # /bond:ship-pr
@@ -8,6 +8,8 @@ The step after the code is written. `/bond:implement` and `/bond-bonliva:fix-qa`
 end with a pushed branch and an open PR; this command takes that PR the rest of
 the way to *waiting only on a human's approval*:
 
+0. **Open and review first** — no PR yet ⇒ open it; then a code review over the
+   PR, its fixes pushed, before anything else.
 1. **Verify** — run the app, walk every flow the change touches, check the markup
    is not broken, and tick the PR's **Test plan**.
 2. **Mark ready** — only when step 1 passed.
@@ -30,8 +32,8 @@ matching step here for the rest of the run.
 ## Arguments
 
 `$ARGUMENTS` — optional PR number or URL (either host), plus flags. No PR ⇒ the
-open PR whose head is the current branch; none found ⇒ say so and stop (run
-`/bond:open-pr` first).
+open PR whose head is the current branch; none found ⇒ open it with the
+`/bond:open-pr` procedure, then continue.
 
 ### Flags
 
@@ -90,6 +92,12 @@ re-review in the same area arrives under a new id with a new finding.
    transition it.
 8. The PR conflicts with its base ⇒ run **Resolve merge conflicts** now, before
    step 1 — verifying code that cannot merge verifies the wrong thing.
+9. **Review before verifying.** Run **Review a PR**
+   (`${CLAUDE_PLUGIN_ROOT}/shared/pr-review-flow.md`) on the PR. Verify each
+   finding, fix the real ones (one commit per concern), push, and record
+   `"reviewed": "<head sha>"` in the ledger. A re-run whose ledger already holds the current head skips it.
+   Verifying first and reviewing after means verifying twice whenever the
+   review changes the code.
 
 ### 1. Verify
 
@@ -245,7 +253,7 @@ Never run two polls on one PR, and never pipe `gh --json` through `echo` — the
 script's header says why. Comment ids are GraphQL node ids (`IC_…`, `PRR_…`);
 store those in `handledCommentIds`. Inline review threads are not in the
 poll's payload: once settled, hand the PR and the ledger's
-`handledCommentIds` to the `bond:PRStatus` agent — one read returns the CI
+`handledCommentIds` to the `bond:pr-status` agent — one read returns the CI
 verdict with each failed check's root cause and every unhandled thread, review
 body and conversation comment with its id, without the raw `gh` output landing
 here. On Bitbucket, poll at the same 5s cadence through **PR details and CI
@@ -277,7 +285,7 @@ wrong.
 
 Skip outdated and resolved threads, approvals, bot summaries, CI status noise.
 
-**c. Fix CI** — when **failed**: start from the root causes `bond:PRStatus`
+**c. Fix CI** — when **failed**: start from the root causes `bond:pr-status`
 returned; read a full step log yourself only when its one-line cause is not
 enough to fix it (the **Diagnose CI failure** procedure in
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Then:
@@ -346,7 +354,7 @@ goes with the worktree. Then print:
 - **Needs you** — findings left alone, drafted replies to human reviewers,
   pre-existing and infrastructure failures, every stop reason.
 - Final state: CI, review decision, unresolved threads — one last
-  `bond:PRStatus` read. Merging is the user's.
+  `bond:pr-status` read. Merging is the user's.
 
 ## Do NOT
 
