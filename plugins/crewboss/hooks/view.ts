@@ -119,7 +119,7 @@ function loopCard(crew: CrewStatus, now: number): Card {
       title,
       tone: problems.length > 0 ? 'bad' : 'accent',
       rows: [{ text: 'No task in progress', tone: 'dim' }, ...problems],
-      actions: [{ key: 'run-next', label: 'Run next', fill: '! crewboss run --once', isPrimary: true }],
+      actions: [],
     }
   }
   const tone = STATE_TONE[task.state] ?? 'accent'
@@ -178,12 +178,13 @@ function openPrsCard(crew: CrewStatus): Card {
 
 function openPrRow(pr: OpenPr): Row {
   const label = checksLabel(pr.checks)
+  const badge = reviewBadge(pr)
 
   return {
     text: `#${pr.number} ${pr.title}`,
     tone: pr.isDraft ? 'dim' : 'plain',
     href: pr.url,
-    ...(reviewBadge(pr) && { badge: reviewBadge(pr) }),
+    ...(badge && { badge }),
     ...(label !== '' && { aside: { text: label, tone: checksTone(pr.checks) } }),
     ...(pr.checks.failed > 0 && { action: { key: `fix-${pr.number}`, label: 'Fix CI', fill: `/bond:fix-ci ${pr.url}` } }),
   }
@@ -214,7 +215,7 @@ function claimableCard(crew: CrewStatus): Card {
     count: crew.claimable.length,
     tone: 'plain',
     rows: rows.length === 0 ? [{ text: 'Nothing claimable', tone: 'dim' }] : [...rows, ...more(crew.claimable.length)],
-    actions: rows.length > 0 && isIdle ? [{ key: 'claim-next', label: 'Run next', fill: '! crewboss run --once' }] : [],
+    actions: rows.length > 0 && isIdle ? [{ key: 'claim-next', label: 'Run next', fill: '! crewboss run --once', isPrimary: true }] : [],
   }
 }
 

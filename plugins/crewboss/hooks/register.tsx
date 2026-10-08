@@ -183,7 +183,7 @@ export const register: Register = (on, options) => {
       $.clock.now(),
     ])
     const cards = paneCards({ crew: crewNow, repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
-    const fill = (action: Action) => () => void $.prompt.fill({ text: action.fill })
+    const fill = (action: Action) => () => void $.prompt.fill({ text: action.fill }).catch(() => undefined)
     const refreshAll = () => void Promise.all([refreshQuietly($, accounts), refreshCrewQuietly($)])
 
     const actionButton = (action: Action) => (
@@ -351,8 +351,11 @@ async function collectCrew($: EngineInterface): Promise<CrewStatus | null> {
     return null
   }
   // As crewboss reads them: an empty variable falls back to the default rather than to the working directory.
-  const stateDir = stateEnv || `${home}/.local/state/crewboss`
-  const configDir = configEnv || `${home}/.config/crewboss`
+  const stateDir = stateEnv || (home ? `${home}/.local/state/crewboss` : '')
+  const configDir = configEnv || (home ? `${home}/.config/crewboss` : '')
+  if (stateDir === '' || configDir === '') {
+    return null
+  }
   const [task, profile] = await Promise.all([readTask($, stateDir), readProfile($, configDir)])
   if (profile === null) {
     return null
