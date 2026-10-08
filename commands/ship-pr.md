@@ -1,5 +1,5 @@
 ---
-description: After /bond:implement or /bond-bonliva:fix-qa — test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
+description: After /bond:implement or /bond-bonliva:fix-qa — open the PR if there is none, review it, test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
 ---
 
 # /bond:ship-pr
@@ -8,6 +8,8 @@ The step after the code is written. `/bond:implement` and `/bond-bonliva:fix-qa`
 end with a pushed branch and an open PR; this command takes that PR the rest of
 the way to *waiting only on a human's approval*:
 
+0. **Open and review first** — no PR yet ⇒ open it; then a code review over the
+   PR, its fixes pushed, before anything else.
 1. **Verify** — run the app, walk every flow the change touches, check the markup
    is not broken, and tick the PR's **Test plan**.
 2. **Mark ready** — only when step 1 passed.
@@ -30,8 +32,8 @@ matching step here for the rest of the run.
 ## Arguments
 
 `$ARGUMENTS` — optional PR number or URL (either host), plus flags. No PR ⇒ the
-open PR whose head is the current branch; none found ⇒ say so and stop (run
-`/bond:open-pr` first).
+open PR whose head is the current branch; none found ⇒ open it with the
+`/bond:open-pr` procedure, then continue.
 
 ### Flags
 
@@ -90,6 +92,12 @@ re-review in the same area arrives under a new id with a new finding.
    transition it.
 8. The PR conflicts with its base ⇒ run **Resolve merge conflicts** now, before
    step 1 — verifying code that cannot merge verifies the wrong thing.
+9. **Review before verifying.** Spawn the `bond:PRReview` agent with the PR
+   number and the absolute checkout path. Verify each finding it returns, fix
+   the real ones (one commit per concern), push, and record
+   `"reviewed": "<head sha>"` in the ledger. A re-run whose ledger already holds the current head skips it.
+   Verifying first and reviewing after means verifying twice whenever the
+   review changes the code.
 
 ### 1. Verify
 

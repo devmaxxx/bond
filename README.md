@@ -284,6 +284,7 @@ node --test 'tests/**/*.test.mjs'
 - **TestRunner** — runs one test, typecheck or lint command on haiku at low effort and returns only the failures: the runner's own counts on line 1, then at most 40 `path:line: message` lines and `… N more`. A command that cannot start comes back as the first 5 lines of stderr. Hand it every check whose full output would otherwise land in the main context. Bundled under `agents/`.
 - **CIDiagnose** — reads one failed pipeline (Woodpecker, GitHub Actions or Bitbucket URL) on sonnet at medium effort and returns per failed step its class — flaky, infra, code, or pre-existing on the base — a `file:line` cause and at most 5 log lines. Read-only; `/fix-ci` acts on it. Bundled under `agents/`.
 - **PRStatus** — reads one PR once on haiku at low effort, GitHub or Bitbucket: state, mergeable, the CI verdict with one root-cause line per failed check, the review decision, and every unhandled inline thread, review body and conversation comment with its id (minus the ids the caller already handled). Read-only — never replies, resolves, reruns or polls. `/ship-pr` reads each settled round and its final state through it. Bundled under `agents/`.
+- **PRReview** — reviews one open PR's diff on opus at high effort, GitHub or Bitbucket: reads each hunk with its callers, verifies every finding before reporting it, and returns at most 15 ranked findings with `file:line` and the input that breaks it. Read-only — never edits, pushes or comments. `/ship-pr` runs it right after the PR is opened, before the browser check. Bundled under `agents/`.
 
 ## Installation
 
@@ -331,6 +332,7 @@ bond/
 │   ├── DocsExplorer.md     # look up official docs before using a third-party API
 │   ├── TestRunner.md       # run one check, return only the failures
 │   ├── PRStatus.md         # one PR's CI, review and unhandled comments, compact
+│   ├── PRReview.md         # one PR's diff reviewed, verified findings ranked
 │   ├── CIDiagnose.md       # one failed pipeline: class, cause, short excerpt
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
