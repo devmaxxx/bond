@@ -44,9 +44,46 @@ export type TurnProgress = {
   lastTool: string | null
 }
 
+export type OpenPr = {
+  number: number
+  title: string
+  isDraft: boolean
+  review: string | null
+  url: string
+  checks: Checks
+}
+
+export type LoopTask = {
+  id: number
+  title: string
+  state: string
+  stateSince: number
+  branch: string | null
+  pr: number | null
+  fixCount: number
+  needsHumanReason: string | null
+}
+
+export type ClaimableIssue = {
+  id: string
+  title: string
+  url: string | null
+}
+
+export type CrewStatus = {
+  profile: string | null
+  repo: string | null
+  ghUser: string | null
+  task: LoopTask | null
+  prs: OpenPr[]
+  claimable: ClaimableIssue[]
+  problems: string[]
+}
+
 declare module 'claude-code' {
   interface PluginState {
-    'bond-hud': {
+    crewboss: {
+      crew: CrewStatus | null
       repo: RepoStatus | null
       pr: PrStatus | null
       tasks: TaskItem[]

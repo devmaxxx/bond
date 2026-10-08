@@ -18,9 +18,9 @@
       "version": "0.37.0"
     },
     {
-      "name": "bond-hud",
-      "source": "./plugins/bond-hud",
-      "description": "Status line and docked pane: branch, PR host, tracker, gh account, PR and CI status, turn/task/subagent progress",
+      "name": "crewboss",
+      "source": "./plugins/crewboss",
+      "description": "crewboss pane and status line: loop task, my open PRs with CI, issues to claim, branch, gh account, turn/task/subagent progress",
       "version": "0.37.0"
     }
   ]

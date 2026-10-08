@@ -1,13 +1,26 @@
 {
-  "name": "bond-hud",
+  "name": "crewboss",
   "version": "0.37.0",
-  "description": "Heads-up display for bond: a status line (branch, PR host, tracker, active gh account, PR checks) and a docked pane with repo, pull request and CI status plus turn, task and subagent progress. A mod of function hooks; needs a Claude Code build with plugin hooks modules.",
-  "author": { "name": "Max Synenko", "email": "syn.max.13@gmail.com" },
+  "description": "crewboss control pane for Claude Code: the crewboss loop's task and state, your open PRs with CI, the issues ready to claim, plus the branch, PR host, gh account, PR checks and turn/task/subagent progress. A mod of function hooks; needs a Claude Code build with plugin hooks modules.",
+  "author": {
+    "name": "Max Synenko",
+    "email": "syn.max.13@gmail.com"
+  },
   "homepage": "https://github.com/devmaxxx/bond",
   "repository": "https://github.com/devmaxxx/bond",
   "license": "MIT",
-  "keywords": ["status-line", "pane", "pull-request", "ci", "progress"],
-  "dependencies": ["bond"],
+  "keywords": [
+    "crewboss",
+    "status-line",
+    "pane",
+    "pull-request",
+    "issues",
+    "ci",
+    "progress"
+  ],
+  "dependencies": [
+    "bond"
+  ],
   "types": "./types/index.d.ts",
   "userConfig": {
     "personalAccount": {

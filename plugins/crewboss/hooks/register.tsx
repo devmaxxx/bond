@@ -1,22 +1,33 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
-import type { PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import type { CrewStatus, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import { lastJson, pickProfileFile, toClaimable, toLoopTask, toOpenPrs, toProfile } from './crew-parse'
+import type { CrewProfile } from './crew-parse'
 import { activeLoginOf, expectedLogin, isBonlivaRemote, parseJson, parseRemote, resolveTracker, toPrStatus } from './parse'
 import type { Accounts, Manifest, RawPr } from './parse'
 import { paneLines, statusLine } from './view'
 import type { Tone } from './view'
 
-const PANE = 'bond-hud'
-const PANE_TITLE = 'bond'
-const PANE_COLUMNS = 46
+const PANE = 'crewboss'
+const PANE_TITLE = 'crewboss'
+const PANE_COLUMNS = 52
 const POLL_MS = 60_000
+// The claimable list boots the repo's task CLI and walks every issue; once a minute would be most of a minute.
+const CREW_POLL_MS = 5 * 60_000
 const REFRESH_DEBOUNCE_MS = 400
 const COMMAND_TIMEOUT_MS = 15_000
 const PR_FIELDS = 'number,title,state,isDraft,reviewDecision,url,statusCheckRollup'
+const DIRS_SCRIPT = 'printf "%s\\n%s" "${CREWBOSS_STATE_DIR:-$HOME/.local/state/crewboss}" "${CREWBOSS_CONFIG_DIR:-$HOME/.config/crewboss}"'
+const OPEN_PR_FIELDS = 'number,title,isDraft,reviewDecision,url,statusCheckRollup'
+const GH_TIMEOUT_MS = 20_000
+// The task CLI boots tsx and lists every issue through gh, which takes far longer than a git call.
+const CLAIMABLE_TIMEOUT_MS = 90_000
 const IDLE_TURN: TurnProgress = { isRunning: false, startedAt: 0, toolCount: 0, lastTool: null }
 // Commands after which the branch, the remote, the gh account or the PR may have moved.
 const REFRESH_AFTER = /\bgit\s+(checkout|switch|branch|push|pull|merge|rebase|reset|worktree|remote)\b|\bgh\s+(auth\s+switch|pr)\b/
+// Commands after which the crewboss loop, its pull requests or the claimable queue may have moved.
+const CREW_REFRESH_AFTER = /\bcrewboss\b|\bpnpm\s+tasks\b|\bgh\s+(pr|issue)\b/
 
 const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: string }> = {
   heading: { bold: true },
@@ -27,16 +38,21 @@ const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: str
   warn: { color: 'yellow' },
 }
 
-const repo = atom({ plugin: 'bond-hud', key: 'repo' } as const, null)
-const pr = atom({ plugin: 'bond-hud', key: 'pr' } as const, null)
-const tasks = atom({ plugin: 'bond-hud', key: 'tasks' } as const, [])
-const agents = atom({ plugin: 'bond-hud', key: 'agents' } as const, [])
-const turn = atom({ plugin: 'bond-hud', key: 'turn' } as const, IDLE_TURN)
+const crew = atom({ plugin: 'crewboss', key: 'crew' } as const, null)
+const repo = atom({ plugin: 'crewboss', key: 'repo' } as const, null)
+const pr = atom({ plugin: 'crewboss', key: 'pr' } as const, null)
+const tasks = atom({ plugin: 'crewboss', key: 'tasks' } as const, [])
+const agents = atom({ plugin: 'crewboss', key: 'agents' } as const, [])
+const turn = atom({ plugin: 'crewboss', key: 'turn' } as const, IDLE_TURN)
+
+type Run = { ok: boolean; stdout: string; stderr: string }
 
 // A slow refresh (gh goes to the network) that lands after a newer one must not overwrite it.
 let generation = 0
+let crewGeneration = 0
 // session.start fires again after /clear; a poll left running would stack with the new one.
 let poll: Timer | null = null
+let crewPoll: Timer | null = null
 let pendingRefresh: Timer | null = null
 
 export const register: Register = (on, options) => {
@@ -44,20 +60,25 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'bond-hud', description: 'Open the bond HUD pane and refresh its status' })
+    await $.command.register({ name: 'crewboss', description: 'Open the crewboss pane: loop task, my PRs, issues to claim, repo and progress' })
     openPane($).catch(() => undefined)
     refreshSoon($, accounts)
+    void refreshCrew($)
     poll?.cancel()
     poll = $.clock.every(POLL_MS, () => void refreshQuietly($, accounts))
+    crewPoll?.cancel()
+    crewPoll = $.clock.every(CREW_POLL_MS, () => void refreshCrew($))
 
     return started
   })
 
-  on('command.run', { command: 'bond-hud' }, async $ => {
+  on('command.run', { command: 'crewboss' }, async $ => {
     await openPane($)
+    // In turn: the crew refresh writes the status line last, from the repo the first one just read.
     await refresh($, accounts)
+    await refreshCrew($)
 
-    return { text: 'bond HUD opened.' }
+    return { text: 'crewboss pane opened.' }
   })
 
   on('classic.CwdChanged', async ($, e, next) => {
@@ -108,6 +129,9 @@ export const register: Register = (on, options) => {
     if (REFRESH_AFTER.test(e.command)) {
       refreshSoon($, accounts)
     }
+    if (CREW_REFRESH_AFTER.test(e.command)) {
+      void refreshCrew($)
+    }
 
     return ran
   })
@@ -146,8 +170,9 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e)
-    const [repoNow, prNow, turnNow, taskList, agentList, now] = await Promise.all([
+    const { Box, Text, Link } = $.ui.resolve(e)
+    const [crewNow, repoNow, prNow, turnNow, taskList, agentList, now] = await Promise.all([
+      read($, crew),
       read($, repo),
       read($, pr),
       read($, turn),
@@ -155,13 +180,13 @@ export const register: Register = (on, options) => {
       read($, agents),
       $.clock.now(),
     ])
-    const lines = paneLines({ repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
+    const lines = paneLines({ crew: crewNow, repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
 
     return (
       <Box flexDirection="column">
         {lines.map((line, index) => (
           <Text key={String(index)} wrap="truncate-end" {...TONE_PROPS[line.tone]}>
-            {line.text || ' '}
+            {line.href ? <Link href={line.href}>{line.text}</Link> : line.text || ' '}
           </Text>
         ))}
       </Box>
@@ -190,7 +215,19 @@ async function refresh($: EngineInterface, accounts: Accounts): Promise<void> {
   }
   await update($, repo, () => repoNow)
   await update($, pr, () => prNow)
-  $.ui.status(statusLine(repoNow, prNow))
+  $.ui.status(statusLine(repoNow, prNow, await read($, crew)))
+}
+
+async function refreshCrew($: EngineInterface): Promise<void> {
+  crewGeneration += 1
+  const mine = crewGeneration
+  const crewNow = await collectCrew($).catch(() => null)
+  if (mine !== crewGeneration) {
+    return
+  }
+  await update($, crew, () => crewNow)
+  const [repoNow, prNow] = await Promise.all([read($, repo), read($, pr)])
+  $.ui.status(statusLine(repoNow, prNow, crewNow))
 }
 
 async function collectRepo($: EngineInterface, cwd: string, accounts: Accounts): Promise<RepoStatus | null> {
@@ -256,6 +293,114 @@ async function run($: EngineInterface, argv: string[], cwd: string): Promise<str
   } catch {
     return null
   }
+}
+
+async function collectCrew($: EngineInterface): Promise<CrewStatus | null> {
+  const dirs = await exec($, ['sh', '-c', DIRS_SCRIPT])
+  const [stateDir = '', configDir = ''] = dirs.stdout.split('\n')
+  if (!dirs.ok || stateDir === '' || configDir === '') {
+    return null
+  }
+  const [task, profile] = await Promise.all([readTask($, stateDir), readProfile($, configDir)])
+  if (profile === null) {
+    return null
+  }
+  if (typeof profile === 'string') {
+    return { ...emptyCrew(), task, problems: [profile] }
+  }
+  // crewboss pins every gh call to the profile's account; the machine-global login may be the other one.
+  const token = await exec($, ['gh', 'auth', 'token', '--user', profile.ghUser])
+  const env: Record<string, string> = token.ok ? { GH_TOKEN: token.stdout } : {}
+  const [prs, claimable] = await Promise.all([listPrs($, profile, env), listClaimable($, profile, env)])
+  const problems = [
+    token.ok ? '' : `gh has no token for ${profile.ghUser}`,
+    prs.problem,
+    claimable.problem,
+  ]
+    .filter(Boolean)
+    .map(problem => (token.ok ? problem.replaceAll(token.stdout, '<GH_TOKEN>') : problem))
+
+  return {
+    profile: profile.name,
+    repo: profile.github,
+    ghUser: profile.ghUser,
+    task,
+    prs: prs.items,
+    claimable: claimable.items,
+    problems,
+  }
+}
+
+function emptyCrew(): CrewStatus {
+  return { profile: null, repo: null, ghUser: null, task: null, prs: [], claimable: [], problems: [] }
+}
+
+async function readTask($: EngineInterface, stateDir: string): Promise<CrewStatus['task']> {
+  try {
+    return toLoopTask(JSON.parse(await $.fs.read(`${stateDir}/current.json`)))
+  } catch {
+    return null
+  }
+}
+
+// null: crewboss is not set up here, so the pane leaves its sections out instead of reporting it broken.
+async function readProfile($: EngineInterface, configDir: string): Promise<CrewProfile | string | null> {
+  const dir = `${configDir}/profiles`
+  let names: string[]
+  try {
+    names = (await $.fs.list(dir)).map(entry => entry.name)
+  } catch {
+    return null
+  }
+  const file = pickProfileFile(names)
+  if (file === null) {
+    return names.length === 0 ? null : `${dir} must hold exactly one profile`
+  }
+  try {
+    return toProfile(file, JSON.parse(await $.fs.read(`${dir}/${file}`)))
+  } catch {
+    return `${dir}/${file} is not valid JSON`
+  }
+}
+
+async function listPrs($: EngineInterface, profile: CrewProfile, env: Record<string, string>) {
+  const argv = ['gh', 'pr', 'list', '--repo', profile.github, '--author', profile.ghUser, '--state', 'open', '--json', OPEN_PR_FIELDS]
+  const out = await exec($, argv, { env, timeoutMs: GH_TIMEOUT_MS })
+
+  return out.ok
+    ? { items: toOpenPrs(parseJson(out.stdout)), problem: '' }
+    : { items: [], problem: `gh pr list failed: ${firstLine(out.stderr)}` }
+}
+
+async function listClaimable($: EngineInterface, profile: CrewProfile, env: Record<string, string>) {
+  const out = await exec($, ['sh', '-c', profile.claimableCommand], {
+    cwd: profile.repoPath,
+    env,
+    timeoutMs: CLAIMABLE_TIMEOUT_MS,
+  })
+  const parsed = out.ok ? lastJson(out.stdout) : undefined
+  if (parsed === undefined) {
+    return { items: [], problem: `${profile.claimableCommand} failed: ${firstLine(out.stderr || out.stdout)}` }
+  }
+
+  return { items: toClaimable(parsed, profile.github), problem: '' }
+}
+
+async function exec(
+  $: EngineInterface,
+  argv: string[],
+  init: { cwd?: string; env?: Record<string, string>; timeoutMs?: number } = {},
+): Promise<Run> {
+  try {
+    const { exitCode, stdout, stderr } = await $.process.run(argv, init)
+    return { ok: exitCode === 0, stdout: stdout.trim(), stderr: stderr.trim() }
+  } catch (error) {
+    return { ok: false, stdout: '', stderr: String(error) }
+  }
+}
+
+function firstLine(text: string): string {
+  return text.split('\n').find(Boolean) ?? 'no output'
 }
 
 async function syncAgents($: EngineInterface): Promise<void> {

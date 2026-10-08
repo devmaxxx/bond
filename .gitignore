@@ -9,4 +9,4 @@ node_modules/
 .worktrees/
 
 # Type declarations the Claude Code engine lays into a loaded mod
-plugins/bond-hud/.claude-plugin/types/
+plugins/crewboss/.claude-plugin/types/
