@@ -22,8 +22,13 @@
     "cacheTtl": {
       "type": "string",
       "title": "Prompt-cache TTL",
-      "description": "5m or 1h; a model switch overrides it with the TTL it reports",
-      "default": "1h"
+      "description": "auto infers it (overage → 5m, a model switch's report, else 1h on a subscription and 5m on an API key); 5m or 1h fixes it",
+      "default": "auto",
+      "options": [
+        "auto",
+        "5m",
+        "1h"
+      ]
     },
     "cacheWarnSeconds": {
       "type": "number",

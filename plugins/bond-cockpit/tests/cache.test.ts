@@ -1,12 +1,12 @@
 import { expect, test } from 'claude-code/testing'
 
-import { EMPTY_SESSION, cacheCards, cacheStatus, recordRequest, shouldWarn, ttlMs } from '../hooks/cache'
+import { EMPTY_SESSION, cacheCards, cacheStatus, recordRequest, resolveTtl, shouldWarn, ttlMs } from '../hooks/cache'
 import type { Card } from '../hooks/cache'
 import type { CacheSnapshot } from '../types'
 
 const FIVE_MINUTES = ttlMs('5m')
-const WARM: CacheSnapshot = { read: 77_900, wrote: 3_500, fresh: 2, at: 0, ttlMs: FIVE_MINUTES }
-const COLD: CacheSnapshot = { read: 0, wrote: 80_000, fresh: 5, at: 0, ttlMs: FIVE_MINUTES }
+const WARM: CacheSnapshot = { read: 77_900, wrote: 3_500, fresh: 2, at: 0, ttlMs: FIVE_MINUTES, ttlSource: 'switch' }
+const COLD: CacheSnapshot = { read: 0, wrote: 80_000, fresh: 5, at: 0, ttlMs: FIVE_MINUTES, ttlSource: 'switch' }
 const AFTER_WARM = recordRequest(EMPTY_SESSION, WARM)
 
 function texts(card: Card | undefined): string[] {
@@ -85,4 +85,24 @@ test('the toast fires once inside the warning window and never after expiry', ()
 test('the status line shows hit rate and time left, and nothing before the first request', () => {
   expect(cacheStatus(WARM, FIVE_MINUTES - 7_000, 10_000)).toBe('cache 96% ⏱0:07')
   expect(cacheStatus(null, 0, 10_000)).toBe(null)
+})
+
+test('auto TTL: overage drops to 5m, then a switch report, then 1h on a subscription and 5m on an API key', () => {
+  const subscription = [{ percentUsed: 40 }, { percentUsed: 12 }]
+  const overage = [{ percentUsed: 100 }, { percentUsed: 60 }]
+
+  expect(resolveTtl('auto', null, subscription)).toEqual({ ttlMs: ttlMs('1h'), ttlSource: 'plan' })
+  expect(resolveTtl('auto', null, [])).toEqual({ ttlMs: FIVE_MINUTES, ttlSource: 'api' })
+  expect(resolveTtl('auto', '5m', subscription)).toEqual({ ttlMs: FIVE_MINUTES, ttlSource: 'switch' })
+  expect(resolveTtl('auto', '1h', overage)).toEqual({ ttlMs: FIVE_MINUTES, ttlSource: 'overage' })
+})
+
+test('a fixed TTL setting wins over everything the session reports', () => {
+  expect(resolveTtl('1h', '5m', [{ percentUsed: 100 }])).toEqual({ ttlMs: ttlMs('1h'), ttlSource: 'setting' })
+  expect(resolveTtl('5m', null, [{ percentUsed: 10 }])).toEqual({ ttlMs: FIVE_MINUTES, ttlSource: 'setting' })
+})
+
+test('the badge says when the TTL is not the plain default', () => {
+  expect(cacheCards({ ...WARM, ttlSource: 'overage' }, AFTER_WARM, 0, 10_000)[0]?.badge).toBe('5m TTL · overage')
+  expect(cacheCards({ ...WARM, ttlSource: 'setting' }, AFTER_WARM, 0, 10_000)[0]?.badge).toBe('5m TTL · set')
 })

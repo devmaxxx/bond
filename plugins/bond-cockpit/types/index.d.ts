@@ -5,6 +5,8 @@ export type CacheSnapshot = {
   fresh: number
   at: number
   ttlMs: number
+  // Why the TTL is what it is: a fixed setting, a subscription in overage, a model switch's report, or the plan default.
+  ttlSource: 'setting' | 'overage' | 'switch' | 'plan' | 'api'
 }
 
 /** Every main-thread request since the session started or was cleared. */

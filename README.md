@@ -84,8 +84,11 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   entry and never mid-turn, so a reply sent in time is read from cache instead
   of written again.
 
-The cache TTL (`cacheTtl`, `5m` or `1h`, default `1h`) is a setting because only
-a model switch reports it; a switch overrides it. `cacheWarnSeconds` (default
+No request reports its cache TTL, so `cacheTtl` (default `auto`) infers it on
+every request: a subscription past a rate-limit window is in overage and drops
+to 5m; otherwise the last model switch's report; otherwise 1h on a subscription
+and 5m on an API key. `5m` or `1h` fixes it. The card badge says `overage`,
+`set` or `API` when the TTL came from one of those. `cacheWarnSeconds` (default
 10, `0` off) sets when the toast fires.
 
 ## MCP Servers

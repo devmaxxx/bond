@@ -1,5 +1,7 @@
 import type { CacheSession, CacheSnapshot } from '../types'
 
+type TtlSource = CacheSnapshot['ttlSource']
+
 export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn'
 
 export type CacheTtl = '5m' | '1h'
@@ -21,6 +23,36 @@ export const EMPTY_SESSION: CacheSession = { requests: 0, read: 0, wrote: 0, fre
 export function ttlMs(ttl: string): number {
   return ttl === '5m' ? TTL_MS['5m'] : TTL_MS['1h']
 }
+
+export function isTtl(value: unknown): value is CacheTtl {
+  return value === '5m' || value === '1h'
+}
+
+/**
+ * The TTL the next cache entry lives for. No request reports it, so it is
+ * inferred: a fixed setting wins; a subscription past a rate-limit window is in
+ * overage, where Claude Code drops to 5m; then what the last model switch
+ * reported; then the default for the account kind (subscriptions get 1h).
+ */
+export function resolveTtl(
+  setting: string,
+  reported: CacheTtl | null,
+  rateLimits: readonly { percentUsed: number }[],
+): { ttlMs: number; ttlSource: TtlSource } {
+  if (isTtl(setting)) {
+    return { ttlMs: TTL_MS[setting], ttlSource: 'setting' }
+  }
+  if (rateLimits.some(limit => limit.percentUsed >= 100)) {
+    return { ttlMs: TTL_MS['5m'], ttlSource: 'overage' }
+  }
+  if (reported !== null) {
+    return { ttlMs: TTL_MS[reported], ttlSource: 'switch' }
+  }
+
+  return rateLimits.length > 0 ? { ttlMs: TTL_MS['1h'], ttlSource: 'plan' } : { ttlMs: TTL_MS['5m'], ttlSource: 'api' }
+}
+
+const TTL_NOTE: Record<TtlSource, string> = { setting: ' · set', overage: ' · overage', switch: '', plan: '', api: ' · API' }
 
 export type CacheView = {
   hit: number
@@ -91,7 +123,7 @@ function entryCard(cache: CacheSnapshot, now: number, warnMs: number, ttl: Cache
 
   return {
     title: 'Cache',
-    badge: `${ttl} TTL`,
+    badge: `${ttl} TTL${TTL_NOTE[cache.ttlSource]}`,
     tone: view.tone,
     rows: [
       { kind: 'hero', value: `${view.hit}%`, label: 'hit · last request', bar: bar(view.hit, HERO_CELLS), tone: hitTone(view.hit) },

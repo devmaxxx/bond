@@ -1,14 +1,14 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement, Timer } from 'claude-code'
 
-import { EMPTY_SESSION, cacheCards, cacheStatus, recordRequest, shouldWarn, ttlMs } from './cache'
-import type { Card, Row, Tone } from './cache'
+import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
+import type { CacheTtl, Card, Row, Tone } from './cache'
 
 const PANE = 'bond-cockpit'
 const PANE_TITLE = 'bond cockpit'
 const PANE_COLUMNS = 46
 const TICK_MS = 1000
-const DEFAULT_CACHE_TTL = '1h'
+const DEFAULT_CACHE_TTL = 'auto'
 const DEFAULT_WARN_SECONDS = 10
 
 const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: string }> = {
@@ -41,15 +41,16 @@ const countdown = atom({ plugin: 'bond-cockpit', key: 'countdown' } as const, ''
 let tick: Timer | null = null
 // The cache entry (by its request time) already warned about, so the toast fires once per entry.
 let warnedAt: number | null = null
-// Only a model switch reports the TTL; until one does, the configured one stands.
-let cacheTtlMs = ttlMs(DEFAULT_CACHE_TTL)
+let ttlSetting = DEFAULT_CACHE_TTL
+// Only a model switch reports the TTL; nothing else in a session does.
+let reportedTtl: CacheTtl | null = null
 let warnMs = DEFAULT_WARN_SECONDS * 1000
 let isTurnRunning = false
 
 export const register: Register = (on, options) => {
   const warnSeconds = Number(options.cacheWarnSeconds ?? DEFAULT_WARN_SECONDS)
   warnMs = Number.isFinite(warnSeconds) ? Math.max(0, warnSeconds) * 1000 : DEFAULT_WARN_SECONDS * 1000
-  cacheTtlMs = ttlMs(String(options.cacheTtl ?? DEFAULT_CACHE_TTL))
+  ttlSetting = String(options.cacheTtl ?? DEFAULT_CACHE_TTL)
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -101,12 +102,14 @@ export const register: Register = (on, options) => {
     if (e.agentId === undefined && stepped.usage !== null) {
       const { cache_read_input_tokens, cache_creation_input_tokens, input_tokens } = stepped.usage
       // The API reports a cache counter as null when the request used no caching; NaN would poison the hit rate.
+      // Read after the response, so the rate-limit windows are the ones it reported.
+      const usage = await $.session.usage().catch(() => null)
       const snapshot = {
         read: cache_read_input_tokens ?? 0,
         wrote: cache_creation_input_tokens ?? 0,
         fresh: input_tokens ?? 0,
         at,
-        ttlMs: cacheTtlMs,
+        ...resolveTtl(ttlSetting, reportedTtl, usage?.rateLimits ?? []),
       }
       await update($, cache, () => snapshot)
       await update($, session, current => recordRequest(current, snapshot))
@@ -117,7 +120,7 @@ export const register: Register = (on, options) => {
   })
 
   on('classic.PostModelSwitch', async ($, e, next) => {
-    cacheTtlMs = ttlMs(e.cache_ttl)
+    reportedTtl = isTtl(e.cache_ttl) ? e.cache_ttl : null
 
     return next(e)
   })
