@@ -19,6 +19,15 @@ const BONLIVA_REPO_FLAG = /^(?:(?:https?:\/\/)?[^/]+\/)?bonliva\//i;
 const WEB = /(?:^|\s)(?:-w|--web)(?:\s|$)/;
 const FILL = /(?:^|\s)--fill(?:-first|-verbose)?(?:\s|$)/;
 const DRAFT = /(?:^|\s)(?:-d|--draft)(?:\s|=|$)/;
+// A squash merge already turns the PR into one Conventional commit; the PR
+// title is read by people in a list, so it is a plain sentence.
+const COMMIT_SUBJECT = /^[a-z]+(?:\([^)]*\))?!?:\s/;
+const COMMIT_TITLE =
+  "the title is a Conventional Commits subject — write a plain sentence, led by its issue (`#164: …`, `ERP-123: …`) when it has one";
+
+export function titleProblems(title) {
+  return typeof title === "string" && COMMIT_SUBJECT.test(title.trim()) ? [COMMIT_TITLE] : [];
+}
 
 /**
  * Project keys, not a generic `[A-Z]+-\d+`: that shape also spells UTF-8,
@@ -171,6 +180,8 @@ export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {
     }
   }
 
+  problems.push(...titleProblems(flagValue(cmd, "-t|--title")));
+
   const body = bodyFromCommand(cmd);
   if (body === null) {
     return problems.length > 0 ? problems : null;
@@ -202,14 +213,15 @@ export function checkMcp(
       ];
     }
   }
+  const titled = titleProblems(input.title);
   const body = typeof input.description === "string" ? input.description : null;
   if (body === null) {
-    return null;
+    return titled.length > 0 ? titled : null;
   }
   const haystack = [input.title, input.source_branch, body]
     .filter((value) => typeof value === "string")
     .join("\n");
-  return missingSections(body, haystack);
+  return [...titled, ...missingSections(body, haystack)];
 }
 
 /**

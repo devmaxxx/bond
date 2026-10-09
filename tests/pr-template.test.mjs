@@ -13,6 +13,7 @@ import {
   isBonlivaRemote,
   isGhPrCreate,
   resolveDraft,
+  titleProblems,
 } from "../hooks/pr-template.mjs";
 import { scrubShell } from "../hooks/shell.mjs";
 
@@ -63,7 +64,7 @@ const NOT_DRAFT_MCP =
 const PERSONAL = { requireDraft: (target) => target ?? false };
 
 /** A well-formed create call; `extra` adds the flags under test. */
-function create(extra = "", body = GOOD_BODY, title = "chore: tidy the export") {
+function create(extra = "", body = GOOD_BODY, title = "Tidy the export") {
   return `gh pr create --draft --base main --title "${title}" ${extra} --body "${body}"`;
 }
 
@@ -134,7 +135,7 @@ describe("recognising a pull request creation", () => {
 
   it("catches an invocation chained onto the heredoc's own header line", () => {
     const cmd = [
-      `cat > /tmp/body.md <<'EOF' && gh pr create --title "chore: tidy"`,
+      `cat > /tmp/body.md <<'EOF' && gh pr create --title "Tidy the export"`,
       "## Summary",
       "EOF",
     ].join("\n");
@@ -149,14 +150,14 @@ describe("recognising a pull request creation", () => {
 describe("the template's own protections", () => {
   it("blocks a create call that is not a draft", () => {
     const errors = checkBash(
-      `gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`,
+      `gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`,
     );
     assert.deepEqual(errors, [NOT_DRAFT]);
   });
 
   it("lets a non-draft through outside Bonliva", () => {
     const errors = checkBash(
-      `gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`,
+      `gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`,
       PERSONAL,
     );
     assert.deepEqual(errors, []);
@@ -165,21 +166,21 @@ describe("the template's own protections", () => {
   it("still demands the template outside Bonliva", () => {
     const body = ["## Summary", "", "- tidied it", ""].join("\n");
     assert.deepEqual(
-      checkBash(`gh pr create --title "chore: tidy" --body "${body}"`, PERSONAL),
+      checkBash(`gh pr create --title "Tidy the export" --body "${body}"`, PERSONAL),
       ["description is missing its `## Test plan` section"],
     );
   });
 
   it("takes Bonliva from --repo over the checkout's remote", () => {
-    const personalTarget = `gh pr create --repo devmaxxx/repograph --title "chore: tidy" --body "${GOOD_BODY}"`;
+    const personalTarget = `gh pr create --repo devmaxxx/repograph --title "Tidy the export" --body "${GOOD_BODY}"`;
     assert.deepEqual(checkBash(personalTarget), []);
-    const bonlivaTarget = `gh pr create -R Bonliva/bonliva-erp --title "chore: tidy" --body "${GOOD_BODY}"`;
+    const bonlivaTarget = `gh pr create -R Bonliva/bonliva-erp --title "Tidy the export" --body "${GOOD_BODY}"`;
     assert.deepEqual(checkBash(bonlivaTarget, PERSONAL), [NOT_DRAFT]);
   });
 
   it("resolves drafts in the directory a leading cd moves into", () => {
     const seen = [];
-    const cmd = `cd ~/bonliva-erp && gh pr create --title "chore: tidy" --body "${GOOD_BODY}"`;
+    const cmd = `cd ~/bonliva-erp && gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`;
     checkBash(cmd, { requireDraft: (target, dir) => (seen.push(dir), false) });
     assert.deepEqual(seen, ["~/bonliva-erp"]);
   });
@@ -384,7 +385,7 @@ describe("requiring the `## Jira` section", () => {
 describe("the Bitbucket MCP path", () => {
   it("blocks the non-draft create call outright", () => {
     const errors = checkMcp(
-      { title: "chore: tidy", description: BODY_WITH_JIRA },
+      { title: "Tidy the export", description: BODY_WITH_JIRA },
       "mcp__bond-bitbucket__create_pull_request",
     );
     assert.deepEqual(errors, [NOT_DRAFT_MCP]);
@@ -392,7 +393,7 @@ describe("the Bitbucket MCP path", () => {
 
   it("allows the non-draft create call outside the bonliva workspace", () => {
     const errors = checkMcp(
-      { workspace: "devmaxxx", title: "chore: tidy", description: GOOD_BODY },
+      { workspace: "devmaxxx", title: "Tidy the export", description: GOOD_BODY },
       "mcp__bond-bitbucket__create_pull_request",
     );
     assert.deepEqual(errors, []);
@@ -400,7 +401,7 @@ describe("the Bitbucket MCP path", () => {
 
   it("takes Bonliva from the workspace over the checkout's remote", () => {
     const errors = checkMcp(
-      { workspace: "bonliva", title: "chore: tidy", description: GOOD_BODY },
+      { workspace: "bonliva", title: "Tidy the export", description: GOOD_BODY },
       "mcp__bond-bitbucket__create_pull_request",
       PERSONAL,
     );
@@ -434,12 +435,41 @@ describe("the Bitbucket MCP path", () => {
   it("does not demand it for an encoding name in the description", () => {
     const errors = checkMcp(
       {
-        title: "chore: write the export as UTF-8",
+        title: "Write the export as UTF-8",
         source_branch: "chore/export-encoding",
         description: GOOD_BODY,
       },
       "mcp__bond-bitbucket__create_draft_pull_request",
     );
     assert.deepEqual(errors, []);
+  });
+});
+
+describe("the title", () => {
+  it("refuses a Conventional Commits subject", () => {
+    for (const title of ["feat(rerank)!: default to haiku", "fix: tidy", "chore(deps): bump"]) {
+      assert.equal(titleProblems(title).length, 1, title);
+    }
+  });
+
+  it("takes a plain sentence, with or without an issue in front", () => {
+    for (const title of ["Default the reranker to haiku", "#164: Index full ADR bodies", "ERP-135: Tidy the export"]) {
+      assert.deepEqual(titleProblems(title), [], title);
+    }
+  });
+
+  it("blocks a gh create call whose title is a commit subject", () => {
+    const errors = checkBash(create("", GOOD_BODY, "feat: tidy the export"), PERSONAL);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /Conventional Commits subject/);
+  });
+
+  it("blocks a Bitbucket create call whose title is a commit subject", () => {
+    const errors = checkMcp(
+      { title: "fix(export): write UTF-8", description: GOOD_BODY, workspace: "devmaxxx" },
+      "mcp__bond-bitbucket__create_draft_pull_request",
+    );
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /Conventional Commits subject/);
   });
 });
