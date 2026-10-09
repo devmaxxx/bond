@@ -28,9 +28,16 @@ Set these before building the title/description:
 
 ## Title
 
-`<TICKET_IDs>: <short description from commits>`
+`<TICKET_IDs>: <short description>` — `ERP-123: Tidy the export`, `#164: Index full ADR bodies`.
 
-If no ticket IDs were found, drop the prefix and use just the short description.
+The description is a plain sentence that says what the PR does as a whole, never a
+Conventional Commits subject: no `feat(scope)!:` prefix, even when the PR holds one
+commit. The squash merge writes the Conventional subject; the title is what a person
+reads in a PR list. `hooks/check-pr.mjs` blocks a create call whose title starts with
+`<type>(<scope>)!:`. A PR that also closes or advances an issue it does not lead with
+names it in the summary.
+
+If no ticket IDs were found, drop the prefix and use just the description.
 
 ## Description
 
