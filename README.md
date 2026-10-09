@@ -74,8 +74,8 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
-  110 columns (opened unasked, from 144), inline above the prompt otherwise:
-  the last request (hit-rate bar, read / wrote / new tokens, a TTL bar with the
+  110 columns (opened unasked, from 144), inline above the prompt otherwise.
+  Two bordered cards whose border colour tracks state: the last request (hit-rate bar, read / wrote / new tokens, a TTL bar with the
   countdown, a hint) and the session (request count, hit rate with a sparkline
   of the last 20 requests, cost relative to no cache and the input tokens saved
   net of the write surcharge, prefix rebuilds — requests under 50% hit — and

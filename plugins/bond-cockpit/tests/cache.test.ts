@@ -1,56 +1,77 @@
 import { expect, test } from 'claude-code/testing'
 
-import { EMPTY_SESSION, cacheLines, cacheStatus, recordRequest, shouldWarn, ttlMs } from '../hooks/cache'
+import { EMPTY_SESSION, cacheCards, cacheStatus, recordRequest, shouldWarn, ttlMs } from '../hooks/cache'
+import type { Card } from '../hooks/cache'
 import type { CacheSnapshot } from '../types'
 
 const FIVE_MINUTES = ttlMs('5m')
 const WARM: CacheSnapshot = { read: 77_900, wrote: 3_500, fresh: 2, at: 0, ttlMs: FIVE_MINUTES }
-
 const COLD: CacheSnapshot = { read: 0, wrote: 80_000, fresh: 5, at: 0, ttlMs: FIVE_MINUTES }
 const AFTER_WARM = recordRequest(EMPTY_SESSION, WARM)
 
-test('a warm cache shows its hit rate, token split, time left and the session so far', () => {
-  const texts = cacheLines(WARM, AFTER_WARM, 60_000, 10_000).map(line => line.text)
+function texts(card: Card | undefined): string[] {
+  return (card?.rows ?? []).map(row => {
+    switch (row.kind) {
+      case 'hero':
+        return `${row.value} ${row.bar} ${row.label}`
+      case 'meter':
+        return `${row.label} ${row.bar}`
+      case 'pair':
+        return `${row.label} ${row.value} ${row.note}`.trimEnd()
+      case 'note':
+        return row.text
+    }
+  })
+}
 
-  expect(texts).toEqual([
-    'Cache · 5m TTL',
-    '██████████ 96% hit',
-    'read 77.9k · wrote 3.5k · new 2',
-    '████████░░ ⏱ 4m left',
-    'any message refreshes it',
-    '',
-    'Session · 1 request',
-    '96% hit · █',
-    'cost 0.15× uncached · saved 69.2k tok',
-    'no rebuilds',
+test('before the first request one dim card says so', () => {
+  expect(cacheCards(null, EMPTY_SESSION, 0, 10_000)).toEqual([
+    { title: 'Cache', badge: '', tone: 'dim', rows: [{ kind: 'note', text: 'No request yet', tone: 'dim' }] },
   ])
 })
 
-test('the last minutes count down in seconds and warn', () => {
-  const lines = cacheLines(WARM, AFTER_WARM, FIVE_MINUTES - 7_000, 10_000)
+test('a warm cache shows its hit rate, time left, token split and the session so far', () => {
+  const [entry, session] = cacheCards(WARM, AFTER_WARM, 60_000, 10_000)
 
-  expect(lines[3]).toEqual({ text: '░░░░░░░░░░ ⏱ 0:07 left', tone: 'warn' })
-  expect(lines[4]?.text).toBe('expires soon: any message refreshes it for free')
+  expect([entry?.title, entry?.badge, entry?.tone]).toEqual(['Cache', '5m TTL', 'ok'])
+  expect(texts(entry)).toEqual([
+    '96% █████████████████░ hit · last request',
+    '⏱ 4m left ███████████░░░',
+    'read 77.9k',
+    'wrote 3.5k',
+    'new 2',
+    'any message refreshes it',
+  ])
+  expect([session?.title, session?.badge]).toEqual(['Session', '1 req'])
+  expect(texts(session)).toEqual(['hit 96% █', 'cost 0.15× saved 69.2k', 'rebuilds 0 none'])
 })
 
-test('an expired cache says what the next message re-caches', () => {
-  const lines = cacheLines(WARM, AFTER_WARM, FIVE_MINUTES + 1, 10_000)
+test('the last minutes count down in seconds and turn the card yellow', () => {
+  const [entry] = cacheCards(WARM, AFTER_WARM, FIVE_MINUTES - 7_000, 10_000)
 
-  expect(lines[3]).toEqual({ text: '░░░░░░░░░░ ⏱ expired', tone: 'bad' })
-  expect(lines[4]?.text).toBe('the next message re-caches 81.4k')
+  expect(entry?.tone).toBe('warn')
+  expect(texts(entry)[1]).toBe('⏱ 0:07 left ░░░░░░░░░░░░░░')
+  expect(texts(entry)[5]).toBe('expires soon: any message refreshes it for free')
+})
+
+test('an expired cache turns red and says what the next message re-caches', () => {
+  const [entry] = cacheCards(WARM, AFTER_WARM, FIVE_MINUTES + 1, 10_000)
+
+  expect(entry?.tone).toBe('bad')
+  expect(texts(entry)[1]).toBe('⏱ expired ░░░░░░░░░░░░░░')
+  expect(texts(entry)[5]).toBe('the next message re-caches 81.4k')
 })
 
 test('a cold write counts as a rebuild and costs more than no cache', () => {
-  const session = recordRequest(recordRequest(EMPTY_SESSION, COLD), { ...WARM, at: 60_000 })
-  const texts = cacheLines({ ...WARM, at: 60_000 }, session, 3 * 60_000, 10_000).map(line => line.text)
+  const later = { ...WARM, at: 60_000 }
+  const session = recordRequest(recordRequest(EMPTY_SESSION, COLD), later)
 
-  expect(texts.slice(6)).toEqual([
-    'Session · 2 requests',
-    '48% hit · ▁█',
-    'cost 0.69× uncached · saved 49.2k tok',
-    '1 rebuild · last 3m ago',
+  expect(texts(cacheCards(later, session, 3 * 60_000, 10_000)[1])).toEqual([
+    'hit 48% ▁█',
+    'cost 0.69× saved 49.2k',
+    'rebuilds 1 last 3m ago',
   ])
-  expect(cacheLines(COLD, recordRequest(EMPTY_SESSION, COLD), 0, 10_000)[8]?.text).toBe('cost 1.25× uncached · lost 20.0k tok')
+  expect(texts(cacheCards(COLD, recordRequest(EMPTY_SESSION, COLD), 0, 10_000)[1])[1]).toBe('cost 1.25× lost 20.0k')
 })
 
 test('the toast fires once inside the warning window and never after expiry', () => {

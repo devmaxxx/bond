@@ -2,12 +2,9 @@ import type { CacheSession, CacheSnapshot } from '../types'
 
 export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn'
 
-export type Line = { text: string; tone: Tone }
-
 export type CacheTtl = '5m' | '1h'
 
 const TTL_MS: Record<CacheTtl, number> = { '5m': 5 * 60_000, '1h': 60 * 60_000 }
-const BAR_CELLS = 10
 const SPARK = '▁▂▃▄▅▆▇█'
 const RECENT_REQUESTS = 20
 const MISS_BELOW = 50
@@ -67,50 +64,68 @@ export function recordRequest(session: CacheSession, cache: CacheSnapshot): Cach
   }
 }
 
-export function cacheLines(cache: CacheSnapshot | null, session: CacheSession, now: number, warnMs: number): Line[] {
+export type Row =
+  | { kind: 'hero'; value: string; label: string; bar: string; tone: Tone }
+  | { kind: 'meter'; label: string; bar: string; tone: Tone }
+  | { kind: 'pair'; label: string; value: string; note: string; tone: Tone }
+  | { kind: 'note'; text: string; tone: Tone }
+
+export type Card = { title: string; badge: string; tone: Tone; rows: Row[] }
+
+const HERO_CELLS = 18
+const METER_CELLS = 14
+
+/** The pane: one card for the entry the last request left, one for the session. */
+export function cacheCards(cache: CacheSnapshot | null, session: CacheSession, now: number, warnMs: number): Card[] {
   if (cache === null) {
-    return [{ text: 'Cache', tone: 'heading' }, { text: 'No request yet', tone: 'dim' }]
+    return [{ title: 'Cache', badge: '', tone: 'dim', rows: [{ kind: 'note', text: 'No request yet', tone: 'dim' }] }]
   }
-  const view = cacheView(cache, now, warnMs)
   const ttl = ttlLabel(cache.ttlMs)
 
-  return [
-    { text: `Cache · ${ttl} TTL`, tone: 'heading' },
-    { text: `${bar(view.hit)} ${view.hit}% hit`, tone: hitTone(view.hit) },
-    { text: `read ${tokens(cache.read)} · wrote ${tokens(cache.wrote)} · new ${tokens(cache.fresh)}`, tone: 'plain' },
-    { text: `${bar((view.remainingMs / cache.ttlMs) * 100)} ⏱ ${view.countdown}${view.remainingMs > 0 ? ' left' : ''}`, tone: view.tone },
-    { text: view.hint, tone: 'dim' },
-    { text: '', tone: 'plain' },
-    ...sessionLines(session, now, ttl),
-  ]
+  return [entryCard(cache, now, warnMs, ttl), sessionCard(session, now, ttl)]
 }
 
-function sessionLines(session: CacheSession, now: number, ttl: CacheTtl): Line[] {
+function entryCard(cache: CacheSnapshot, now: number, warnMs: number, ttl: CacheTtl): Card {
+  const view = cacheView(cache, now, warnMs)
+  const left = view.remainingMs > 0 ? `⏱ ${view.countdown} left` : '⏱ expired'
+
+  return {
+    title: 'Cache',
+    badge: `${ttl} TTL`,
+    tone: view.tone,
+    rows: [
+      { kind: 'hero', value: `${view.hit}%`, label: 'hit · last request', bar: bar(view.hit, HERO_CELLS), tone: hitTone(view.hit) },
+      { kind: 'meter', label: left, bar: bar((view.remainingMs / cache.ttlMs) * 100, METER_CELLS), tone: view.tone },
+      { kind: 'pair', label: 'read', value: tokens(cache.read), note: '', tone: 'plain' },
+      { kind: 'pair', label: 'wrote', value: tokens(cache.wrote), note: '', tone: 'plain' },
+      { kind: 'pair', label: 'new', value: tokens(cache.fresh), note: '', tone: 'plain' },
+      { kind: 'note', text: view.hint, tone: 'dim' },
+    ],
+  }
+}
+
+function sessionCard(session: CacheSession, now: number, ttl: CacheTtl): Card {
   const total = session.read + session.wrote + session.fresh
   const hit = hitRate(session.read, total)
   const cost = total > 0 ? (session.read * READ_COST + session.wrote * WRITE_COST[ttl] + session.fresh) / total : 1
   // Input-token equivalents the cache took off the bill, net of the write surcharge.
   const saved = Math.round(session.read * (1 - READ_COST) - session.wrote * (WRITE_COST[ttl] - 1))
+  const rebuilds = session.lastMissAt === null ? 'none' : `last ${ago(now - session.lastMissAt)} ago`
 
-  return [
-    { text: `Session · ${session.requests} request${session.requests === 1 ? '' : 's'}`, tone: 'heading' },
-    { text: `${hit}% hit · ${sparkline(session.recent)}`, tone: hitTone(hit) },
-    { text: `cost ${cost.toFixed(2)}× uncached · ${savedLabel(saved)}`, tone: cost < 1 ? 'ok' : 'warn' },
-    missLine(session, now),
-  ]
-}
-
-function missLine(session: CacheSession, now: number): Line {
-  if (session.lastMissAt === null) {
-    return { text: 'no rebuilds', tone: 'dim' }
+  return {
+    title: 'Session',
+    badge: `${session.requests} req`,
+    tone: hitTone(hit),
+    rows: [
+      { kind: 'pair', label: 'hit', value: `${hit}%`, note: sparkline(session.recent), tone: hitTone(hit) },
+      { kind: 'pair', label: 'cost', value: `${cost.toFixed(2)}×`, note: savedLabel(saved), tone: cost < 1 ? 'ok' : 'warn' },
+      { kind: 'pair', label: 'rebuilds', value: String(session.misses), note: rebuilds, tone: session.misses > 1 ? 'warn' : 'plain' },
+    ],
   }
-  const count = `${session.misses} rebuild${session.misses === 1 ? '' : 's'}`
-
-  return { text: `${count} · last ${ago(now - session.lastMissAt)} ago`, tone: 'dim' }
 }
 
 function savedLabel(saved: number): string {
-  return saved >= 0 ? `saved ${tokens(saved)} tok` : `lost ${tokens(-saved)} tok`
+  return saved >= 0 ? `saved ${tokens(saved)}` : `lost ${tokens(-saved)}`
 }
 
 export function cacheStatus(cache: CacheSnapshot | null, now: number, warnMs: number): string | null {
@@ -140,10 +155,10 @@ function ttlLabel(ms: number): CacheTtl {
   return ms >= TTL_MS['1h'] ? '1h' : '5m'
 }
 
-function bar(percent: number): string {
-  const filled = Math.round((Math.min(100, Math.max(0, percent)) / 100) * BAR_CELLS)
+function bar(percent: number, cells: number): string {
+  const filled = Math.round((Math.min(100, Math.max(0, percent)) / 100) * cells)
 
-  return `${'█'.repeat(filled)}${'░'.repeat(BAR_CELLS - filled)}`
+  return `${'█'.repeat(filled)}${'░'.repeat(cells - filled)}`
 }
 
 function sparkline(hits: readonly number[]): string {
