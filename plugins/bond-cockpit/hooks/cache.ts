@@ -123,7 +123,8 @@ function entryCard(cache: CacheSnapshot, now: number, warnMs: number, ttl: Cache
 
   return {
     title: 'Cache',
-    badge: `${ttl} TTL${TTL_NOTE[cache.ttlSource]}`,
+    // $.state outlives a reload, so a snapshot an older version wrote has no ttlSource.
+    badge: `${ttl} TTL${TTL_NOTE[cache.ttlSource] ?? ''}`,
     tone: view.tone,
     rows: [
       { kind: 'hero', value: `${view.hit}%`, label: 'hit · last request', bar: bar(view.hit, HERO_CELLS), tone: hitTone(view.hit) },

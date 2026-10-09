@@ -106,3 +106,9 @@ test('the badge says when the TTL is not the plain default', () => {
   expect(cacheCards({ ...WARM, ttlSource: 'overage' }, AFTER_WARM, 0, 10_000)[0]?.badge).toBe('5m TTL · overage')
   expect(cacheCards({ ...WARM, ttlSource: 'setting' }, AFTER_WARM, 0, 10_000)[0]?.badge).toBe('5m TTL · set')
 })
+
+test('a snapshot written before the TTL source existed shows a plain badge', () => {
+  const { ttlSource: _, ...legacy } = WARM
+
+  expect(cacheCards(legacy as CacheSnapshot, AFTER_WARM, 0, 10_000)[0]?.badge).toBe('5m TTL')
+})
