@@ -1,7 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
 import { cacheLines, cacheStatus, shouldWarn, ttlMs } from '../hooks/cache'
-import { statusLine } from '../hooks/view'
 import type { CacheSnapshot } from '../types'
 
 const FIVE_MINUTES = ttlMs('5m')
@@ -41,12 +40,7 @@ test('the toast fires once inside the warning window and never after expiry', ()
   expect(shouldWarn(WARM, FIVE_MINUTES - 9_000, 0, null)).toBe(false)
 })
 
-test('the status line carries the cache segment last, and alone outside a repo', () => {
-  const repo = { branch: 'main', host: 'github' as const, tracker: 'none' as const, login: null, expectedLogin: null }
-  const segment = cacheStatus(WARM, FIVE_MINUTES - 7_000, 10_000)
-
-  expect(segment).toBe('cache 96% ⏱0:07')
-  expect(statusLine(repo, null, segment)).toBe('⎇ main · github · cache 96% ⏱0:07')
-  expect(statusLine(null, null, segment)).toBe('cache 96% ⏱0:07')
-  expect(statusLine(null, null, cacheStatus(null, 0, 10_000))).toBe(undefined)
+test('the status line shows hit rate and time left, and nothing before the first request', () => {
+  expect(cacheStatus(WARM, FIVE_MINUTES - 7_000, 10_000)).toBe('cache 96% ⏱0:07')
+  expect(cacheStatus(null, 0, 10_000)).toBe(null)
 })

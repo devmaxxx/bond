@@ -1,5 +1,8 @@
 import type { CacheSnapshot } from '../types'
-import type { Line, Tone } from './view'
+
+export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn'
+
+export type Line = { text: string; tone: Tone }
 
 export type CacheTtl = '5m' | '1h'
 

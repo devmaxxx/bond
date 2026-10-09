@@ -20,7 +20,7 @@
     {
       "name": "bond-cockpit",
       "source": "./plugins/bond-cockpit",
-      "description": "Status line and docked pane: branch, PR host, tracker, gh account, PR and CI status, turn/task/subagent progress, prompt-cache hit rate and expiry toast",
+      "description": "Status line and docked pane: prompt-cache hit rate, time to expiry and an expiry toast",
       "version": "0.38.0"
     }
   ]
