@@ -7,7 +7,6 @@ export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn'
 export type CacheTtl = '5m' | '1h'
 
 const TTL_MS: Record<CacheTtl, number> = { '5m': 5 * 60_000, '1h': 60 * 60_000 }
-const SPARK = '▁▂▃▄▅▆▇█'
 const RECENT_REQUESTS = 20
 const MISS_BELOW = 50
 // Price of a cached token relative to a plain input token: a read is a tenth,
@@ -77,7 +76,7 @@ export function cacheView(cache: CacheSnapshot, now: number, warnMs: number): Ca
     remainingMs,
     tone: soon ? 'warn' : 'ok',
     countdown: countdown(remainingMs),
-    hint: soon ? 'expires soon: any message refreshes it for free' : 'any message refreshes it',
+    hint: soon ? 'send a message now to keep it, free' : 'any message refreshes it',
   }
 }
 
@@ -96,21 +95,23 @@ export function recordRequest(session: CacheSession, cache: CacheSnapshot): Cach
   }
 }
 
+export type Segment = { label: string; value: string; share: number; tone: Tone }
+
 export type Row =
-  | { kind: 'hero'; value: string; label: string; bar: string; tone: Tone }
-  | { kind: 'meter'; label: string; bar: string; tone: Tone }
+  | { kind: 'split'; hit: number; tone: Tone; segments: Segment[] }
+  | { kind: 'meter'; label: string; ratio: number; tone: Tone }
   | { kind: 'pair'; label: string; value: string; note: string; tone: Tone }
+  | { kind: 'trend'; label: string; value: string; hits: number[]; tone: Tone }
   | { kind: 'note'; text: string; tone: Tone }
 
-export type Card = { title: string; badge: string; tone: Tone; rows: Row[] }
+export type Card = { title: string; status: string; badge: string; tone: Tone; rows: Row[] }
 
-const HERO_CELLS = 18
-const METER_CELLS = 14
+const STATUS: Record<'ok' | 'warn' | 'bad', string> = { ok: '● warm', warn: '◐ expiring', bad: '○ expired' }
 
 /** The pane: one card for the entry the last request left, one for the session. */
 export function cacheCards(cache: CacheSnapshot | null, session: CacheSession, now: number, warnMs: number): Card[] {
   if (cache === null) {
-    return [{ title: 'Cache', badge: '', tone: 'dim', rows: [{ kind: 'note', text: 'No request yet', tone: 'dim' }] }]
+    return [{ title: 'Cache', status: '', badge: '', tone: 'dim', rows: [{ kind: 'note', text: 'No request yet', tone: 'dim' }] }]
   }
   const ttl = ttlLabel(cache.ttlMs)
 
@@ -119,21 +120,34 @@ export function cacheCards(cache: CacheSnapshot | null, session: CacheSession, n
 
 function entryCard(cache: CacheSnapshot, now: number, warnMs: number, ttl: CacheTtl): Card {
   const view = cacheView(cache, now, warnMs)
-  const left = view.remainingMs > 0 ? `⏱ ${view.countdown} left` : '⏱ expired'
+  const total = cache.read + cache.wrote + cache.fresh
+  const share = (count: number) => (total > 0 ? count / total : 0)
+  const isLive = view.remainingMs > 0
+  const rows: Row[] = [
+    {
+      kind: 'split',
+      hit: view.hit,
+      tone: hitTone(view.hit),
+      segments: [
+        { label: 'read', value: tokens(cache.read), share: share(cache.read), tone: 'ok' },
+        { label: 'wrote', value: tokens(cache.wrote), share: share(cache.wrote), tone: 'warn' },
+        { label: 'new', value: tokens(cache.fresh), share: share(cache.fresh), tone: 'dim' },
+      ],
+    },
+    { kind: 'meter', label: isLive ? `⏱ ${view.countdown} left` : '⏱ expired', ratio: view.remainingMs / cache.ttlMs, tone: view.tone },
+  ]
+  // The hint is advice; while the entry is comfortably warm there is nothing to do.
+  if (view.tone !== 'ok') {
+    rows.push({ kind: 'note', text: view.hint, tone: view.tone })
+  }
 
   return {
     title: 'Cache',
+    status: STATUS[view.tone === 'ok' || view.tone === 'warn' ? view.tone : 'bad'],
     // $.state outlives a reload, so a snapshot an older version wrote has no ttlSource.
     badge: `${ttl} TTL${TTL_NOTE[cache.ttlSource] ?? ''}`,
     tone: view.tone,
-    rows: [
-      { kind: 'hero', value: `${view.hit}%`, label: 'hit · last request', bar: bar(view.hit, HERO_CELLS), tone: hitTone(view.hit) },
-      { kind: 'meter', label: left, bar: bar((view.remainingMs / cache.ttlMs) * 100, METER_CELLS), tone: view.tone },
-      { kind: 'pair', label: 'read', value: tokens(cache.read), note: '', tone: 'plain' },
-      { kind: 'pair', label: 'wrote', value: tokens(cache.wrote), note: '', tone: 'plain' },
-      { kind: 'pair', label: 'new', value: tokens(cache.fresh), note: '', tone: 'plain' },
-      { kind: 'note', text: view.hint, tone: 'dim' },
-    ],
+    rows,
   }
 }
 
@@ -143,18 +157,27 @@ function sessionCard(session: CacheSession, now: number, ttl: CacheTtl): Card {
   const cost = total > 0 ? (session.read * READ_COST + session.wrote * WRITE_COST[ttl] + session.fresh) / total : 1
   // Input-token equivalents the cache took off the bill, net of the write surcharge.
   const saved = Math.round(session.read * (1 - READ_COST) - session.wrote * (WRITE_COST[ttl] - 1))
-  const rebuilds = session.lastMissAt === null ? 'none' : `last ${ago(now - session.lastMissAt)} ago`
+  const rebuilds = session.lastMissAt === null ? 'none yet' : `last ${ago(now - session.lastMissAt)} ago`
 
   return {
     title: 'Session',
-    badge: `${session.requests} req`,
-    tone: hitTone(hit),
+    status: '',
+    badge: `${session.requests} request${session.requests === 1 ? '' : 's'}`,
+    tone: 'plain',
     rows: [
-      { kind: 'pair', label: 'hit', value: `${hit}%`, note: sparkline(session.recent), tone: hitTone(hit) },
-      { kind: 'pair', label: 'cost', value: `${cost.toFixed(2)}×`, note: savedLabel(saved), tone: cost < 1 ? 'ok' : 'warn' },
+      { kind: 'trend', label: 'hit', value: `${hit}%`, hits: session.recent, tone: hitTone(hit) },
+      { kind: 'pair', label: 'cost', value: `${cost.toFixed(2)}×`, note: `vs uncached · ${savedLabel(saved)}`, tone: cost < 1 ? 'ok' : 'bad' },
       { kind: 'pair', label: 'rebuilds', value: String(session.misses), note: rebuilds, tone: session.misses > 1 ? 'warn' : 'plain' },
     ],
   }
+}
+
+export function hitTone(hit: number): Tone {
+  if (hit >= 80) {
+    return 'ok'
+  }
+
+  return hit >= 50 ? 'warn' : 'bad'
 }
 
 function savedLabel(saved: number): string {
@@ -188,23 +211,8 @@ function ttlLabel(ms: number): CacheTtl {
   return ms >= TTL_MS['1h'] ? '1h' : '5m'
 }
 
-function bar(percent: number, cells: number): string {
-  const filled = Math.round((Math.min(100, Math.max(0, percent)) / 100) * cells)
 
-  return `${'█'.repeat(filled)}${'░'.repeat(cells - filled)}`
-}
 
-function sparkline(hits: readonly number[]): string {
-  return hits.map(hit => SPARK[Math.min(SPARK.length - 1, Math.floor((hit / 100) * SPARK.length))]).join('')
-}
-
-function hitTone(hit: number): Tone {
-  if (hit >= 80) {
-    return 'ok'
-  }
-
-  return hit >= 50 ? 'warn' : 'bad'
-}
 
 function countdown(ms: number): string {
   if (ms >= SECONDS_BELOW_MS) {

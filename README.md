@@ -75,11 +75,14 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
-  Two bordered cards whose border colour tracks state: the last request (hit-rate bar, read / wrote / new tokens, a TTL bar with the
-  countdown, a hint) and the session (request count, hit rate with a sparkline
-  of the last 20 requests, cost relative to no cache and the input tokens saved
-  net of the write surcharge, prefix rebuilds — requests under 50% hit — and
-  when the last one was). `/bond-cockpit` opens it.
+  Two bordered cards. **Cache** wears the entry's state on its border and
+  header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
+  split into read / wrote / new tokens, then a TTL meter with the countdown, and
+  advice only once there is something to do. **Session** stays grey: hit rate
+  with a sparkline of the last 20 requests coloured by hit, cost relative to no
+  cache with the input tokens saved after the write surcharge, and prefix
+  rebuilds (requests under 50% hit) with how long ago the last one was. Bars
+  stretch to the pane's width. `/bond-cockpit` opens it.
 - **Cache toast** — `cache expires in 10s: send a message now`, once per cache
   entry and never mid-turn, so a reply sent in time is read from cache instead
   of written again.

@@ -1,8 +1,9 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, RenderElement, Timer } from 'claude-code'
+import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
-import type { CacheTtl, Card, Row, Tone } from './cache'
+import type { CacheTtl } from './cache'
+import { drawCards } from './pane'
 
 const PANE = 'bond-cockpit'
 const PANE_TITLE = 'bond cockpit'
@@ -11,26 +12,6 @@ const TICK_MS = 1000
 const DEFAULT_CACHE_TTL = 'auto'
 const DEFAULT_WARN_SECONDS = 10
 
-const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: string }> = {
-  heading: { bold: true },
-  plain: {},
-  dim: { dimColor: true },
-  ok: { color: 'success' },
-  bad: { color: 'error' },
-  warn: { color: 'warning' },
-}
-const BORDER_COLOR: Record<Tone, string> = {
-  heading: 'subtle',
-  plain: 'subtle',
-  dim: 'inactive',
-  ok: 'success',
-  bad: 'error',
-  warn: 'warning',
-}
-const LABEL_COLUMNS = 9
-const VALUE_COLUMNS = 7
-
-type Ui = ReturnType<EngineInterface['ui']['resolve']>
 
 const cache = atom({ plugin: 'bond-cockpit', key: 'cache' } as const, null)
 const session = atom({ plugin: 'bond-cockpit', key: 'session' } as const, EMPTY_SESSION)
@@ -136,66 +117,8 @@ export const register: Register = (on, options) => {
     const ui = $.ui.resolve(e)
     const cards = cacheCards(cacheNow, sessionNow, now, warnMs)
 
-    return <ui.Box flexDirection="column">{cards.map(card => drawCard(ui, card))}</ui.Box>
+    return drawCards(ui, cards, e.props.bodyColumns)
   })
-}
-
-function drawCard(ui: Ui, card: Card): RenderElement {
-  const { Box, Text } = ui
-
-  return (
-    <Box key={card.title} flexDirection="column" borderStyle="round" borderColor={BORDER_COLOR[card.tone]} paddingX={1}>
-      <Box flexDirection="row" justifyContent="space-between">
-        <Text bold>{card.title}</Text>
-        <Text dimColor>{card.badge}</Text>
-      </Box>
-      {card.rows.map((row, index) => drawRow(ui, row, index))}
-    </Box>
-  )
-}
-
-function drawRow({ Box, Text }: Ui, row: Row, index: number): RenderElement {
-  const key = String(index)
-  const tone = TONE_PROPS[row.tone]
-  switch (row.kind) {
-    case 'hero':
-      return (
-        <Box key={key} flexDirection="column" marginY={1}>
-          <Box flexDirection="row" gap={1}>
-            <Text bold {...tone}>{row.value}</Text>
-            <Text {...tone}>{row.bar}</Text>
-          </Box>
-          <Text dimColor>{row.label}</Text>
-        </Box>
-      )
-    case 'meter':
-      return (
-        <Box key={key} flexDirection="row" justifyContent="space-between" marginBottom={1}>
-          <Text {...tone}>{row.label}</Text>
-          <Text {...tone}>{row.bar}</Text>
-        </Box>
-      )
-    case 'pair':
-      return (
-        <Box key={key} flexDirection="row">
-          <Box width={LABEL_COLUMNS}>
-            <Text dimColor>{row.label}</Text>
-          </Box>
-          <Box width={VALUE_COLUMNS} justifyContent="flex-end">
-            <Text bold {...tone}>{row.value}</Text>
-          </Box>
-          <Box marginLeft={2} flexGrow={1}>
-            <Text dimColor wrap="truncate-end">{row.note}</Text>
-          </Box>
-        </Box>
-      )
-    case 'note':
-      return (
-        <Box key={key} marginTop={1}>
-          <Text wrap="truncate-end" {...tone}>{row.text}</Text>
-        </Box>
-      )
-  }
 }
 
 function openPane($: EngineInterface) {
