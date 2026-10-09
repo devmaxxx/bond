@@ -1,0 +1,50 @@
+{
+  "name": "bond-cockpit",
+  "version": "0.38.0",
+  "description": "Cockpit for bond: a status line (branch, PR host, tracker, active gh account, PR checks, prompt-cache hit rate and TTL) and a docked pane with repo, pull request, CI and prompt-cache status plus turn, task and subagent progress, with a toast before the cache expires. A mod of function hooks; needs a Claude Code build with plugin hooks modules.",
+  "author": {
+    "name": "Max Synenko",
+    "email": "syn.max.13@gmail.com"
+  },
+  "homepage": "https://github.com/devmaxxx/bond",
+  "repository": "https://github.com/devmaxxx/bond",
+  "license": "MIT",
+  "keywords": [
+    "status-line",
+    "pane",
+    "pull-request",
+    "ci",
+    "progress",
+    "prompt-cache"
+  ],
+  "dependencies": [
+    "bond"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "personalAccount": {
+      "type": "string",
+      "title": "Personal gh account",
+      "description": "The gh login expected for repos whose origin owner is this account",
+      "default": "devmaxxx"
+    },
+    "workAccount": {
+      "type": "string",
+      "title": "Work gh account",
+      "description": "The gh login expected in Bonliva repos",
+      "default": "maxSynEfisco"
+    },
+    "cacheTtl": {
+      "type": "string",
+      "title": "Prompt-cache TTL",
+      "description": "5m or 1h; a model switch overrides it with the TTL it reports",
+      "default": "1h"
+    },
+    "cacheWarnSeconds": {
+      "type": "number",
+      "title": "Cache expiry warning (seconds)",
+      "description": "How long before the cache expires the toast fires; 0 turns it off",
+      "default": 10
+    }
+  }
+}

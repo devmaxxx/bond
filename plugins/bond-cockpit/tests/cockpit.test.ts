@@ -4,9 +4,9 @@ import type { On } from 'claude-code'
 const SURFACES = ['terminal', 'desktop'] as const
 const PANE = {
   component: 'Pane',
-  requestId: 'bond-hud',
+  requestId: 'bond-cockpit',
   props: {
-    title: 'bond',
+    title: 'bond cockpit',
     isFocused: false,
     bodyColumns: 46,
     placement: 'dock',
@@ -14,8 +14,8 @@ const PANE = {
     view: {},
   },
 } as const
-const RUN_HUD = {
-  command: 'bond-hud',
+const RUN_COCKPIT = {
+  command: 'bond-cockpit',
   args: '',
   origin: { kind: 'composer' },
   presentation: { isFullscreen: true, columns: 180 },
@@ -23,7 +23,7 @@ const RUN_HUD = {
 
 const PR_JSON = JSON.stringify({
   number: 7,
-  title: 'feat: bond hud',
+  title: 'feat: bond cockpit',
   state: 'OPEN',
   isDraft: false,
   reviewDecision: 'REVIEW_REQUIRED',
@@ -39,13 +39,13 @@ const AUTH_JSON = JSON.stringify({ hosts: { 'github.com': [{ login: 'maxSynEfisc
 
 const GITHUB_REPO: Record<string, string> = {
   'git rev-parse --show-toplevel': '/work/bond',
-  'git branch --show-current': 'feat/bond-hud',
+  'git branch --show-current': 'feat/bond-cockpit',
   'git remote get-url origin': 'git@github.com:devmaxxx/bond.git',
   'gh auth status --active --hostname github.com --json hosts': AUTH_JSON,
   'gh pr view --json number,title,state,isDraft,reviewDecision,url,statusCheckRollup': PR_JSON,
 }
 
-// Answers the host calls the HUD makes; a command missing from `outputs` exits 1, as git does outside a repo.
+// Answers the host calls the cockpit makes; a command missing from `outputs` exits 1, as git does outside a repo.
 function stubHost(on: On, outputs: Record<string, string>): (string | undefined)[] {
   const statuses: (string | undefined)[] = []
   on('session.cwd', () => ({ value: '/work/bond' }))
@@ -76,14 +76,14 @@ function stubHost(on: On, outputs: Record<string, string>): (string | undefined)
 test('a GitHub repo on the wrong gh account with a failing check shows in the status line and the pane', async ($, on) => {
   const statuses = stubHost(on, GITHUB_REPO)
 
-  await $.command.run(RUN_HUD)
+  await $.command.run(RUN_COCKPIT)
 
-  expect(statuses.at(-1)).toBe('⎇ feat/bond-hud · github · gh maxSynEfisco ⚠ want devmaxxx · PR #7 ✗1 …1 ✓1')
+  expect(statuses.at(-1)).toBe('⎇ feat/bond-cockpit · github · gh maxSynEfisco ⚠ want devmaxxx · PR #7 ✗1 …1 ✓1')
   for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ plugin: 'bond-hud', surface, ...PANE })
-    expect(await ui.find({ type: 'Text', text: /⎇ feat\/bond-hud/ })).toBeDefined()
+    const ui = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE })
+    expect(await ui.find({ type: 'Text', text: /⎇ feat\/bond-cockpit/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /gh maxSynEfisco ⚠ want devmaxxx/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /#7 feat: bond hud/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /#7 feat: bond cockpit/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /open · review required/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /CI ✓ 1 {2}✗ 1 {2}… 1/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /✗ lint/ })).toBeDefined()
@@ -94,11 +94,11 @@ test('a GitHub repo on the wrong gh account with a failing check shows in the st
 test('outside a git repository the status line is cleared and the pane says so', async ($, on) => {
   const statuses = stubHost(on, {})
 
-  await $.command.run(RUN_HUD)
+  await $.command.run(RUN_COCKPIT)
 
   expect(statuses.at(-1)).toBe(undefined)
   for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ plugin: 'bond-hud', surface, ...PANE })
+    const ui = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE })
     expect(await ui.find({ type: 'Text', text: /Not in a git repository/ })).toBeDefined()
     await ui.unmount()
   }
@@ -118,7 +118,7 @@ test('a TodoWrite call becomes the task checklist in the pane', async ($, on) =>
   })
 
   for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ plugin: 'bond-hud', surface, ...PANE })
+    const ui = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE })
     expect(await ui.find({ type: 'Text', text: /Tasks 1\/3/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /▸ Test the pane/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /○ Open the PR/ })).toBeDefined()

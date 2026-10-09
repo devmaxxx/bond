@@ -1,15 +1,18 @@
-import type { AgentItem, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import type { AgentItem, CacheSnapshot, PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import { cacheLines } from './cache'
 
 export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn'
 
 export type Line = { text: string; tone: Tone }
 
-export type HudState = {
+export type CockpitState = {
   repo: RepoStatus | null
   pr: PrStatus | null
   turn: TurnProgress
   tasks: readonly TaskItem[]
   agents: readonly AgentItem[]
+  cache: CacheSnapshot | null
+  warnMs: number
   now: number
 }
 
@@ -19,9 +22,9 @@ const FINISHED_AGENT = new Set(['completed', 'failed', 'killed'])
 const TASK_MARK: Record<TaskItem['status'], string> = { completed: '✔', in_progress: '▸', pending: '○' }
 const GAP: Line = { text: '', tone: 'plain' }
 
-export function statusLine(repo: RepoStatus | null, pr: PrStatus | null): string | undefined {
+export function statusLine(repo: RepoStatus | null, pr: PrStatus | null, cache: string | null = null): string | undefined {
   if (repo === null) {
-    return undefined
+    return cache ?? undefined
   }
   const parts = [`⎇ ${repo.branch}`, repo.host ?? 'unknown host']
   if (repo.tracker === 'jira') {
@@ -32,6 +35,9 @@ export function statusLine(repo: RepoStatus | null, pr: PrStatus | null): string
   }
   if (pr !== null) {
     parts.push(`PR #${pr.number} ${checksLabel(pr)}`.trimEnd())
+  }
+  if (cache !== null) {
+    parts.push(cache)
   }
 
   return parts.join(' · ')
@@ -56,11 +62,13 @@ function checksLabel(pr: PrStatus): string {
   return counts.filter(Boolean).join(' ')
 }
 
-export function paneLines(state: HudState): Line[] {
+export function paneLines(state: CockpitState): Line[] {
   return [
     ...repoLines(state.repo),
     GAP,
     ...prLines(state.repo, state.pr),
+    GAP,
+    ...cacheLines(state.cache, state.now, state.warnMs),
     GAP,
     ...progressLines(state),
   ]
@@ -121,7 +129,7 @@ function checksLine(pr: PrStatus): Line {
   return { text, tone: pending > 0 ? 'warn' : 'ok' }
 }
 
-function progressLines(state: HudState): Line[] {
+function progressLines(state: CockpitState): Line[] {
   return [
     { text: 'Progress', tone: 'heading' },
     turnLine(state.turn, state.now),

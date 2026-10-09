@@ -61,32 +61,39 @@ Hook: `PreToolUse` on `Write` / `Edit` / `MultiEdit` runs `plugins/bond-bonliva/
 Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
 symlinks into `bond`, which the plugin cache resolves into real copies.
 
-## bond-hud (status line and docked pane)
+## bond-cockpit (status line and docked pane)
 
-`plugins/bond-hud/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
+`plugins/bond-cockpit/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
 `modules`) that runs inside Claude Code rather than as spawned `node` processes,
 so it needs a build with plugin hook modules. It is opt-in and depends on `bond`:
 
 ```json
 // ~/.claude/settings.json
-{ "enabledPlugins": { "bond-hud@devmaxxx": true } }
+{ "enabledPlugins": { "bond-cockpit@devmaxxx": true } }
 ```
 
-- **Status line** — `⎇ <branch> · <host> · [jira] · gh <login> · PR #<n> ✗ … ✓`.
+- **Status line** — `⎇ <branch> · <host> · [jira] · gh <login> · PR #<n> ✗ … ✓ · cache <hit>% ⏱<left>`.
   The gh login gets `⚠ want <account>` when it is not the one
   `authorship-conventions` expects for the repo (remote owner first, Bonliva
   second, otherwise no expectation).
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
   Repo (branch, host, tracker, gh account), pull request (state, review,
-  CI counts and the failing checks), and progress (the running turn, the
-  `TodoWrite` / task checklist, live subagents). `/bond-hud` opens it and
+  CI counts and the failing checks), prompt cache (hit-rate bar, read / wrote /
+  new tokens of the last main-thread request, a countdown to expiry and a
+  hint), and progress (the running turn, the
+  `TodoWrite` / task checklist, live subagents). `/bond-cockpit` opens it and
   refreshes.
+- **Cache toast** — `cache expires in 10s: send a message now`, once per cache
+  entry, so a reply sent in time is read from cache instead of written again.
 
 It refreshes on session start, after `git checkout|switch|push|…` and
 `gh auth switch|pr` commands, at the end of each turn, on a cwd change and every
 60 s. The PR section is GitHub-only (`gh pr view`). The expected accounts are
-`userConfig` fields (`personalAccount`, `workAccount`) in `/config`.
+`userConfig` fields (`personalAccount`, `workAccount`) in `/config`. The cache
+TTL (`cacheTtl`, `5m` or `1h`, default `1h`) is a setting because only a model
+switch reports it; a switch overrides it. `cacheWarnSeconds` (default 10, `0`
+off) sets when the toast fires.
 
 ## MCP Servers
 
@@ -289,12 +296,12 @@ is driven end to end over stdin:
 node --test 'tests/**/*.test.mjs'
 ```
 
-`bond-hud` is tested by Claude Code's own plugin runner — its parsers directly,
+`bond-cockpit` is tested by Claude Code's own plugin runner — its parsers directly,
 and the status line and pane on the terminal and desktop surfaces with git and
 `gh` answered by the test:
 
 ```sh
-claude plugin validate plugins/bond-hud && claude plugin test plugins/bond-hud
+claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-cockpit
 ```
 
 ## Skills
@@ -412,7 +419,7 @@ bond/
 │   ├── shell.test.mjs
 │   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
-├── plugins/bond-hud/       # status line + docked pane mod (function hooks)
+├── plugins/bond-cockpit/   # status line + docked pane mod (function hooks)
 │   ├── .claude-plugin/plugin.json  # depends on bond
 │   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card

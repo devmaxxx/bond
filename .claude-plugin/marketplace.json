@@ -18,9 +18,9 @@
       "version": "0.38.0"
     },
     {
-      "name": "bond-hud",
-      "source": "./plugins/bond-hud",
-      "description": "Status line and docked pane: branch, PR host, tracker, gh account, PR and CI status, turn/task/subagent progress",
+      "name": "bond-cockpit",
+      "source": "./plugins/bond-cockpit",
+      "description": "Status line and docked pane: branch, PR host, tracker, gh account, PR and CI status, turn/task/subagent progress, prompt-cache hit rate and expiry toast",
       "version": "0.38.0"
     }
   ]

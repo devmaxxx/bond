@@ -16,7 +16,7 @@ test('a long checklist keeps the first unfinished task in view', () => {
     ...Array.from({ length: 4 }, (_, index) => task(16 + index, 'pending' as const)),
   ]
 
-  const texts = paneLines({ repo: null, pr: null, turn: IDLE, tasks, agents: [], now: 0 }).map(line => line.text)
+  const texts = paneLines({ repo: null, pr: null, turn: IDLE, tasks, agents: [], cache: null, warnMs: 0, now: 0 }).map(line => line.text)
 
   expect(texts).toContain('Tasks 15/20')
   expect(texts).toContain('▸ step 15')

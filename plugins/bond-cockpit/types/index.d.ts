@@ -44,14 +44,25 @@ export type TurnProgress = {
   lastTool: string | null
 }
 
+/** The last main-thread request's prompt-cache usage, and when its entry lapses. */
+export type CacheSnapshot = {
+  read: number
+  wrote: number
+  fresh: number
+  at: number
+  ttlMs: number
+}
+
 declare module 'claude-code' {
   interface PluginState {
-    'bond-hud': {
+    'bond-cockpit': {
       repo: RepoStatus | null
       pr: PrStatus | null
       tasks: TaskItem[]
       agents: AgentItem[]
       turn: TurnProgress
+      cache: CacheSnapshot | null
+      countdown: string
     }
   }
 }

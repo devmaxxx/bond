@@ -4,13 +4,13 @@ description: Release the bond plugin — bump the version in plugin.json + marke
 
 # /release
 
-Cut a new release of the **bond**, **bond-bonliva** and **bond-hud** plugins, which ship together from this marketplace. This bumps the version in every manifest, commits any pending changes together with the bump, creates an annotated `vX.Y.Z` tag, and pushes `main` + the tag. After the tag lands, users pick up the new version via `/plugin` update.
+Cut a new release of the **bond**, **bond-bonliva** and **bond-cockpit** plugins, which ship together from this marketplace. This bumps the version in every manifest, commits any pending changes together with the bump, creates an annotated `vX.Y.Z` tag, and pushes `main` + the tag. After the tag lands, users pick up the new version via `/plugin` update.
 
 Every manifest **must always carry the same version**:
 
 - `.claude-plugin/plugin.json` → `version`
 - `plugins/bond-bonliva/.claude-plugin/plugin.json` → `version`
-- `plugins/bond-hud/.claude-plugin/plugin.json` → `version`
+- `plugins/bond-cockpit/.claude-plugin/plugin.json` → `version`
 - `.claude-plugin/marketplace.json` → every `plugins[].version`
 
 ## Arguments
@@ -50,7 +50,7 @@ Write the new version into **every** manifest, preserving all other keys and for
 
 - `.claude-plugin/plugin.json` → `version`
 - `plugins/bond-bonliva/.claude-plugin/plugin.json` → `version`
-- `plugins/bond-hud/.claude-plugin/plugin.json` → `version`
+- `plugins/bond-cockpit/.claude-plugin/plugin.json` → `version`
 - `.claude-plugin/marketplace.json` → every `plugins[].version`
 
 If new commands were added since the last release, also refresh the command list in `plugin.json`'s `description` and the `/commands` table in `README.md` so they stay in sync. (Don't invent entries — only reflect commands that actually exist under `commands/`.)
@@ -99,7 +99,7 @@ Print:
   /plugin marketplace update devmaxxx
   /plugin update bond@devmaxxx
   /plugin update bond-bonliva@devmaxxx
-  /plugin update bond-hud@devmaxxx
+  /plugin update bond-cockpit@devmaxxx
   ```
   then **restart Claude Code** so the new command versions and any MCP template changes load. (The cached copy under `~/.claude/plugins/cache/devmaxxx/bond/<version>/` only refreshes after this.)
 

@@ -2,15 +2,19 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
 import type { PrStatus, RepoStatus, TaskItem, TurnProgress } from '../types'
+import { cacheStatus, shouldWarn, ttlMs } from './cache'
 import { activeLoginOf, expectedLogin, isBonlivaRemote, parseJson, parseRemote, resolveTracker, toPrStatus } from './parse'
 import type { Accounts, Manifest, RawPr } from './parse'
 import { paneLines, statusLine } from './view'
 import type { Tone } from './view'
 
-const PANE = 'bond-hud'
-const PANE_TITLE = 'bond'
+const PANE = 'bond-cockpit'
+const PANE_TITLE = 'bond cockpit'
 const PANE_COLUMNS = 46
 const POLL_MS = 60_000
+const TICK_MS = 1000
+const DEFAULT_CACHE_TTL = '1h'
+const DEFAULT_WARN_SECONDS = 10
 const REFRESH_DEBOUNCE_MS = 400
 const COMMAND_TIMEOUT_MS = 15_000
 const PR_FIELDS = 'number,title,state,isDraft,reviewDecision,url,statusCheckRollup'
@@ -27,37 +31,51 @@ const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: str
   warn: { color: 'yellow' },
 }
 
-const repo = atom({ plugin: 'bond-hud', key: 'repo' } as const, null)
-const pr = atom({ plugin: 'bond-hud', key: 'pr' } as const, null)
-const tasks = atom({ plugin: 'bond-hud', key: 'tasks' } as const, [])
-const agents = atom({ plugin: 'bond-hud', key: 'agents' } as const, [])
-const turn = atom({ plugin: 'bond-hud', key: 'turn' } as const, IDLE_TURN)
+const repo = atom({ plugin: 'bond-cockpit', key: 'repo' } as const, null)
+const pr = atom({ plugin: 'bond-cockpit', key: 'pr' } as const, null)
+const tasks = atom({ plugin: 'bond-cockpit', key: 'tasks' } as const, [])
+const agents = atom({ plugin: 'bond-cockpit', key: 'agents' } as const, [])
+const turn = atom({ plugin: 'bond-cockpit', key: 'turn' } as const, IDLE_TURN)
+const cache = atom({ plugin: 'bond-cockpit', key: 'cache' } as const, null)
+// Written only when the countdown's text changes, so the pane redraws once a minute, then once a second.
+const countdown = atom({ plugin: 'bond-cockpit', key: 'countdown' } as const, '')
 
 // A slow refresh (gh goes to the network) that lands after a newer one must not overwrite it.
 let generation = 0
 // session.start fires again after /clear; a poll left running would stack with the new one.
 let poll: Timer | null = null
 let pendingRefresh: Timer | null = null
+let tick: Timer | null = null
+// The cache entry (by its request time) already warned about, so the toast fires once per entry.
+let warnedAt: number | null = null
+// Only a model switch reports the TTL; until one does, the configured one stands.
+let cacheTtlMs = ttlMs(DEFAULT_CACHE_TTL)
+let warnMs = DEFAULT_WARN_SECONDS * 1000
 
 export const register: Register = (on, options) => {
   const accounts = accountsOf(options)
+  const warnSeconds = Number(options.cacheWarnSeconds ?? DEFAULT_WARN_SECONDS)
+  warnMs = Number.isFinite(warnSeconds) ? Math.max(0, warnSeconds) * 1000 : DEFAULT_WARN_SECONDS * 1000
+  cacheTtlMs = ttlMs(String(options.cacheTtl ?? DEFAULT_CACHE_TTL))
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'bond-hud', description: 'Open the bond HUD pane and refresh its status' })
+    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit pane and refresh its status' })
     openPane($).catch(() => undefined)
     refreshSoon($, accounts)
     poll?.cancel()
     poll = $.clock.every(POLL_MS, () => void refreshQuietly($, accounts))
+    tick?.cancel()
+    tick = $.clock.every(TICK_MS, () => void onTick($).catch(() => undefined))
 
     return started
   })
 
-  on('command.run', { command: 'bond-hud' }, async $ => {
+  on('command.run', { command: 'bond-cockpit' }, async $ => {
     await openPane($)
     await refresh($, accounts)
 
-    return { text: 'bond HUD opened.' }
+    return { text: 'bond cockpit opened.' }
   })
 
   on('classic.CwdChanged', async ($, e, next) => {
@@ -71,6 +89,7 @@ export const register: Register = (on, options) => {
       await update($, tasks, () => [])
       await update($, agents, () => [])
       await update($, turn, () => IDLE_TURN)
+      await update($, cache, () => null)
     }
 
     return next(e)
@@ -92,6 +111,32 @@ export const register: Register = (on, options) => {
     await syncAgents($)
 
     return completed
+  })
+
+  on('turn.step', async function* ($, e, next) {
+    // The cache entry's TTL restarts when the request reads or writes it, not when a long answer finishes.
+    const at = await $.clock.now()
+    const stepped = yield* next(e)
+    if (e.agentId === undefined && stepped.usage !== null) {
+      const { cache_read_input_tokens, cache_creation_input_tokens, input_tokens } = stepped.usage
+      // The API reports a cache counter as null when the request used no caching; NaN would poison the hit rate.
+      await update($, cache, () => ({
+        read: cache_read_input_tokens ?? 0,
+        wrote: cache_creation_input_tokens ?? 0,
+        fresh: input_tokens ?? 0,
+        at,
+        ttlMs: cacheTtlMs,
+      }))
+      await pushStatus($)
+    }
+
+    return stepped
+  })
+
+  on('classic.PostModelSwitch', async ($, e, next) => {
+    cacheTtlMs = ttlMs(e.cache_ttl)
+
+    return next(e)
   })
 
   on('tool.call', async ($, e, next) => {
@@ -147,15 +192,18 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
-    const [repoNow, prNow, turnNow, taskList, agentList, now] = await Promise.all([
+    const [repoNow, prNow, turnNow, taskList, agentList, cacheNow, now] = await Promise.all([
       read($, repo),
       read($, pr),
       read($, turn),
       read($, tasks),
       read($, agents),
+      read($, cache),
       $.clock.now(),
+      // Not used below: reading it subscribes the pane to the countdown, so it redraws as the text ticks.
+      read($, countdown),
     ])
-    const lines = paneLines({ repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, now })
+    const lines = paneLines({ repo: repoNow, pr: prNow, turn: turnNow, tasks: taskList, agents: agentList, cache: cacheNow, warnMs, now })
 
     return (
       <Box flexDirection="column">
@@ -190,7 +238,7 @@ async function refresh($: EngineInterface, accounts: Accounts): Promise<void> {
   }
   await update($, repo, () => repoNow)
   await update($, pr, () => prNow)
-  $.ui.status(statusLine(repoNow, prNow))
+  await pushStatus($)
 }
 
 async function collectRepo($: EngineInterface, cwd: string, accounts: Accounts): Promise<RepoStatus | null> {
@@ -293,4 +341,24 @@ function isSuccess(ran: { deny?: unknown; isError?: boolean }): boolean {
 
 function accountsOf(options: PluginOptions): Accounts {
   return { personal: String(options.personalAccount ?? ''), work: String(options.workAccount ?? '') }
+}
+
+async function pushStatus($: EngineInterface): Promise<void> {
+  const [repoNow, prNow, cacheNow, now] = await Promise.all([read($, repo), read($, pr), read($, cache), $.clock.now()])
+  $.ui.status(statusLine(repoNow, prNow, cacheStatus(cacheNow, now, warnMs)))
+}
+
+async function onTick($: EngineInterface): Promise<void> {
+  const [cacheNow, shown, turnNow, now] = await Promise.all([read($, cache), read($, countdown), read($, turn), $.clock.now()])
+  const text = cacheStatus(cacheNow, now, warnMs) ?? ''
+  if (text !== shown) {
+    await update($, countdown, () => text)
+    await pushStatus($)
+  }
+  // Mid-turn the user cannot send a message, so the advice would be noise.
+  if (cacheNow !== null && !turnNow.isRunning && shouldWarn(cacheNow, now, warnMs, warnedAt)) {
+    warnedAt = cacheNow.at
+    const seconds = Math.ceil((cacheNow.at + cacheNow.ttlMs - now) / 1000)
+    $.ui.toast(`bond-cockpit: cache expires in ${seconds}s: send a message now`)
+  }
 }
