@@ -61,32 +61,38 @@ Hook: `PreToolUse` on `Write` / `Edit` / `MultiEdit` runs `plugins/bond-bonliva/
 Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
 symlinks into `bond`, which the plugin cache resolves into real copies.
 
-## bond-hud (status line and docked pane)
+## bond-cockpit (prompt-cache status line and pane)
 
-`plugins/bond-hud/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
+`plugins/bond-cockpit/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
 `modules`) that runs inside Claude Code rather than as spawned `node` processes,
 so it needs a build with plugin hook modules. It is opt-in and depends on `bond`:
 
 ```json
 // ~/.claude/settings.json
-{ "enabledPlugins": { "bond-hud@devmaxxx": true } }
+{ "enabledPlugins": { "bond-cockpit@devmaxxx": true } }
 ```
 
-- **Status line** — `⎇ <branch> · <host> · [jira] · gh <login> · PR #<n> ✗ … ✓`.
-  The gh login gets `⚠ want <account>` when it is not the one
-  `authorship-conventions` expects for the repo (remote owner first, Bonliva
-  second, otherwise no expectation).
+- **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
-  Repo (branch, host, tracker, gh account), pull request (state, review,
-  CI counts and the failing checks), and progress (the running turn, the
-  `TodoWrite` / task checklist, live subagents). `/bond-hud` opens it and
-  refreshes.
+  Two bordered cards. **Cache** wears the entry's state on its border and
+  header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
+  split into read / wrote / new tokens, then a TTL meter with the countdown, and
+  advice only once there is something to do. **Session** stays grey: hit rate
+  with a sparkline of the last 20 requests coloured by hit, cost relative to no
+  cache with the input tokens saved after the write surcharge, and prefix
+  rebuilds (requests under 50% hit) with how long ago the last one was. Bars
+  stretch to the pane's width. `/bond-cockpit` opens it.
+- **Cache toast** — `cache expires in 10s: send a message now`, once per cache
+  entry and never mid-turn, so a reply sent in time is read from cache instead
+  of written again.
 
-It refreshes on session start, after `git checkout|switch|push|…` and
-`gh auth switch|pr` commands, at the end of each turn, on a cwd change and every
-60 s. The PR section is GitHub-only (`gh pr view`). The expected accounts are
-`userConfig` fields (`personalAccount`, `workAccount`) in `/config`.
+No request reports its cache TTL, so `cacheTtl` (default `auto`) infers it on
+every request: a subscription past a rate-limit window is in overage and drops
+to 5m; otherwise the last model switch's report; otherwise 1h on a subscription
+and 5m on an API key. `5m` or `1h` fixes it. The card badge says `overage`,
+`set` or `API` when the TTL came from one of those. `cacheWarnSeconds` (default
+10, `0` off) sets when the toast fires.
 
 ## MCP Servers
 
@@ -289,12 +295,11 @@ is driven end to end over stdin:
 node --test 'tests/**/*.test.mjs'
 ```
 
-`bond-hud` is tested by Claude Code's own plugin runner — its parsers directly,
-and the status line and pane on the terminal and desktop surfaces with git and
-`gh` answered by the test:
+`bond-cockpit` is tested by Claude Code's own plugin runner — the cache view
+directly, and the status line and pane on the terminal and desktop surfaces:
 
 ```sh
-claude plugin validate plugins/bond-hud && claude plugin test plugins/bond-hud
+claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-cockpit
 ```
 
 ## Skills
@@ -412,7 +417,7 @@ bond/
 │   ├── shell.test.mjs
 │   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
-├── plugins/bond-hud/       # status line + docked pane mod (function hooks)
+├── plugins/bond-cockpit/   # prompt-cache status line + pane mod (function hooks)
 │   ├── .claude-plugin/plugin.json  # depends on bond
 │   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card
