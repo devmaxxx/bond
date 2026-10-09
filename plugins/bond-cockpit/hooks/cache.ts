@@ -1,4 +1,4 @@
-import type { CacheSnapshot } from '../types'
+import type { CacheSession, CacheSnapshot } from '../types'
 
 export type Tone = 'heading' | 'plain' | 'dim' | 'ok' | 'bad' | 'warn'
 
@@ -8,9 +8,18 @@ export type CacheTtl = '5m' | '1h'
 
 const TTL_MS: Record<CacheTtl, number> = { '5m': 5 * 60_000, '1h': 60 * 60_000 }
 const BAR_CELLS = 10
+const SPARK = '▁▂▃▄▅▆▇█'
+const RECENT_REQUESTS = 20
+const MISS_BELOW = 50
+// Price of a cached token relative to a plain input token: a read is a tenth,
+// a write is a surcharge that depends on how long the entry lives.
+const READ_COST = 0.1
+const WRITE_COST: Record<CacheTtl, number> = { '5m': 1.25, '1h': 2 }
 // Under two minutes the countdown shows seconds; above it, whole minutes are enough
 // and the line redraws once a minute instead of every second.
 const SECONDS_BELOW_MS = 2 * 60_000
+
+export const EMPTY_SESSION: CacheSession = { requests: 0, read: 0, wrote: 0, fresh: 0, misses: 0, lastMissAt: null, recent: [] }
 
 export function ttlMs(ttl: string): number {
   return ttl === '5m' ? TTL_MS['5m'] : TTL_MS['1h']
@@ -27,11 +36,10 @@ export type CacheView = {
 /** What the last main-thread request left in the cache, read at `now`. */
 export function cacheView(cache: CacheSnapshot, now: number, warnMs: number): CacheView {
   const total = cache.read + cache.wrote + cache.fresh
-  const hit = total > 0 ? Math.round((cache.read / total) * 100) : 0
+  const hit = hitRate(cache.read, total)
   const remainingMs = Math.max(0, cache.at + cache.ttlMs - now)
-  const ttlLabel = cache.ttlMs >= TTL_MS['1h'] ? '1h' : '5m'
   if (remainingMs === 0) {
-    return { hit, remainingMs, tone: 'bad', countdown: 'expired', hint: `${ttlLabel} · the next message re-caches ${tokens(total)}` }
+    return { hit, remainingMs, tone: 'bad', countdown: 'expired', hint: `the next message re-caches ${tokens(total)}` }
   }
   const soon = remainingMs <= Math.max(warnMs, 60_000)
 
@@ -40,25 +48,69 @@ export function cacheView(cache: CacheSnapshot, now: number, warnMs: number): Ca
     remainingMs,
     tone: soon ? 'warn' : 'ok',
     countdown: countdown(remainingMs),
-    hint: soon ? `${ttlLabel} · expires soon: any message refreshes it for free` : `${ttlLabel} · any message refreshes it`,
+    hint: soon ? 'expires soon: any message refreshes it for free' : 'any message refreshes it',
   }
 }
 
-export function cacheLines(cache: CacheSnapshot | null, now: number, warnMs: number): Line[] {
-  const heading: Line = { text: 'Cache', tone: 'heading' }
+export function recordRequest(session: CacheSession, cache: CacheSnapshot): CacheSession {
+  const hit = hitRate(cache.read, cache.read + cache.wrote + cache.fresh)
+  const isMiss = hit < MISS_BELOW
+
+  return {
+    requests: session.requests + 1,
+    read: session.read + cache.read,
+    wrote: session.wrote + cache.wrote,
+    fresh: session.fresh + cache.fresh,
+    misses: session.misses + (isMiss ? 1 : 0),
+    lastMissAt: isMiss ? cache.at : session.lastMissAt,
+    recent: [...session.recent, hit].slice(-RECENT_REQUESTS),
+  }
+}
+
+export function cacheLines(cache: CacheSnapshot | null, session: CacheSession, now: number, warnMs: number): Line[] {
   if (cache === null) {
-    return [heading, { text: 'No request yet', tone: 'dim' }]
+    return [{ text: 'Cache', tone: 'heading' }, { text: 'No request yet', tone: 'dim' }]
   }
   const view = cacheView(cache, now, warnMs)
-  const filled = Math.round((view.hit / 100) * BAR_CELLS)
+  const ttl = ttlLabel(cache.ttlMs)
 
   return [
-    heading,
-    { text: `${'█'.repeat(filled)}${'░'.repeat(BAR_CELLS - filled)} ${view.hit}% hit`, tone: hitTone(view.hit) },
+    { text: `Cache · ${ttl} TTL`, tone: 'heading' },
+    { text: `${bar(view.hit)} ${view.hit}% hit`, tone: hitTone(view.hit) },
     { text: `read ${tokens(cache.read)} · wrote ${tokens(cache.wrote)} · new ${tokens(cache.fresh)}`, tone: 'plain' },
-    { text: `⏱ ${view.countdown}`, tone: view.tone },
+    { text: `${bar((view.remainingMs / cache.ttlMs) * 100)} ⏱ ${view.countdown}${view.remainingMs > 0 ? ' left' : ''}`, tone: view.tone },
     { text: view.hint, tone: 'dim' },
+    { text: '', tone: 'plain' },
+    ...sessionLines(session, now, ttl),
   ]
+}
+
+function sessionLines(session: CacheSession, now: number, ttl: CacheTtl): Line[] {
+  const total = session.read + session.wrote + session.fresh
+  const hit = hitRate(session.read, total)
+  const cost = total > 0 ? (session.read * READ_COST + session.wrote * WRITE_COST[ttl] + session.fresh) / total : 1
+  // Input-token equivalents the cache took off the bill, net of the write surcharge.
+  const saved = Math.round(session.read * (1 - READ_COST) - session.wrote * (WRITE_COST[ttl] - 1))
+
+  return [
+    { text: `Session · ${session.requests} request${session.requests === 1 ? '' : 's'}`, tone: 'heading' },
+    { text: `${hit}% hit · ${sparkline(session.recent)}`, tone: hitTone(hit) },
+    { text: `cost ${cost.toFixed(2)}× uncached · ${savedLabel(saved)}`, tone: cost < 1 ? 'ok' : 'warn' },
+    missLine(session, now),
+  ]
+}
+
+function missLine(session: CacheSession, now: number): Line {
+  if (session.lastMissAt === null) {
+    return { text: 'no rebuilds', tone: 'dim' }
+  }
+  const count = `${session.misses} rebuild${session.misses === 1 ? '' : 's'}`
+
+  return { text: `${count} · last ${ago(now - session.lastMissAt)} ago`, tone: 'dim' }
+}
+
+function savedLabel(saved: number): string {
+  return saved >= 0 ? `saved ${tokens(saved)} tok` : `lost ${tokens(-saved)} tok`
 }
 
 export function cacheStatus(cache: CacheSnapshot | null, now: number, warnMs: number): string | null {
@@ -80,6 +132,24 @@ export function shouldWarn(cache: CacheSnapshot | null, now: number, warnMs: num
   return remainingMs > 0 && remainingMs <= warnMs
 }
 
+function hitRate(read: number, total: number): number {
+  return total > 0 ? Math.round((read / total) * 100) : 0
+}
+
+function ttlLabel(ms: number): CacheTtl {
+  return ms >= TTL_MS['1h'] ? '1h' : '5m'
+}
+
+function bar(percent: number): string {
+  const filled = Math.round((Math.min(100, Math.max(0, percent)) / 100) * BAR_CELLS)
+
+  return `${'█'.repeat(filled)}${'░'.repeat(BAR_CELLS - filled)}`
+}
+
+function sparkline(hits: readonly number[]): string {
+  return hits.map(hit => SPARK[Math.min(SPARK.length - 1, Math.floor((hit / 100) * SPARK.length))]).join('')
+}
+
 function hitTone(hit: number): Tone {
   if (hit >= 80) {
     return 'ok'
@@ -95,6 +165,15 @@ function countdown(ms: number): string {
   const seconds = Math.ceil(ms / 1000)
 
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+function ago(ms: number): string {
+  const minutes = Math.floor(Math.max(0, ms) / 60_000)
+  if (minutes < 1) {
+    return '<1m'
+  }
+
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}h${minutes % 60}m` : `${minutes}m`
 }
 
 export function tokens(count: number): string {

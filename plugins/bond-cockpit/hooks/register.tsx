@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import { cacheLines, cacheStatus, shouldWarn, ttlMs } from './cache'
+import { EMPTY_SESSION, cacheLines, cacheStatus, recordRequest, shouldWarn, ttlMs } from './cache'
 import type { Tone } from './cache'
 
 const PANE = 'bond-cockpit'
@@ -21,6 +21,7 @@ const TONE_PROPS: Record<Tone, { bold?: boolean; dimColor?: boolean; color?: str
 }
 
 const cache = atom({ plugin: 'bond-cockpit', key: 'cache' } as const, null)
+const session = atom({ plugin: 'bond-cockpit', key: 'session' } as const, EMPTY_SESSION)
 // Written only when the countdown's text changes, so the pane redraws once a minute, then once a second.
 const countdown = atom({ plugin: 'bond-cockpit', key: 'countdown' } as const, '')
 
@@ -60,6 +61,7 @@ export const register: Register = (on, options) => {
     if (e.reason === 'clear') {
       isTurnRunning = false
       await update($, cache, () => null)
+      await update($, session, () => EMPTY_SESSION)
     }
 
     return next(e)
@@ -87,13 +89,15 @@ export const register: Register = (on, options) => {
     if (e.agentId === undefined && stepped.usage !== null) {
       const { cache_read_input_tokens, cache_creation_input_tokens, input_tokens } = stepped.usage
       // The API reports a cache counter as null when the request used no caching; NaN would poison the hit rate.
-      await update($, cache, () => ({
+      const snapshot = {
         read: cache_read_input_tokens ?? 0,
         wrote: cache_creation_input_tokens ?? 0,
         fresh: input_tokens ?? 0,
         at,
         ttlMs: cacheTtlMs,
-      }))
+      }
+      await update($, cache, () => snapshot)
+      await update($, session, current => recordRequest(current, snapshot))
       await pushStatus($)
     }
 
@@ -108,13 +112,14 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
-    const [cacheNow, now] = await Promise.all([
+    const [cacheNow, sessionNow, now] = await Promise.all([
       read($, cache),
+      read($, session),
       $.clock.now(),
       // Not used below: reading it subscribes the pane to the countdown, so it redraws as the text ticks.
       read($, countdown),
     ])
-    const lines = cacheLines(cacheNow, now, warnMs)
+    const lines = cacheLines(cacheNow, sessionNow, now, warnMs)
 
     return (
       <Box flexDirection="column">
