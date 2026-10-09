@@ -13,6 +13,7 @@ but every command resolves a per-repo profile, so they work outside it too.
 | `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions, Bitbucket), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
 | `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
+| `/crewboss`      | Deliver tasks from the crewboss queue end to end with this session as the boss: claim, implement, verify, PR, review, CI, merge, each phase an agent; a question goes to the owner with drafted answers |
 | `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
@@ -320,6 +321,7 @@ claude plugin validate plugins/bond-hud && claude plugin test plugins/bond-hud
 - **ci-diagnose** — reads one failed pipeline (Woodpecker, GitHub Actions or Bitbucket URL) on sonnet at medium effort and returns per failed step its class — flaky, infra, code, or pre-existing on the base — a `file:line` cause and at most 5 log lines. Read-only; `/fix-ci` acts on it. Bundled under `agents/`.
 - **pr-status** — reads one PR once on haiku at low effort, GitHub or Bitbucket: state, mergeable, the CI verdict with one root-cause line per failed check, the review decision, and every unhandled inline thread, review body and conversation comment with its id (minus the ids the caller already handled). Read-only — never replies, resolves, reruns or polls. `/ship-pr` reads each settled round and its final state through it. Bundled under `agents/`.
 - **pr-review** — reviews one open PR's diff on opus at high effort, GitHub or Bitbucket: reads each hunk with its callers, verifies every finding before reporting it, and returns at most 15 ranked findings with `file:line` and the input that breaks it. Read-only — never edits, pushes or comments. Paired with **security-review** through `shared/pr-review-flow.md`; `/ship-pr` runs the pair right after the PR is opened, before the browser check. Bundled under `agents/`.
+- **crewboss** — operates the owner's crewboss loop on sonnet at medium effort: the task in progress with its state and PR, the owner's open PRs and the issues ready to claim, read through the profile's own `gh` account. When the loop is NeedsHuman it returns the question whole and 2–4 drafted answers, and never sends one. Starts `run --once`, `answer`, `answer --continue` detached with a log, only on the caller's word; `drop` only when the owner asked for it. Bundled under `agents/`.
 - **security-review** — reviews a diff, PR or path for security defects on opus at high effort: access control and IDOR, injection, auth and sessions, SSRF, XSS, secrets, races on money, data exposure, and an audit when a lockfile changed. Verifies each finding and returns at most 15 with `file:line`, the attack and the fix. Read-only. Always runs paired with **pr-review** through `shared/pr-review-flow.md` (`/ship-pr`, `/sweep-pr`); a critical or high finding from either blocks. Bundled under `agents/`.
 
 ## Installation
@@ -371,6 +373,7 @@ bond/
 │   ├── pr-review.md         # one PR's diff reviewed, verified findings ranked
 │   ├── security-review.md   # security defects in a diff, PR or path, verified
 │   ├── ci-diagnose.md       # one failed pipeline: class, cause, short excerpt
+│   ├── crewboss.md          # the crewboss loop: state, drafted answers, its commands
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement and /fix-qa
