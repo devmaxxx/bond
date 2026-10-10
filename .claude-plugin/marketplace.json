@@ -9,19 +9,19 @@
       "name": "bond",
       "source": "./",
       "description": "Project-flexible dev workflow: implement, open/fix PRs, review routing, authorship and PR hooks",
-      "version": "0.38.0"
+      "version": "0.39.0"
     },
     {
       "name": "bond-bonliva",
       "source": "./plugins/bond-bonliva",
       "description": "Bonliva-only commands and MCP setup (time logs, Teams, Bitbucket reviewers); enable per Bonliva repo",
-      "version": "0.38.0"
+      "version": "0.39.0"
     },
     {
       "name": "bond-cockpit",
       "source": "./plugins/bond-cockpit",
       "description": "Status line and docked pane: prompt-cache hit rate, time to expiry and an expiry toast",
-      "version": "0.38.0"
+      "version": "0.39.0"
     }
   ]
 }

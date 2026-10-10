@@ -1,6 +1,6 @@
 {
   "name": "bond-cockpit",
-  "version": "0.38.0",
+  "version": "0.39.0",
   "description": "Cockpit for bond: prompt-cache hit rate and time to expiry in the status line and a docked pane, with a toast before the cache expires. A mod of function hooks; needs a Claude Code build with plugin hooks modules.",
   "author": {
     "name": "Max Synenko",
