@@ -9,9 +9,11 @@ import { describe, it } from "node:test";
 import { route } from "../hooks/recon-router.mjs";
 
 const SCOUT =
-  "recon question — `repo-scout` answers it from the graph in ~1 KB; general-purpose pays the search in full and returns it all.";
+  'recon question — `repo-scout` with `model: "haiku"` answers it from the graph in ~1 KB; general-purpose pays the search in full and returns it all.';
 const EXPLORE =
-  'recon question — the `Explore` agent with a breadth ("medium"/"very thorough") returns the conclusion, not the file dumps.';
+  'recon question — the `Explore` agent with `model: "haiku"` and a breadth ("medium"/"very thorough") returns the conclusion, not the file dumps.';
+const HAIKU =
+  "recon dispatch with no model — pass `model: \"haiku\"`: a lookup needs no more, and the session's model costs several times as much for the same answer.";
 
 describe("naming the agent that answers a recon question", () => {
   it("names repo-scout when the repository has one", () => {
@@ -48,9 +50,28 @@ describe("the agents this fires for", () => {
     assert.equal(route({ subagent_type: "general", prompt }, true), SCOUT);
   });
 
-  it("stays quiet once an agent is named", () => {
-    assert.equal(route({ subagent_type: "Explore", prompt }, true), null);
-    assert.equal(route({ subagent_type: "repo-scout", prompt }, true), null);
+  it("asks a named reader for haiku when the dispatch names no model", () => {
+    assert.equal(route({ subagent_type: "Explore", prompt }, true), HAIKU);
+    assert.equal(route({ subagent_type: "repo-scout", prompt }, true), HAIKU);
+    assert.equal(
+      route({ subagent_type: "caveman:cavecrew-investigator", prompt }, true),
+      HAIKU,
+    );
+  });
+
+  it("stays quiet once a reader is named with a model", () => {
+    assert.equal(
+      route({ subagent_type: "Explore", model: "haiku", prompt }, true),
+      null,
+    );
+    assert.equal(
+      route({ subagent_type: "repo-scout", model: "sonnet", prompt }, true),
+      null,
+    );
+  });
+
+  it("stays quiet for an agent that is neither general nor a reader", () => {
+    assert.equal(route({ subagent_type: "Plan", prompt }, true), null);
   });
 });
 

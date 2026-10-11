@@ -1,6 +1,6 @@
 # Contract
 
-Every phase carries a pair (model, effort). Default pair: `opus`/`high`, plan and build alike. `fable`, `xhigh` and `max` are never taken on your own judgement: their predicates buy a question, and only the user's answer spends it. Below `high` the tier table decides alone — downward is free. **Phases run here, in this session, by default.** A new subagent is spawned only when a phase's pair is above the session's and the user named it or granted it in answer to the escalation question. A pair at or below the session's runs here: a fresh context re-reads everything this session already holds, and that costs more than a lower tier saves. Model and effort freeze at spawn: `SendMessage` keeps them, `fork` keeps the parent's whole pair and is never a routing move.
+Every phase carries a pair (model, effort). Default pair: `opus`/`high`, plan and build alike. `fable`, `xhigh` and `max` are never taken on your own judgement: their predicates buy a question, and only the user's answer spends it. Below `high` the tier table decides alone — downward is free. **Phases run here, in this session, by default.** A new subagent is spawned only when a phase's pair is above the session's and the user named it or granted it in answer to the escalation question. A pair at or below the session's runs here: a fresh context re-reads everything this session already holds, and that costs more than a lower tier saves. The one exception is recon (last section), which spawns on `haiku`. Model and effort freeze at spawn: `SendMessage` keeps them, `fork` keeps the parent's whole pair and is never a routing move.
 
 Predicates are measured, not guessed: a scan of the repository fills a card, and the tier table reads the card. The prompt alone settles only the `low` row.
 
@@ -31,3 +31,8 @@ A `?` counts as the predicate holding: above `high` it asks, below `high` it blo
 Start at `high`. Drop to `medium` or `low` when every predicate of that row holds on the card. Any xhigh or max predicate: do not take the tier — ask (below), and run `high` until the answer says otherwise.
 
 The thresholds are the table's: 20 and 5. A number of your own is not a predicate. Plan runs at the task's tier. The build tier is one lower whenever the plan in hand names every file and its edit and no escalation is in force; a relayed summary is not a plan.
+
+# Recon on haiku
+
+A read-only lookup with a stated question — where X lives, what calls Y, which files hold Z, the docs for a library call, one test, typecheck or lint run reduced to its failures — is not a phase of the task and takes no scan, card or question. It runs on `haiku`/`low`, spawned, and is the one downward spawn: its answer is a conclusion of a few lines, so the fresh context costs less than the session's model reading the search in full. The agent by job: `repo-scout` where the repository ships one, else `Explore` with a breadth; `bond:docs-explorer` for third-party APIs; `bond:test-runner` for a check run. Pass `model: "haiku"` on the call — an agent definition's own model does not count as named. Not recon: a lookup that ends in an edit (the builder reads on its way), a review, a diagnosis that needs judgement, and anything the session already holds in context; a single `grep` whose output is small runs here.
+

@@ -6,9 +6,10 @@
  * while the general-purpose agent runs the search and returns everything it
  * read. The dispatch is where that choice is still free to make.
  *
- * Only the unnamed and the general-purpose agent are addressed. A prompt that
- * already names `Explore` or `repo-scout` has made the choice, and saying it
- * again costs the tokens this is trying to save.
+ * The unnamed and the general-purpose agent are pointed at the reader. A
+ * dispatch that already names a reader has made that choice; it hears only
+ * about the model, when it names none — a lookup's answer is a few lines, and
+ * `haiku` writes them for a fraction of what the session's model charges.
  *
  * Any failure exits 0 with nothing printed — a missed nudge is a slightly worse
  * session, a hook that throws is a broken tool call. The rule lives in `route`,
@@ -20,6 +21,8 @@ import { join } from "node:path";
 
 const GENERAL = new Set(["", "general-purpose", "general"]);
 
+const READERS = new Set(["Explore", "repo-scout", "caveman:cavecrew-investigator"]);
+
 const RECON =
   /\b(where (is|does|do|are)|what calls|who calls|which files?|find (all|the|where|every)|list all uses|how is .* wired)\b/i;
 
@@ -28,14 +31,19 @@ const BUILDS =
 
 const NUDGE = {
   scout:
-    "recon question — `repo-scout` answers it from the graph in ~1 KB; general-purpose pays the search in full and returns it all.",
+    'recon question — `repo-scout` with `model: "haiku"` answers it from the graph in ~1 KB; general-purpose pays the search in full and returns it all.',
   explore:
-    'recon question — the `Explore` agent with a breadth ("medium"/"very thorough") returns the conclusion, not the file dumps.',
+    'recon question — the `Explore` agent with `model: "haiku"` and a breadth ("medium"/"very thorough") returns the conclusion, not the file dumps.',
+  haiku:
+    'recon dispatch with no model — pass `model: "haiku"`: a lookup needs no more, and the session\'s model costs several times as much for the same answer.',
 };
 
 export function route(toolInput, hasRepoScout) {
   const agent = toolInput?.subagent_type ?? "";
   const prompt = toolInput?.prompt;
+  if (READERS.has(agent)) {
+    return toolInput?.model ? null : NUDGE.haiku;
+  }
   if (!GENERAL.has(agent) || typeof prompt !== "string") {
     return null;
   }
