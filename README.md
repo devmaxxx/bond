@@ -67,7 +67,7 @@ Hook: `PreToolUse` on `Write` / `Edit` / `MultiEdit` runs `plugins/bond-bonliva/
 Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
 symlinks into `bond`, which the plugin cache resolves into real copies.
 
-## bond-cockpit (prompt-cache status line and pane)
+## bond-cockpit (job, prompt-cache status line and pane)
 
 `plugins/bond-cockpit/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
 `modules`) that runs inside Claude Code rather than as spawned `node` processes,
@@ -81,7 +81,14 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
-  Two bordered cards. **Cache** wears the entry's state on its border and
+  **Job** comes first while there is one: the prompt being worked on, its
+  elapsed time (`took …` once done), what runs now — the tool in flight with
+  what it works on and for how long, `thinking`, or `waiting for you` — the
+  tool count with failures and the last tool, a `workflow` gauge of finished
+  over started agents while a Workflow runs, and one row per agent loop
+  (subagent, teammate or workflow agent) with its calls and latest tool,
+  working ones first, finished ones dimmed for five minutes. Then two bordered
+  cards. **Cache** wears the entry's state on its border and
   header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
   split into read / wrote / new tokens, then a TTL meter with the countdown, and
   advice only once there is something to do. **Session** stays grey: hit rate

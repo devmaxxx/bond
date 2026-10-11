@@ -37,6 +37,32 @@ export type UsageSnapshot = {
   costUsd: number | null
 }
 
+/** One subagent, teammate or workflow agent loop, as its tool calls show it. */
+export type JobLoop = {
+  calls: number
+  // The label of its latest tool call.
+  last: string
+  // Its latest tool call, or when it finished.
+  at: number
+  firstAt: number
+  done: boolean
+}
+
+/** What the session is doing: the prompt it works on, the tools in flight, the agent loops it runs. */
+export type JobState = {
+  task: string | null
+  startedAt: number | null
+  endedAt: number | null
+  // Main-loop tool calls not yet answered, oldest first.
+  inFlight: { id: string; label: string; at: number }[]
+  tools: number
+  failed: number
+  recent: string[]
+  loops: Record<string, JobLoop>
+  // When a Workflow call started; null when none runs.
+  workflowAt: number | null
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'bond-cockpit': {
@@ -45,6 +71,8 @@ declare module 'claude-code' {
       countdown: string
       models: ModelTally
       usage: UsageSnapshot | null
+      job: JobState
+      beat: number
     }
   }
 }

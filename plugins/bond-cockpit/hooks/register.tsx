@@ -3,6 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl } from './cache'
+import { EMPTY_JOB, endJob, jobCard, loopEnded, startJob, toolEnded, toolStarted } from './job'
 import { drawCards } from './pane'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
@@ -20,6 +21,9 @@ const models = atom({ plugin: 'bond-cockpit', key: 'models' } as const, EMPTY_MO
 const usage = atom({ plugin: 'bond-cockpit', key: 'usage' } as const, null)
 // Written only when the countdown's text changes, so the pane redraws once a minute, then once a second.
 const countdown = atom({ plugin: 'bond-cockpit', key: 'countdown' } as const, '')
+const job = atom({ plugin: 'bond-cockpit', key: 'job' } as const, EMPTY_JOB)
+// The second the pane last redrew for elapsed times; written only while something runs.
+const beat = atom({ plugin: 'bond-cockpit', key: 'beat' } as const, 0)
 
 // session.start fires again after /clear; a tick left running would stack with the new one.
 let tick: Timer | null = null
@@ -62,6 +66,7 @@ export const register: Register = (on, options) => {
       await update($, session, () => EMPTY_SESSION)
       await update($, models, () => EMPTY_MODELS)
       await update($, usage, () => null)
+      await update($, job, () => EMPTY_JOB)
     }
 
     return next(e)
@@ -73,14 +78,42 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  on('prompt.submit', async ($, e, next) => {
+    const submitted = await next(e)
+    await guard(async () => {
+      const now = await $.clock.now()
+      await update($, job, current => startJob(current, e.text, now))
+    })
+
+    return submitted
+  }).catch(($, e, next) => next(e))
+
   on('turn.complete', async ($, e, next) => {
     const completed = await next(e)
-    if (e.agentId === undefined) {
+    const agentId = e.agentId
+    if (agentId === undefined) {
       isTurnRunning = false
     }
+    await guard(async () => {
+      const now = await $.clock.now()
+      await update($, job, current => (agentId === undefined ? endJob(current, now) : loopEnded(current, agentId, now)))
+    })
 
     return completed
   })
+
+  // Every loop's tool calls, the main one's and each agent's, feed the Job card; the call itself is never changed.
+  on('tool.call', async ($, e, next) => {
+    const tool = String(e.tool)
+    const agentId = e.agentId
+    const startedAt = await $.clock.now().catch(() => 0)
+    const id = e.tool_use_id ?? `${tool}-${startedAt}`
+    await guard(() => update($, job, current => toolStarted(current, id, tool, e as unknown as Record<string, unknown>, agentId, startedAt)))
+    const ran = await next(e)
+    await guard(() => update($, job, current => toolEnded(current, id, tool, ran.deny !== undefined || ran.isError === true, agentId)))
+
+    return ran
+  }).catch(($, e, next) => next(e))
 
   on('turn.step', async function* ($, e, next) {
     // The cache entry's TTL restarts when the request reads or writes it, not when a long answer finishes.
@@ -126,17 +159,24 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const [cacheNow, sessionNow, now, modelsNow, usageNow] = await Promise.all([
+    const [cacheNow, sessionNow, now, modelsNow, usageNow, jobNow, agents] = await Promise.all([
       read($, cache),
       read($, session),
       $.clock.now(),
       read($, models),
       read($, usage),
-      // Not used below: reading it subscribes the pane to the countdown, so it redraws as the text ticks.
+      read($, job),
+      $.agent.list().catch(() => []),
+      // Not used below: reading them subscribes the pane to the countdown and the beat, so it redraws as they tick.
       read($, countdown),
+      read($, beat),
     ])
     const ui = $.ui.resolve(e)
-    const cards = intoSession(cacheCards(cacheNow, sessionNow, now, warnMs), [modelsCard(modelsNow), usageCard(usageNow, now)])
+    const current = jobCard(jobNow, agents, now)
+    const cards = [
+      ...(current === null ? [] : [current]),
+      ...intoSession(cacheCards(cacheNow, sessionNow, now, warnMs), [modelsCard(modelsNow), usageCard(usageNow, now)]),
+    ]
 
     return drawCards(ui, cards, e.props.bodyColumns)
   })
@@ -159,7 +199,10 @@ async function measure($: EngineInterface): Promise<void> {
 }
 
 async function onTick($: EngineInterface): Promise<void> {
-  const [cacheNow, shown, now] = await Promise.all([read($, cache), read($, countdown), $.clock.now()])
+  const [cacheNow, shown, now, jobNow] = await Promise.all([read($, cache), read($, countdown), $.clock.now(), read($, job)])
+  if (isTurnRunning || Object.values(jobNow.loops).some(loop => !loop.done)) {
+    await update($, beat, () => Math.floor(now / 1000))
+  }
   const text = cacheStatus(cacheNow, now, warnMs) ?? ''
   if (text !== shown) {
     await update($, countdown, () => text)
@@ -171,4 +214,9 @@ async function onTick($: EngineInterface): Promise<void> {
     const seconds = Math.ceil((cacheNow.at + cacheNow.ttlMs - now) / 1000)
     $.ui.toast(`bond-cockpit: cache expires in ${seconds}s: send a message now`)
   }
+}
+
+// The Job card is a view: a failure in its bookkeeping must never fail the tool call or the turn it watches.
+async function guard(work: () => Promise<unknown>): Promise<void> {
+  await work().catch(() => undefined)
 }
