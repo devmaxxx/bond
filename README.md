@@ -94,6 +94,20 @@ and 5m on an API key. `5m` or `1h` fixes it. The card badge says `overage`,
 `set` or `API` when the TTL came from one of those. `cacheWarnSeconds` (default
 10, `0` off) sets when the toast fires.
 
+## bond-beauty-crm (beauty-crm-only companion)
+
+`plugins/bond-beauty-crm/` drives beauty-crm's own task flow (`pnpm tasks`), which
+bond's Jira/`gh` commands do not know. Enable it in the beauty-crm clone only:
+
+```json
+// beauty-crm/.claude/settings.local.json
+{ "enabledPlugins": { "bond-beauty-crm@devmaxxx": true } }
+```
+
+| Command                  | Purpose                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| `/bond-beauty-crm:batch` | Close several milestone tasks that share files in one PR: `claim`, `claim --join`, `done` each, one `pr` |
+
 ## MCP Servers
 
 `bond-bonliva` ships an MCP server template in `plugins/bond-bonliva/.mcp.json`. Run `/bond-bonliva:setup-plugin` to

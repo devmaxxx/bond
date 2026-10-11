@@ -1,0 +1,12 @@
+{
+  "name": "bond-beauty-crm",
+  "version": "0.39.0",
+  "description": "beauty-crm-only companion to bond. Enable it in the beauty-crm clone (.claude/settings.local.json), not globally. Ships batch, which closes several milestone tasks that share files in one pull request through the repository's own `pnpm tasks` claim, done and pr flow.",
+  "author": { "name": "Max Synenko", "email": "syn.max.13@gmail.com" },
+  "homepage": "https://github.com/devmaxxx/bond",
+  "repository": "https://github.com/devmaxxx/bond",
+  "license": "MIT",
+  "keywords": ["beauty-crm", "tasks", "batch"],
+  "dependencies": ["bond"],
+  "commands": "./commands/"
+}
