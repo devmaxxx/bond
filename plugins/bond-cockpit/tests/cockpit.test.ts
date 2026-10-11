@@ -85,3 +85,15 @@ test('the job card draws each workflow agent with its test counts and a push war
     await pane.unmount()
   }
 })
+
+test('the agent tab asks for a pick before one is chosen', async ($, on) => {
+  stubHost(on)
+
+  await $.command.run(RUN_COCKPIT)
+
+  for (const surface of SURFACES) {
+    const pane = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'bond-cockpit-agent', props: { ...PANE.props, title: 'agent' } })
+    expect(await pane.find({ type: 'Text', text: 'Press an agent in the job tab' })).toBeDefined()
+    await pane.unmount()
+  }
+})

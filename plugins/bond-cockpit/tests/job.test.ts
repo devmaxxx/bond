@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CacheSnapshot, UsageSnapshot } from '../types'
-import { EMPTY_JOB, agentCard, agentSpawned, elapsed, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
+import { EMPTY_JOB, agentCard, agentSpawned, sendNotice, elapsed, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
 import { summaryCard } from '../hooks/summary'
 
 const NOW = Date.parse('2026-10-12T12:00:00Z')
@@ -191,6 +191,39 @@ test('the agent tab shows one agent and its latest calls, newest first', () => {
   expect(card.badge).toBe('opus')
   expect(card.rows.flatMap(row => (row.kind === 'line' ? [row.text] : []))).toEqual(['    5s  Bash pnpm exec vitest run', '    9s  Read a.ts'])
   expect(agentCard(job, null, [], NOW).rows).toEqual([{ kind: 'note', text: 'Press an agent in the job tab', tone: 'dim' }])
+})
+
+test('runners are found past env prefixes, package-manager flags and subcommands', () => {
+  const label = (command: string) => testRun(command, '2 failed | 3 passed')?.label ?? null
+  expect(['pnpm vitest run', 'pnpm tsc --noEmit', 'CI=1 pnpm test', 'pnpm -C plugins/x test', 'npm exec vitest', 'pnpm run vitest', 'pnpm --filter api exec vitest'].map(label))
+    .toEqual(['vitest', 'tsc', 'test', 'test', 'vitest', 'vitest', 'vitest'])
+  expect(label('test -f a && cat a')).toBe(null)
+  expect(label('npx prettier --check .')).toBe(null)
+})
+
+test("a late agent of an earlier run leaves the newer run's gauge alone", () => {
+  let job = toolStarted(startJob(EMPTY_JOB, 'task', NOW), 'w1', 'Workflow', {}, undefined, NOW)
+  job = workflowLaunched(agentSpawned(job, 'a1', 'A', 'opus', 'r1', NOW), 'one', 'r1')
+  job = toolStarted(job, 'w2', 'Workflow', {}, undefined, NOW)
+  job = workflowLaunched(job, 'two', 'r2')
+  job = agentSpawned(agentSpawned(job, 'b1', 'B1', 'opus', 'r2', NOW), 'b2', 'B2', 'opus', 'r2', NOW)
+  job = agentSpawned(job, 'a2', 'A2', 'opus', 'r1', NOW)
+  job = loopEnded(loopEnded(job, 'b1', NOW), 'b2', NOW)
+
+  expect(job.workflow).toEqual({ at: NOW, name: 'two', runId: 'r2', started: 2, done: 2 })
+})
+
+test('the agent tab keeps an agent quiet past the five-minute cut', () => {
+  const job = agentSpawned(startJob(EMPTY_JOB, 'task', NOW), 'a1', 'implement:A', 'opus', undefined, NOW)
+  const card = agentCard(job, 'a1', [], NOW + 6 * 60_000)
+
+  expect(card.title).toBe('implement:A')
+  expect(card.rows[0]).toEqual(expect.objectContaining({ kind: 'agent', name: 'implement:A', mark: '◌' }))
+})
+
+test('the send notice says whether the message reached the agent', () => {
+  expect(sendNotice('implement:A', { isDelivered: true })).toBe('bond-cockpit: sent to implement:A')
+  expect(sendNotice('implement:A', { isDelivered: false, reason: 'no such agent' })).toBe('bond-cockpit: not sent to implement:A: no such agent')
 })
 
 test('tool labels name what the call works on', () => {

@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl } from './cache'
-import { EMPTY_JOB, agentCard, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
+import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
 import { drawCards } from './pane'
 import { summaryCard } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
@@ -229,9 +229,8 @@ export const register: Register = (on, options) => {
       if (agentId === null || text.trim() === '') {
         return
       }
-      const sent = await $.session.send({ to: { agentId }, text }).catch((error: unknown) => ({ deny: String(error) }))
-      const refused = (sent as { deny?: string }).deny
-      $.ui.toast(refused === undefined ? `bond-cockpit: sent to ${card.title}` : `bond-cockpit: not sent: ${refused}`)
+      const sent = await $.session.send({ to: { agentId }, text }).catch((error: unknown) => ({ isDelivered: false, reason: String(error) }))
+      $.ui.toast(sendNotice(card.title, sent))
     }
 
     return (

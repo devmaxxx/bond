@@ -13,8 +13,13 @@ const LABEL_LIMIT = 60
 // A command segment that runs a push, not one that only mentions it (`rg "git push"`).
 const PUSH = /^(?:git(?:\s+-C\s+\S+)?\s+push|gh\s+pr\s+(?:create|merge))\b/
 // The command's first line, past a leading `cd <dir> &&`, names a runner: an edit script that prints "failed" is no test.
-// A tool run directly or through npx / pnpm exec, or a package script; never the shell's own `test`.
-const RUNNER = /^(?:\S+=\S+\s+)*(?:(?:npx|bunx|pnpm\s+exec|yarn|bun\s+x)\s+)?(vitest|jest|playwright|pytest|tsc|eslint|biome|node\s+--test|turbo)\b|^(?:pnpm|npm|yarn|bun)\s+(?:(?:-r|--recursive|--filter\s+\S+|-F\s+\S+|run)\s+)*(test|lint|typecheck|check)\b/
+// A tool run directly or through a package manager, or a package script; never the shell's own `test`.
+const TOOLS = new Set(['vitest', 'jest', 'playwright', 'pytest', 'tsc', 'eslint', 'biome', 'turbo'])
+const SCRIPTS = new Set(['test', 'lint', 'typecheck', 'check'])
+const MANAGERS = new Set(['pnpm', 'npm', 'yarn', 'bun', 'npx', 'bunx'])
+const SUBCOMMANDS = new Set(['exec', 'run', 'x', 'dlx'])
+// Package-manager flags that take the next word as their value.
+const VALUE_FLAGS = new Set(['-C', '--dir', '--prefix', '--cwd', '--filter', '-F', '--workspace'])
 // Only a checker reports in errors; a test runner's output may name them in a test title.
 const COUNTS_ERRORS = /^(tsc|eslint|biome|lint|typecheck|check)$/
 
@@ -59,6 +64,11 @@ export function agentSpawned(job: JobState, agentId: string, name: string, model
     return { ...job, loops: { ...job.loops, [agentId]: loop } }
   }
   const current = job.workflow
+  // A late agent of an earlier run, one this card already saw, leaves the current run's gauge alone.
+  const isEarlierRun = current !== null && current.runId !== null && current.runId !== runId && Object.values(job.loops).some(known => known.runId === runId)
+  if (isEarlierRun) {
+    return { ...job, loops: { ...job.loops, [agentId]: loop } }
+  }
   // A run launched but not yet named by its result takes the first id it sees; the result corrects it.
   const isSameRun = current !== null && ((current.runId ?? null) === null || current.runId === runId || runId === '')
   const run = isSameRun ? current : { at: now, name: null, runId: null, started: 0, done: 0 }
@@ -101,7 +111,7 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
 /** A runner that printed no counts passed or failed by its exit, so a clean rerun clears an earlier red. */
 export function testRun(command: string, output: string, hasFailed = false): TestRun | null {
   const line = command.replace(/^\s*cd\s+\S+\s*&&\s*/, '').split('\n')[0]?.trim() ?? ''
-  const runner = RUNNER.exec(line)
+  const runner = runnerOf(line)
   if (runner === null) {
     return null
   }
@@ -110,7 +120,7 @@ export function testRun(command: string, output: string, hasFailed = false): Tes
     return found === undefined ? null : Number(found[1])
   }
   // `44 passed` (vitest, jest, bun) or `# pass 44` (node --test).
-  const label = (runner[1] ?? runner[2] ?? line).replace(/\s+/g, ' ')
+  const label = runner
   const pass = last(/(\d+)\s+pass(?:ed|ing|es)?\b/gi) ?? last(/\bpass\s+(\d+)/gi)
   const errors = COUNTS_ERRORS.test(label) && pass === null ? (last(/Found\s+(\d+)\s+errors?/gi) ?? last(/(\d+)\s+errors?\b/gi)) : null
   const fail = last(/(\d+)\s+fail(?:ed|ing|ures?|s)?\b/gi) ?? last(/\bfail\s+(\d+)/gi) ?? errors
@@ -198,8 +208,10 @@ export function agentCard(job: JobState, agentId: string | null, agents: readonl
     return { title: 'Agent', status: '', badge: '', tone: 'dim', rows: [{ kind: 'note', text: 'Press an agent in the job tab', tone: 'dim' }] }
   }
   const loop = withDefaults(stored)
-  const [row] = listLoops({ [agentId]: loop }, agents, now).map(listed => loopRow(listed, now))
-  const rows: Row[] = row === undefined ? [] : [row]
+  // Not through listLoops: its five-minute cut would drop an agent the tab still holds.
+  const name = loop.name ?? agents.find(agent => agent.id === agentId)?.description ?? `#${agentId.slice(0, 6)}`
+  const row = loopRow({ ...loop, id: agentId, name }, now)
+  const rows: Row[] = [row]
   if (loop.runId !== null) {
     rows.push({ kind: 'pair', label: 'run', value: '', note: loop.runId, tone: 'dim' })
   }
@@ -210,7 +222,12 @@ export function agentCard(job: JobState, agentId: string | null, agents: readonl
   }
   const isLive = isWorking(loop, now)
 
-  return { title: row?.kind === 'agent' ? row.name : 'Agent', status: loop.done ? '✓ done' : isLive ? '● working' : '◌ idle', badge: loop.model === null ? '' : shortModel(loop.model), tone: loop.done ? 'dim' : isLive ? 'ok' : 'warn', rows }
+  return { title: name, status: loop.done ? '✓ done' : isLive ? '● working' : '◌ idle', badge: loop.model === null ? '' : shortModel(loop.model), tone: loop.done ? 'dim' : isLive ? 'ok' : 'warn', rows }
+}
+
+/** What the agent tab says after a message: delivered, or why not. */
+export function sendNotice(name: string, sent: { isDelivered?: boolean; reason?: string }): string {
+  return sent.isDelivered === true ? `bond-cockpit: sent to ${name}` : `bond-cockpit: not sent to ${name}: ${sent.reason ?? 'refused'}`
 }
 
 /** The job in three rows for the short page: the task, what runs now, and how many agents work. */
@@ -350,6 +367,33 @@ function loopRow(loop: ListedLoop, now: number): Row {
     pushed: loop.pushed,
     tone,
   }
+}
+
+// `CI=1 pnpm -C pkg exec vitest run` → `vitest`; `pnpm -r test` → `test`; `test -f x` → null.
+function runnerOf(line: string): string | null {
+  const words = line.split(/\s+/).filter(word => word !== '')
+  while (words.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0] ?? '')) {
+    words.shift()
+  }
+  const isManaged = MANAGERS.has(words[0] ?? '')
+  if (isManaged) {
+    words.shift()
+    while (words.length > 0 && ((words[0] ?? '').startsWith('-') || SUBCOMMANDS.has(words[0] ?? ''))) {
+      const word = words.shift() ?? ''
+      if (VALUE_FLAGS.has(word)) {
+        words.shift()
+      }
+    }
+  }
+  const head = words[0] ?? ''
+  if (head === 'node' && words[1] === '--test') {
+    return 'node --test'
+  }
+  if (TOOLS.has(head) || (isManaged && SCRIPTS.has(head))) {
+    return head
+  }
+
+  return null
 }
 
 function shortRun(runId: string | null): string {
