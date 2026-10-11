@@ -37,6 +37,46 @@ export type UsageSnapshot = {
   costUsd: number | null
 }
 
+/** One subagent, teammate or workflow agent loop, as its tool calls show it. */
+export type JobLoop = {
+  calls: number
+  // The label of its latest tool call.
+  last: string
+  // Its latest tool call, or when it finished.
+  at: number
+  firstAt: number
+  done: boolean
+  // A workflow script's agent() started it.
+  workflow: boolean
+  // The run it belongs to, so only its own run's agents finish that run.
+  runId: string | null
+  // From its spawn: the description it runs under and the model it runs on.
+  name: string | null
+  model: string | null
+  // Its latest test, typecheck or lint run, by the counts the runner printed.
+  test: { pass: number | null; fail: number | null; label: string } | null
+  // It ran git push or gh pr create/merge; agents in a batch never push.
+  pushed: boolean
+  // Its latest tool calls, oldest first, for the agent tab.
+  history: { label: string; at: number }[]
+}
+
+/** What the session is doing: the prompt it works on, the tools in flight, the agent loops it runs. */
+export type JobState = {
+  task: string | null
+  startedAt: number | null
+  endedAt: number | null
+  // Main-loop tool calls not yet answered, oldest first.
+  // `asked`: the permission check put it to a decision, so it may be waiting on the person.
+  inFlight: { id: string; label: string; at: number; asked: boolean }[]
+  tools: number
+  failed: number
+  recent: string[]
+  loops: Record<string, JobLoop>
+  // The latest Workflow run: when it was launched, its script's name, and its agents started and finished since.
+  workflow: { at: number; name: string | null; runId: string | null; started: number; done: number } | null
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'bond-cockpit': {
@@ -45,6 +85,10 @@ declare module 'claude-code' {
       countdown: string
       models: ModelTally
       usage: UsageSnapshot | null
+      job: JobState
+      beat: number
+      // The agent the agent tab shows.
+      watched: string | null
     }
   }
 }

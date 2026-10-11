@@ -67,7 +67,7 @@ Hook: `PreToolUse` on `Write` / `Edit` / `MultiEdit` runs `plugins/bond-bonliva/
 Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
 symlinks into `bond`, which the plugin cache resolves into real copies.
 
-## bond-cockpit (prompt-cache status line and pane)
+## bond-cockpit (job, prompt-cache status line and pane)
 
 `plugins/bond-cockpit/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
 `modules`) that runs inside Claude Code rather than as spawned `node` processes,
@@ -81,7 +81,28 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
-  Two bordered cards. **Cache** wears the entry's state on its border and
+  Three tabs (ctrl+x tab cycles them; `/bond-cockpit job` or `session` opens
+  one). **cockpit**, in front, keeps only what matters now: the task, what
+  runs now, agents working with a workflow's finished/started count, the
+  cache hit and countdown, and the 5h and context gauges (other limits only
+  once they turn yellow or red). **job** has the full Job card, then the
+  Cache card. **session** has the Session card.
+  The **Job** card: the prompt being worked on, its
+  elapsed time (`took …` once done), what runs now — the tool in flight with
+  what it works on and for how long, `approve?` when the permission check
+  asked, `thinking`, or `waiting for you` — the tool count with failures and
+  the last tool, a `workflow` gauge of the run's finished over started agents
+  with the script's name and run id, and two lines per agent loop (subagent,
+  teammate or workflow agent): its name and model from the spawn, calls and run
+  time, then its latest tool and last test, typecheck or lint counts — red when
+  any failed, with a warning when it ran `git push` or `gh pr create`. Working
+  ones first, quiet after two minutes without a call, gone five minutes after
+  finishing. The cockpit tab's `agents` row adds the red and pushed counts. Press an
+  agent's name (ctrl+x into the pane, arrows, Enter) and an **agent** tab
+  opens: its state, run, model, its last 12 calls with their ages, and a
+  message line that sends it a note the way SendMessage does — to check on it
+  or change what it does next. The **Cache** card wears the
+  entry's state on its border and
   header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
   split into read / wrote / new tokens, then a TTL meter with the countdown, and
   advice only once there is something to do. **Session** stays grey: hit rate
