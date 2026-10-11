@@ -38,19 +38,32 @@ the machine's active account:
 ## 1. Choose the batch
 
 1. List the candidates: open, unassigned, `stage:` of a worked stage, every
-   `Depends on:` done. A card held by someone else is never a candidate.
+   dependency done. The plan files name dependencies three ways — `After …`,
+   `Depends on …` and `**Waits for:**` — and each id they name is read off
+   `origin/main`'s milestone file, not the card. `Waits for:` an owner,
+   counsel or a lawyer is a blocker however the ids read. A card held by
+   someone else is never a candidate.
+   When the milestone asked for has no candidate left, name the open
+   dependencies that block it and offer those as the batch instead: they are
+   what unblocks it.
 2. For each, read its task line in the milestone file and predict the files it
    edits (`pnpm exec repograph ask "<task text>"`, then the `path:line` it
    prints).
 3. The batch is the first-ranked task plus the candidates whose predicted files
    overlap its own — the same package and the same module, not merely the same
    workspace — up to `--max-tasks`. Tasks that share no files are not batched:
-   they are separate PRs.
+   they are separate PRs. A contract version bump with its regenerated client,
+   and a migration, count as shared files: two branches that each carry one
+   conflict on merge, so tasks that both need one join the batch rather than
+   queue behind each other. Order the commits so a task follows what it
+   depends on, and the one that overlaps an open PR most goes last.
 4. Print the batch: each id, card number, predicted files and why it joined.
    `--dry-run` ⇒ stop.
 5. A task whose remainder belongs to a later stage (another milestone's beta,
    a prod ADR, a release tag) is left out and named: that is the owner's
    decision under `.claude/CLAUDE.md`, not this command's.
+6. A task that needs a field, enum or entity `prd/02` does not define is left
+   out and named: the repository's rule is a PRD change first, then the code.
 
 ## 2. Claim
 
@@ -87,8 +100,10 @@ working on.
 1. `pnpm tasks done <MID-T##>` once per finished task. Put every `Plan-Done`
    line at the end of the last commit message too — local `pnpm verify` reads
    them from the commit range.
-2. The cheap slice locally: `lint`, `typecheck`, the unit sets of the touched
-   packages.
+2. Rebase onto `origin/main` first, then the cheap slice locally: `lint`,
+   `typecheck`, the unit sets of the touched packages. A branch behind main
+   gets a bogus `Plan-Reopen` from `pnpm tasks trailers` for every task main
+   ticked since the cut.
 3. **Ask the owner before the push.** On a yes:
    `pnpm tasks pr <first MID-T##> <MID-T##> …` — the first id first, since the
    branch is its. The title is the branch's oldest Conventional subject — the

@@ -18,6 +18,13 @@ and the procedures it names in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`.
 This command owns only selection, the conflict map, the schedule and the ledger.
 Read both files.
 
+A repository that owns its task flow has a companion command instead: in
+beauty-crm (`.bond/project.json` with `tracker: none` and a `pnpm tasks` CLI)
+the batch is `/bond-beauty-crm:batch`. When it is not installed, say so and
+offer to enable it in the clone's `.claude/settings.local.json` before running
+this one — the generic flow knows nothing of the repository's claim, its
+plan-file dependencies or its trailers.
+
 Autonomous per the **Autonomy** note in `implement-flow.md`. It never stops to
 ask mid-batch: an issue that would need a question is set aside and reported.
 
@@ -145,6 +152,14 @@ missed one costs a merge conflict.
    <predecessor branch>`): its PR stacks on the earlier one and must merge after
    it. On GitHub, merging the predecessor with branch deletion retargets the
    stacked PR to the base; on Bitbucket it does not — say so in the report.
+   A squash merge rewrites the predecessor into one new commit, so the
+   retargeted PR goes `DIRTY` even when nothing truly conflicts: rebase it with
+   `git rebase --onto origin/<base> <predecessor's last head sha>`, re-run the
+   cheap slice and push `--force-with-lease`. Record that sha in the ledger
+   when the predecessor opens, since its branch is deleted on merge.
+   When most selected issues conflict through one shared kind (a contract
+   version, a generated client, migrations), chaining yields a stack as deep
+   as the batch: offer `--group` instead.
 3. Print the schedule: items in start order, each with its keys, predicted
    files, `after`, and group. `--dry-run` ⇒ stop here.
 
