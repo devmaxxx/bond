@@ -21,8 +21,9 @@ file wherever the two differ.
 - `<MID>` — the milestone. Only its open cards of a worked stage are
   candidates (`pnpm tasks next <MID>` and `pnpm tasks status <MID>`).
 - `<MID-T##> …` — take exactly these tasks instead of choosing.
-- `--max-tasks K` — at most `K` tasks in the batch, default `3`. A bigger PR
-  is a slower review and a wider revert.
+- `--max-tasks K` — at most `K` tasks in the batch, default `10`. A bigger PR
+  is a slower review and a wider revert, so the file-overlap rule below still
+  decides who joins, not the cap.
 - `--dry-run` — stop after the batch is printed; nothing claimed.
 
 ## Identity
