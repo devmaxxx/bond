@@ -4,6 +4,8 @@ description: Start implementing beauty-crm issues — claim the card, ask every 
 
 # /bond-beauty-crm:implement
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 `/bond:implement` for beauty-crm. The repository owns its task flow — the
 `pnpm tasks` CLI, the card on GitHub, the checkbox flipped by the squash
 commit's `Plan-Done` trailer — so this command drives that flow instead of

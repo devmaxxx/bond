@@ -4,6 +4,8 @@ description: Set up the bond-bonliva plugin — install its MCP servers into eac
 
 # /setup-plugin
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Set up the bond plugin for this user. This does three things:
 
 1. **Install the bond MCP servers** into the **local scope** of every Bonliva project listed in `$HOME/.bond/projects.json` (plus the current repo when it is Bonliva's), so their tool listings load only where they are used — not in personal repos.

@@ -4,6 +4,8 @@ description: Investigate a production/staging failure end to end (Temporal run, 
 
 # /bond:investigate
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > The investigation itself is project-agnostic. Only `--jira` needs a tracker:
 > where the project profile
 > (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) resolves `TRACKER=none`,

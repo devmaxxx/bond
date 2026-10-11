@@ -5,6 +5,12 @@ but every command resolves a per-repo profile, so they work outside it too.
 
 ## Commands
 
+Every command except `/help` opens with one question carrying each decision its
+arguments leave open — target, scope, and every push, PR, merge or tracker write
+it will make — and none when the arguments settle it all; after the answer it
+runs to the end. The rule is *Commands ask first* in `shared/standing-rules.md`,
+and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
+
 | Command           | Purpose                                                                                       |
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | `/help`           | List all bond plugin commands with their descriptions                                         |

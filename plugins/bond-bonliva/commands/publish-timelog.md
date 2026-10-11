@@ -4,6 +4,8 @@ description: Publish an existing time-log markdown into the Jira timesheet and C
 
 # /bond-bonliva:publish-timelog
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > **Needs a Jira tracker and a Clockify project.** Both come from the project
 > profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Missing either,
 > name the one that is missing and stop — a timesheet posted to the wrong

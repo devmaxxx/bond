@@ -4,6 +4,8 @@ description: Diagnose a red pipeline (Woodpecker, GitHub Actions, Bitbucket) or 
 
 # /bond:fix-ci
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Takes a failed pipeline from red to green on the branch that owns it. Each
 failure is sorted first: what the base also fails is reported, a flaky step is
 rerun once, an infrastructure failure goes to the user, and only a failure the

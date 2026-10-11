@@ -4,6 +4,8 @@ description: Create, edit, assign, comment on, or transition a Jira issue — as
 
 # /bond:jira
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > **Needs a Jira tracker.** This command talks to Jira and nothing else, so it
 > applies where the project profile
 > (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) resolves `TRACKER=jira`.
@@ -22,9 +24,10 @@ that does not name someone else, is assigned to the current Atlassian user. Pass
 an explicit person (`assign to Daniel`, `--assignee "Daniel Berg"`) to override,
 or `--unassigned` to leave it unassigned.
 
-This command runs **autonomously** (see the autonomy note in
-`${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`): when a field is ambiguous but
-has a sensible default, choose it and report what you chose — do not stop to ask.
+This command asks first, then runs **autonomously** (see the autonomy note in
+`${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`): every field the arguments leave
+ambiguous goes into the one upfront question, defaults recommended; after it, do
+not stop to ask.
 Only a genuine blocker (no project resolvable for a create, issue not found, tool
 error) pauses or aborts.
 

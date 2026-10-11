@@ -4,6 +4,8 @@ description: After /bond:implement or /bond-bonliva:fix-qa — open the PR if th
 
 # /bond:ship-pr
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 The step after the code is written. `/bond:implement` and `/bond-bonliva:fix-qa`
 end with a pushed branch and an open PR; this command takes that PR the rest of
 the way to *waiting only on a human's approval*:

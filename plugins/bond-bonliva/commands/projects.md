@@ -4,6 +4,8 @@ description: Manage the list of projects tracked by /log-plan (add, remove, disc
 
 # /projects
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Manage the **projects to track** — the per-user list of repos that `/bond-bonliva:log-plan`
 aggregates commits and PRs across.
 

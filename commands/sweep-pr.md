@@ -4,6 +4,8 @@ description: Sweep every open PR — retarget, rebase and resolve conflicts, res
 
 # /bond:sweep-pr
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 One pass over a repo's open pull requests. Without `--merge` it is a report and
 repair pass: each PR comes out rebased, conflict-free and with its pipeline
 re-run where infrastructure killed it. With `--merge` the PRs that are ready

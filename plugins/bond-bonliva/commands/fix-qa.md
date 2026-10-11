@@ -4,6 +4,8 @@ description: Re-run implementation against QA failure feedback — read off the 
 
 # /bond-bonliva:fix-qa
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 A ticket has come back from QA. This command pulls the QA failure comments off the Jira issue, decides what needs to change, and runs the same shared implementation flow `/bond:implement` uses — against the existing branch, appending a dated **QA fix round** to the existing plan.
 
 It is `/bond:implement` with three QA-specific twists, which are the only logic that lives here:

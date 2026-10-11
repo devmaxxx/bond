@@ -78,6 +78,21 @@ hyphenated. Apply the `bond:authorship-conventions` skill before any
 alike. Bonliva repos keep the shape bond gives them, and a rename after the PR
 is open costs the PR.
 
+## Commands ask first — always on
+
+Every bond command — `bond`, `bond-bonliva`, `bond-beauty-crm` — opens with
+**one** `AskUserQuestion` that carries every decision its arguments leave open:
+the target, the scope, an ambiguous argument, which of several candidates, and
+each outward or destructive step it will take (push, PR, merge, Jira, Teams or
+Outline writes, deletes). Up to four questions, the recommended option first. A
+few read-only calls to frame the options come before it; no write does.
+
+Arguments that settle everything ⇒ no question. Once answered, the command runs
+to the end without asking again; only a blocker it could not have known at the
+start (a failing check, a ticket blocker, a tool error) earns a second question.
+Where nobody can be asked — a cron or `-p` turn, a subagent — take the
+recommended options and name them in the report.
+
 ## Code review at the end — always on
 
 Apply the `bond:finishing-with-code-review` skill at the end of every task that
