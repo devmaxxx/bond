@@ -4,6 +4,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl } from './cache'
 import { drawCards } from './pane'
+import { EMPTY_MODELS, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
 const PANE = 'bond-cockpit'
 const PANE_TITLE = 'bond cockpit'
@@ -15,6 +16,8 @@ const DEFAULT_WARN_SECONDS = 10
 
 const cache = atom({ plugin: 'bond-cockpit', key: 'cache' } as const, null)
 const session = atom({ plugin: 'bond-cockpit', key: 'session' } as const, EMPTY_SESSION)
+const models = atom({ plugin: 'bond-cockpit', key: 'models' } as const, EMPTY_MODELS)
+const usage = atom({ plugin: 'bond-cockpit', key: 'usage' } as const, null)
 // Written only when the countdown's text changes, so the pane redraws once a minute, then once a second.
 const countdown = atom({ plugin: 'bond-cockpit', key: 'countdown' } as const, '')
 
@@ -37,6 +40,7 @@ export const register: Register = (on, options) => {
     const started = await next(e)
     await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit pane' })
     openPane($).catch(() => undefined)
+    await measure($).catch(() => undefined)
     await pushStatus($)
     tick?.cancel()
     tick = $.clock.every(TICK_MS, () => void onTick($).catch(() => undefined))
@@ -56,6 +60,8 @@ export const register: Register = (on, options) => {
       isTurnRunning = false
       await update($, cache, () => null)
       await update($, session, () => EMPTY_SESSION)
+      await update($, models, () => EMPTY_MODELS)
+      await update($, usage, () => null)
     }
 
     return next(e)
@@ -80,17 +86,24 @@ export const register: Register = (on, options) => {
     // The cache entry's TTL restarts when the request reads or writes it, not when a long answer finishes.
     const at = await $.clock.now()
     const stepped = yield* next(e)
-    if (e.agentId === undefined && stepped.usage !== null) {
-      const { cache_read_input_tokens, cache_creation_input_tokens, input_tokens } = stepped.usage
+    const answered = stepped.usage
+    if (answered !== null) {
+      await update($, models, current => recordModel(current, answered.model, answered, e.agentId === undefined))
+    }
+    if (e.agentId === undefined && answered !== null) {
+      const { cache_read_input_tokens, cache_creation_input_tokens, input_tokens } = answered
       // The API reports a cache counter as null when the request used no caching; NaN would poison the hit rate.
       // Read after the response, so the rate-limit windows are the ones it reported.
-      const usage = await $.session.usage().catch(() => null)
+      const measured = await $.session.usage().catch(() => null)
       const snapshot = {
         read: cache_read_input_tokens ?? 0,
         wrote: cache_creation_input_tokens ?? 0,
         fresh: input_tokens ?? 0,
         at,
-        ...resolveTtl(ttlSetting, reportedTtl, usage?.rateLimits ?? []),
+        ...resolveTtl(ttlSetting, reportedTtl, measured?.rateLimits ?? []),
+      }
+      if (measured !== null) {
+        await update($, usage, () => usageSnapshot(measured))
       }
       await update($, cache, () => snapshot)
       await update($, session, current => recordRequest(current, snapshot))
@@ -100,6 +113,12 @@ export const register: Register = (on, options) => {
     return stepped
   })
 
+  on('session.measure', async ($, e, next) => {
+    await update($, usage, () => usageSnapshot(e))
+
+    return next(e)
+  })
+
   on('classic.PostModelSwitch', async ($, e, next) => {
     reportedTtl = isTtl(e.cache_ttl) ? e.cache_ttl : null
 
@@ -107,15 +126,17 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const [cacheNow, sessionNow, now] = await Promise.all([
+    const [cacheNow, sessionNow, now, modelsNow, usageNow] = await Promise.all([
       read($, cache),
       read($, session),
       $.clock.now(),
+      read($, models),
+      read($, usage),
       // Not used below: reading it subscribes the pane to the countdown, so it redraws as the text ticks.
       read($, countdown),
     ])
     const ui = $.ui.resolve(e)
-    const cards = cacheCards(cacheNow, sessionNow, now, warnMs)
+    const cards = [...cacheCards(cacheNow, sessionNow, now, warnMs), modelsCard(modelsNow), usageCard(usageNow, now)].filter(card => card !== null)
 
     return drawCards(ui, cards, e.props.bodyColumns)
   })
@@ -128,6 +149,13 @@ function openPane($: EngineInterface) {
 async function pushStatus($: EngineInterface): Promise<void> {
   const [cacheNow, now] = await Promise.all([read($, cache), $.clock.now()])
   $.ui.status(cacheStatus(cacheNow, now, warnMs) ?? undefined)
+}
+
+async function measure($: EngineInterface): Promise<void> {
+  const now = await $.session.usage().catch(() => null)
+  if (now !== null) {
+    await update($, usage, () => usageSnapshot(now))
+  }
 }
 
 async function onTick($: EngineInterface): Promise<void> {

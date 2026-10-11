@@ -27,7 +27,7 @@ const EMPTY = '─'
 const SPARK = '▁▂▃▄▅▆▇█'
 // Border and one column of padding on each side.
 const CARD_CHROME = 4
-const LABEL_COLUMNS = 9
+const LABEL_COLUMNS = 11
 const VALUE_COLUMNS = 6
 const HIT_COLUMNS = 9
 const MIN_VISIBLE_SHARE = 0.01

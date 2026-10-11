@@ -61,7 +61,7 @@ Hook: `PreToolUse` on `Write` / `Edit` / `MultiEdit` runs `plugins/bond-bonliva/
 Shared docs it reads (`project-profile.md`, `implement-flow.md`, `jira.md`) are
 symlinks into `bond`, which the plugin cache resolves into real copies.
 
-## bond-cockpit (prompt-cache status line and pane)
+## bond-cockpit (prompt-cache status line; cache, models and usage pane)
 
 `plugins/bond-cockpit/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
 `modules`) that runs inside Claude Code rather than as spawned `node` processes,
@@ -75,14 +75,19 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
-  Two bordered cards. **Cache** wears the entry's state on its border and
+  Four bordered cards. **Cache** wears the entry's state on its border and
   header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
   split into read / wrote / new tokens, then a TTL meter with the countdown, and
   advice only once there is something to do. **Session** stays grey: hit rate
   with a sparkline of the last 20 requests coloured by hit, cost relative to no
   cache with the input tokens saved after the write surcharge, and prefix
-  rebuilds (requests under 50% hit) with how long ago the last one was. Bars
-  stretch to the pane's width. `/bond-cockpit` opens it.
+  rebuilds (requests under 50% hit) with how long ago the last one was.
+  **Models** lists every model that answered this session, subagents included,
+  with its requests and tokens; the main thread's model is the badge. **Usage**
+  meters the 5h and weekly rate-limit windows with time to reset and the
+  context fill, coloured at 75% and 90%, with the session's cost as the badge;
+  it is absent off a subscription before any context reading. Bars stretch to
+  the pane's width. `/bond-cockpit` opens it.
 - **Cache toast** — `cache expires in 10s: send a message now`, once per cache
   entry and never mid-turn, so a reply sent in time is read from cache instead
   of written again.
