@@ -12,39 +12,41 @@ it writes nowhere else.
 
 ## 1. Recon
 
-One read-only `haiku` agent per group of about five issues, `effort: medium`,
-all launched in one message. Each reads the issue, the spec it cites and what
-the code already has (the repo's graph or index first, then `path:line`), and
-returns per issue, strictly:
+One `bond:batch-scout` agent (haiku, read-only) per group of about five
+issues, all launched in one message. Each reads the issue, the spec it cites
+and what the code already has (the repo's graph or index first, then
+`path:line`), and returns per issue its fixed schema: verdict, estimate,
+dependencies, files, new-file dirs, shared kinds, evidence, confidence, and
+every open question with its class (`ask` | `decide`) and recommended answer
+per **Ask or decide** in `owner-questions.md`.
 
-```
-<id> verdict: ready | mostly-built | already-done | blocked | needs-owner
-<id> estimate: <days>
-<id> depends: <ids, with their state>
-<id> files: <existing files it will edit>
-<id> shared: migrations | contract version | generated client | lockfile | route registry | none
-<id> questions: <open points, or none>
-```
-
-**The lead re-checks every `ready`, `mostly-built` and `already-done` itself**,
-against the code and the spec. A cheap scout misses a decision already taken and
-pins a remainder on the wrong milestone; a wrong `already-done` closes work
-nobody did.
+**The lead re-checks every `mostly-built` and `already-done` itself**, against
+the code and the spec, and a `ready` only when its confidence is `low` or its
+`depends` names something open. A cheap scout misses a decision already taken
+and pins a remainder on the wrong milestone; a wrong `already-done` closes work
+nobody did. A wrong `ready` costs less: its implementer finds the code there,
+reports it and stops. Run the re-checks in parallel — one read each — not one
+issue after another.
 
 ## 2. Tracks
 
 Group the `ready` issues into **tracks** by code: two tracks never edit the same
 file, and a shared kind (one migration sequence, one contract version, one
 generated client) keeps its issues in one track. Within a track, order the
-steps so each follows what it depends on. Anything doubtful is an **option** the
-owner rules on, not a step.
+steps so each follows what it depends on. A step whose only open points are
+`decide` is a step, with those points as L decisions; one with an `ask` point
+is an **option** the owner rules on.
+
+A track with no option among its steps does not wait for the owner's answers
+on another track's: it builds as soon as its plan is final.
 
 ## 3. Fleet arithmetic
 
 Before launching, print it: how many agents each phase starts and why — one
 implementer per step, one reviewer and at most one fixer per track — and how
-many run at once (at most the number of tracks, usually two). Typical: 8–12
-agents in all.
+many run at once (one per track). Make as many tracks as the code splits into
+without shared files, up to four — more tracks is more parallel build, and two
+is the floor, not the target. Typical: 8–16 agents in all.
 
 ## 4. The build
 
@@ -125,6 +127,8 @@ goes to `rejected_findings` with the reason; it is never silently dropped.
 
 ## 5. After the build
 
-The lead reads the results, closes what closes without code, puts the open
-owner items back to the owner in the `owner-questions.md` format, and pushes only
-on the owner's word.
+The lead reads the results, closes what closes without code, decides the
+decide-class owner items itself (as L), puts only the ask-class ones back to the
+owner in the `owner-questions.md` format, and pushes only on the owner's word —
+given in the first round when it was asked there, so a green track with no
+must finding left pushes without a new question.

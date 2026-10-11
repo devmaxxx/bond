@@ -53,8 +53,15 @@ Per issue:
 <id> new: <dirs for new files>
 <id> shared: migrations | contract version | generated client | lockfile | route registry | i18n | none
 <id> evidence: <path:line for mostly-built / already-done; the blocker's source otherwise>
-<id> questions: <open points> | none
+<id> questions: <ask|decide> <open point> → <recommended answer, one reason>; … | none
 <id> confidence: high | low
 ```
 
 Your verdict is re-checked by the lead; say `low` rather than guess.
+
+Every open point carries the answer you would pick, grounded in the code or the
+spec, and its class per **Ask or decide** in the plugin's
+`shared/owner-questions.md`: `ask` only when no safe default exists — schema,
+contract, stage or scope beyond the issue, money, legal, security, or two
+readings with different user-visible results that nothing settles. Everything
+else is `decide`. A point the code or spec already answers is not a question.
