@@ -7,9 +7,10 @@ description: Close several beauty-crm milestone tasks that share files in one pu
 `/bond:implement-batch --group` for beauty-crm. The repository owns its task
 flow — the `pnpm tasks` CLI, the card on GitHub, the checkbox flipped by the
 squash commit's `Plan-Done` trailer — so this command drives that flow instead
-of bond's Jira/`gh` one. Read the repository's `tasks` skill
-(`.claude/skills/tasks/SKILL.md`) before step 2; it wins over this file
-wherever the two differ.
+of bond's Jira/`gh` one, under `${CLAUDE_PLUGIN_ROOT}/shared/questions-first.md`
+instead of bond's **Autonomy** note. Read that file and the repository's `tasks`
+skill (`.claude/skills/tasks/SKILL.md`) before step 2; the skill wins over this
+file wherever the two differ.
 
 ## Usage
 
@@ -59,7 +60,14 @@ the machine's active account:
 4. Send the `broadcast:` lines only to the one or two sessions `ListAgents`
    shows as recent on the same milestone.
 
-## 3. Implement
+## 3. Questions gate
+
+`shared/questions-first.md` over the whole batch: read every task (step 2 of
+`/bond-beauty-crm:implement`), then every open point of every task in one
+`AskUserQuestion` round, before the first edit. A task whose answer takes it
+out of the batch is released now.
+
+## 4. Implement
 
 Per task, in batch order, in the one worktree: the repository's own skills
 (`feature-slice` and the skills it names), TDD, its checkbox rules — the tick
@@ -71,7 +79,7 @@ A task that ships only in part is **split** per the `tasks` skill, section
 `pnpm tasks release <n>` and drop it — a batch never holds a card nobody is
 working on.
 
-## 4. Done and PR
+## 5. Done and PR
 
 1. `pnpm tasks done <MID-T##>` once per finished task. Put every `Plan-Done`
    line at the end of the last commit message too — local `pnpm verify` reads
@@ -87,7 +95,7 @@ working on.
 4. Hand over to the repository's `pull-request` skill for the run, the merge
    condition and the squash.
 
-## 5. Report
+## 6. Report
 
 ```
 task          card   status    note

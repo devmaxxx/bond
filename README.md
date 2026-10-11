@@ -107,6 +107,7 @@ bond's Jira/`gh` commands do not know. Enable it in the beauty-crm clone only:
 | Command                  | Purpose                                                                                     |
 | ------------------------ | ------------------------------------------------------------------------------------------- |
 | `/bond-beauty-crm:batch` | Close several milestone tasks that share files in one PR: `claim`, `claim --join`, `done` each, one `pr` |
+| `/bond-beauty-crm:implement` | Start a task: claim its card, ask every question before the first edit (`shared/questions-first.md`), build, `done`, `pr` |
 
 ## MCP Servers
 

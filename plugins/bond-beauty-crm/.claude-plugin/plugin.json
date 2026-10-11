@@ -1,12 +1,21 @@
 {
   "name": "bond-beauty-crm",
   "version": "0.39.0",
-  "description": "beauty-crm-only companion to bond. Enable it in the beauty-crm clone (.claude/settings.local.json), not globally. Ships batch, which closes several milestone tasks that share files in one pull request through the repository's own `pnpm tasks` claim, done and pr flow.",
-  "author": { "name": "Max Synenko", "email": "syn.max.13@gmail.com" },
+  "description": "beauty-crm-only companion to bond. Enable it in the beauty-crm clone (.claude/settings.local.json), not globally. Ships implement (claim a task card, ask every question up front, build, done, pr) and batch (several tasks that share files closed in one pull request), both driving the repository's own `pnpm tasks` flow, and the questions-first rule they run under in place of bond's ask-nothing autonomy.",
+  "author": {
+    "name": "Max Synenko",
+    "email": "syn.max.13@gmail.com"
+  },
   "homepage": "https://github.com/devmaxxx/bond",
   "repository": "https://github.com/devmaxxx/bond",
   "license": "MIT",
-  "keywords": ["beauty-crm", "tasks", "batch"],
-  "dependencies": ["bond"],
+  "keywords": [
+    "beauty-crm",
+    "tasks",
+    "batch"
+  ],
+  "dependencies": [
+    "bond"
+  ],
   "commands": "./commands/"
 }
