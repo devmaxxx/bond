@@ -28,7 +28,10 @@ edit**:
    - a `repograph impact` of HIGH or CRITICAL — warn before the edit;
    - a change to `packages/config/`, `turbo.json` or the root `package.json`;
    - anything the task would need that is outside its text.
-2. Ask them **all in one `AskUserQuestion` call** (up to four questions; more ⇒
+   Then sort them per **Ask or decide** in bond's `shared/owner-questions.md`:
+   a point the code, `prd/02` or an earlier ruling already settles, or one
+   whose default stays inside the branch, is decided and recorded, not asked.
+2. Ask the rest **all in one `AskUserQuestion` call** (up to four questions; more ⇒
    a second call straight after, still before any edit). Each option carries its
    trade-off; a recommended one is first and says so.
 3. Record each answer in the task's PR body summary or the plan file it touches,
@@ -44,6 +47,7 @@ has no safe default — it would change the schema, the stage, or another
 session's task — stops the work: `pnpm tasks handoff <n> "<the question>"`,
 and the question goes to the owner in the report, not mid-run.
 
-Two asks are never folded into the gate and never skipped: the push (and
-opening, readying or merging a PR) waits for the owner's yes, and a refused
-claim is reported, never worked around.
+Two asks are never skipped: the push (and opening, readying or merging a PR)
+waits for the owner's yes, and a refused claim is reported, never worked
+around. The push yes may be asked at the gate, ahead of time and conditional on
+a green run; merging and readying are asked after the build.

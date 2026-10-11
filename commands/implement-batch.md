@@ -4,7 +4,7 @@ description: Implement a whole batch of issues — a Jira release, epic, JQL, ke
 
 # /bond:implement-batch
 
-**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*). Here it comes after the read-only recon (step 4.4), so the same one question also carries the owner points recon found.
 
 Runs `/bond:implement` over many issues at once, each in its own worktree and
 its own subagent, at most `N` at a time. What it adds over launching them by
@@ -26,7 +26,8 @@ this one — the generic flow knows nothing of the repository's claim, its
 plan-file dependencies or its trailers.
 
 Autonomous per the **Autonomy** note in `implement-flow.md`. It never stops to
-ask mid-batch: an issue that would need a question is set aside and reported.
+ask mid-batch: what recon can see is asked once in step 4.4, and a question
+that only surfaces during a run sets that issue aside for the report.
 
 ## Usage
 
@@ -115,21 +116,18 @@ Jira.
 
 ### 3. Conflict map
 
-One read-only `Explore` agent (`model: haiku`) per selected issue, or per group
-of about five, all launched in one message, each given the issues' summary,
-description and comments. Each returns only:
+One `bond:batch-scout` agent per group of about five selected issues, all
+launched in one message, each given the issues' summary, description and
+comments. Each returns the scout's fixed schema — verdict, files, new-file
+dirs, shared kinds, questions with a recommendation each, confidence.
 
-```
-<KEY> verdict: ready | mostly-built | already-done | blocked | needs-owner
-<KEY> files: <path>, <path>, …        # existing files it will edit
-<KEY> new: <dir>/…                     # where new files will go
-<KEY> shared: lockfile | migrations | generated client | i18n | route registry | none
-<KEY> confidence: high | low
-```
-
-Re-check every `ready`, `mostly-built` and `already-done` verdict yourself
-against the code (`${CLAUDE_PLUGIN_ROOT}/shared/track-build.md`, **Recon**); a
-`blocked` or `needs-owner` one is set aside like a step 2 blocker.
+Re-check verdicts against the code per `track-build.md` **Recon** — every
+`mostly-built` and `already-done`, a `ready` only when it is `low` confidence or
+depends on something open. A `blocked` one is set aside
+like a step 2 blocker. A `needs-owner` one, and every `questions:` line, is
+sorted per **Ask or decide** in `${CLAUDE_PLUGIN_ROOT}/shared/owner-questions.md`:
+decide-class points become the item's L decisions, passed to its run; an issue
+left with an ask-class point waits for step 4.4.
 
 Two issues **conflict** when they share an edited file, a new-file directory
 that holds an index or barrel, or any `shared` kind except `i18n` (keyed JSON
@@ -167,9 +165,16 @@ missed one costs a merge conflict.
    when the predecessor opens, since its branch is deleted on merge.
    When most selected issues conflict through one shared kind (a contract
    version, a generated client, migrations), chaining yields a stack as deep
-   as the batch: offer `--group` instead.
+   as the batch: offer `--group` instead, in step 4.4.
 3. Print the schedule: items in start order, each with its keys, predicted
    files, `after`, and group. `--dry-run` ⇒ stop here.
+4. **Ask once.** One `AskUserQuestion`, per `owner-questions.md`, with only
+   what is still open: the ask-class points from step 3 (per issue, its options
+   with the recommendation first, and "set it aside" among them), the `--group`
+   offer when step 4.2 made it, and the outward steps `$ARGUMENTS` and standing
+   preferences leave open. Nothing open ⇒ no question, say so in one line. Print
+   the L list beside it as "going with these unless you object". Items with no
+   open point start in step 5 at once; the rest start when their answer lands.
 
 ### 5. Run
 
@@ -194,6 +199,8 @@ model per `bond:routing-model-and-effort` — `opus` to build). Do **not** pass
   dependencies, and its tests fail on that, not on the code;
 - a kept worktree from step 1 ⇒ work in it (`BRANCH_SOURCE=existing`) instead of
   cutting a new branch;
+- the item's owner rulings and L decisions from steps 3 and 4.4, to go into its
+  plan file's `## Decisions` as given — the run does not re-open them;
 - the rules: write only inside its own worktree, never `git checkout` or commit
   in the main checkout; do not start a dev server on a fixed port, others run
   beside it; a `.git/*.lock` error from a concurrent `git worktree add` or fetch
@@ -232,7 +239,8 @@ ledger path.
   not exceed `--max`.
 - Do not take an issue assigned to someone else, or one that already has a
   branch — and never reassign one.
-- Do not ask the user mid-batch; set the issue aside and report it.
+- Do not ask the user mid-batch; set the issue aside and report it. Do not ask
+  a decide-class point at all — record it as an L.
 - Do not merge, approve, or mark a PR ready — that is `/bond:ship-pr` and a human.
 - Do not let a subagent touch the main checkout or another item's worktree.
 - `implement.md`'s and the shared flow's **Do NOT** lists apply to every item.

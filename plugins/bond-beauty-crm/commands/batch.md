@@ -1,5 +1,5 @@
 ---
-description: Run a batch of beauty-crm beta tasks the owner's way — Haiku recon, owner questions before any code, claim, one plan agent writing PRD-first, a two-track build workflow with review and fix, one PR per track merged together
+description: Run a batch of beauty-crm beta tasks the owner's way — Haiku recon, owner questions before any code, claim, one plan agent writing PRD-first, a parallel-track build workflow with review and fix, one PR per track merged together
 ---
 
 # /bond-beauty-crm:batch
@@ -41,10 +41,13 @@ orchestrates and barely codes.
 ## 0. Standing rules
 
 - **Reports** to the owner are short, in the language the owner writes in, and
-  only at the gates — after recon, after the plan, after the build — or at once
-  on a blocker.
-- **Push and merge** only on the owner's word. The batch merges together, not PR
-  by PR; `main` takes only a squash, only on green.
+  only at the gates — after recon (with the round-1 question in the same
+  message), after the plan when it surfaced an ask-class point, after the build
+  — or at once on a blocker.
+- **Push and merge** only on the owner's word. The push word is asked in round
+  1, so a green build does not sit waiting for it; the merge word is asked after
+  the build. The batch merges together, not PR by PR; `main` takes only a
+  squash, only on green.
 - **An owner's question is a request for an estimate**, not an order: expensive
   steps start on an explicit "do it".
 - **Never touch what is not yours.** The main checkout may be dirty from another
@@ -71,28 +74,33 @@ orchestrates and barely codes.
    lawyer is a blocker however the ids read.
 2. **A recon worktree.** Detached, on fresh `origin/main`, read-only:
    `git worktree add --detach .claude/worktrees/recon-<date> origin/main`.
-3. **The recon fleet.** About seven `haiku` agents at `effort: medium`, each with
-   its group of cards, per `track-build.md` **Recon**: the task line, the PRD
+3. **The recon fleet.** About seven `bond:batch-scout` agents, each with its
+   group of cards, per `track-build.md` **Recon**: the task line, the PRD
    references, what the code already has (`pnpm exec repograph ask` / `impact`
-   first). Verdicts `ready | mostly-built | already-done | blocked | needs-owner`,
-   with estimate, dependencies and open questions.
-4. **The lead re-checks** every `ready`, `mostly-built` and `already-done`
-   against the code and the PRD. Haiku misses decisions already taken and pins
-   remainders on the wrong milestone.
-5. **Two tracks** by code, so they never edit the same files (for example
-   track A «Najemca», track B «Kalendarz»). A migration sequence or a contract
+   first), spec roots `prd/` and the milestone files. Verdicts
+   `ready | mostly-built | already-done | blocked | needs-owner`, with
+   estimate, dependencies and open questions, each with its class and
+   recommended answer.
+4. **The lead re-checks** per `track-build.md` **Recon** — every
+   `mostly-built` and `already-done`, a `ready` only when low-confidence or
+   waiting on something open — against the code and the PRD. Haiku misses
+   decisions already taken and pins remainders on the wrong milestone.
+5. **Tracks** by code, two to four, so they never edit the same files (for
+   example track A «Najemca», track B «Kalendarz»). A migration sequence or a contract
    version bump is one shared kind: its tasks share a track. Doubtful tasks are
    **options**.
 6. Remove the recon worktree. Report the recon to the owner. `--dry-run` ⇒ stop.
 
 ## 2. Owner questions — before any code
 
-Per `owner-questions.md`. The first question is the batch's make-up: which
-tracks, which options. Answers become R1, R2, … in the plan; the lead's own
-small calls are L1, L2, … shown as "going with these unless you object". An
-alpha task held by beta work is the owner's call: "do this piece now, or move
-the task to beta". Expect two or three rounds — the plan surfaces new
-contradictions.
+Per `owner-questions.md`, **Ask or decide** first: only ask-class points
+become questions; every decide-class point is an L with the scout's
+recommendation, shown as "going with these unless you object". Round 1 carries
+the batch's make-up (which tracks, which options), every ask-class point, and
+the push word (recommended: push and open the tracks' PRs once green with no
+`must` finding left). Answers become R1, R2, … in the plan. An alpha task held
+by beta work is the owner's call: "do this piece now, or move the task to
+beta". A second round only when the plan surfaces a new ask-class point.
 
 ## 3. Claim before the first edit
 
@@ -124,15 +132,18 @@ plan) writes:
 No code, no push. It ends with `pnpm tasks check --since origin/main` at 0
 problems.
 
-The lead reads the plan, asks the owner what it surfaced, and sends the answers
-to **the same agent** with `SendMessage` — never a new one, which would start
-without the context.
+The lead reads the plan and sorts what it surfaced: decide-class ⇒ L items,
+sent to the agent straight away; ask-class ⇒ one round to the owner, answers
+sent to **the same agent** with `SendMessage` — never a new one, which would
+start without the context. A track the open questions do not touch goes to the
+build without waiting for them.
 
-## 5. Build — one Workflow, two tracks
+## 5. Build — one Workflow, tracks in parallel
 
 Print the fleet arithmetic first (`track-build.md` **Fleet arithmetic**), then
-run `track-build.md` **The build** with both tracks in parallel and steps in
-order within each. Implementers, the reviewer and the fixer are `opus` at
+run `track-build.md` **The build** with every track in parallel and steps in
+order within each — a track still waiting on an owner answer joins when it
+lands, as its own run, instead of holding the other back. Implementers, the reviewer and the fixer are `opus` at
 `effort: high`; Haiku and Sonnet do not write code here.
 
 `COMMON` is `track-build.md`'s, plus this repository's rules:
@@ -143,7 +154,7 @@ order within each. Implementers, the reviewer and the fixer are `opus` at
 - each task closes with `pnpm tasks done <MID-T##>` in the same commit as its
   code; never a checkbox or `TRACKER.md` by hand;
 - migration numbers and the contract version from the plan;
-- the other track runs tests on the same Docker Postgres: a test that fails on a
+- the other tracks run tests on the same Docker Postgres: a test that fails on a
   collision is re-run once;
 - e2e is the forge's.
 
@@ -156,11 +167,13 @@ its lenses.
 1. Read the results. Close the tasks that close without code, with the closing
    text from the plan, in one `pnpm tasks done <MID-T##> <MID-T##> …` (one id
    per call on a task-sync without the multi-id form).
-2. Remaining owner items ⇒ questions again, per step 2.
+2. Remaining owner items ⇒ sorted per step 2: decide-class ones the lead
+   settles, ask-class ones go to the owner together with the merge word.
 3. Rebase each track onto `origin/main` — behind main, `pnpm tasks trailers`
    prints a bogus `Plan-Reopen` per task main ticked since the cut — and run the
    cheap slice.
-4. On the owner's word: per track,
+4. On the owner's push word from round 1 (asked now only when round 1 did not
+   settle it): per track,
    `pnpm tasks pr <first MID-T##> <MID-T##> …` (the PR body ends with a
    `Closes #n` per card, then the `Plan-Done` block), then the `pull-request`
    skill: green run, and the batch's PRs merge together.
