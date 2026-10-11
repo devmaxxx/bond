@@ -22,12 +22,29 @@ export type CacheSession = {
   recent: number[]
 }
 
+/** Every request since the session started or was cleared, subagents' included, by the model that answered. */
+export type ModelTally = {
+  // The model the main thread's last request named.
+  current: string | null
+  byModel: Record<string, { requests: number; tokens: number }>
+}
+
+/** The account's rate-limit windows, the context fill and the session's cost, as the status line reads them. */
+export type UsageSnapshot = {
+  rateLimits: { kind: string; percentUsed: number; resetsAt?: string }[]
+  contextPercent: number | null
+  contextWindow: number
+  costUsd: number | null
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'bond-cockpit': {
       cache: CacheSnapshot | null
       session: CacheSession
       countdown: string
+      models: ModelTally
+      usage: UsageSnapshot | null
     }
   }
 }

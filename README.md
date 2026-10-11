@@ -81,8 +81,13 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   advice only once there is something to do. **Session** stays grey: hit rate
   with a sparkline of the last 20 requests coloured by hit, cost relative to no
   cache with the input tokens saved after the write surcharge, and prefix
-  rebuilds (requests under 50% hit) with how long ago the last one was. Bars
-  stretch to the pane's width. `/bond-cockpit` opens it.
+  rebuilds (requests under 50% hit) with how long ago the last one was; then a
+  `models` section, every model that answered this session, subagents
+  included, with its requests and tokens and the main thread's marked; then a
+  `usage` section of aligned gauges for the 5h and weekly rate-limit windows
+  with time to reset and for the context fill, coloured at 75% and 90%. Its
+  badge adds the session's cost. Bars stretch to
+  the pane's width. `/bond-cockpit` opens it.
 - **Cache toast** — `cache expires in 10s: send a message now`, once per cache
   entry and never mid-turn, so a reply sent in time is read from cache instead
   of written again.

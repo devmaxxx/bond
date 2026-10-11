@@ -103,6 +103,8 @@ export type Row =
   | { kind: 'pair'; label: string; value: string; note: string; tone: Tone }
   | { kind: 'trend'; label: string; value: string; hits: number[]; tone: Tone }
   | { kind: 'note'; text: string; tone: Tone }
+  | { kind: 'gauge'; label: string; value: string; ratio: number; note: string; tone: Tone }
+  | { kind: 'section'; title: string; tone: Tone }
 
 export type Card = { title: string; status: string; badge: string; tone: Tone; rows: Row[] }
 

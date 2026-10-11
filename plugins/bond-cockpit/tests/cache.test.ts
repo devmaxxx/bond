@@ -22,6 +22,10 @@ function texts(card: Card | undefined): string[] {
         return `${row.label} ${row.value} ${row.note}`
       case 'note':
         return row.text
+      case 'gauge':
+        return `${row.label} ${row.value} ${Math.round(row.ratio * 100)}% ${row.note}`
+      case 'section':
+        return `— ${row.title}`
     }
   })
 }
