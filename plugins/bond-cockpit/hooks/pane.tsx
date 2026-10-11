@@ -32,6 +32,9 @@ const VALUE_COLUMNS = 6
 const HIT_COLUMNS = 9
 const GAUGE_NOTE_COLUMNS = 6
 const MIN_VISIBLE_SHARE = 0.01
+const MODEL_COLUMNS = 7
+const CALLS_COLUMNS = 5
+const TIME_COLUMNS = 8
 
 /** `columns` is the pane body's width; bars stretch to fill whatever the card has. */
 export function drawCards(ui: Ui, cards: readonly Card[], columns: number): RenderElement {
@@ -143,6 +146,8 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number): RenderElement {
           <Text dimColor>{`${row.title} ${EMPTY.repeat(Math.max(0, inner - row.title.length - 1))}`}</Text>
         </Box>
       )
+    case 'agent':
+      return drawAgent(ui, row, key)
     case 'line':
       return (
         <Box key={key}>
@@ -156,6 +161,47 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number): RenderElement {
         </Box>
       )
   }
+}
+
+// Head: what runs and how long, in fixed right-hand columns so a list of agents reads as a table.
+// Detail: its latest tool, then its last test as coloured counts and a push warning, right-aligned.
+function drawAgent({ Box, Text }: Ui, row: Extract<Row, { kind: 'agent' }>, key: string): RenderElement {
+  const tone = TONE_PROPS[row.tone]
+  const failed = (row.test?.fail ?? 0) > 0
+
+  return (
+    <Box key={key} flexDirection="column" marginTop={1}>
+      <Box flexDirection="row">
+        <Text {...tone}>{`${row.mark} `}</Text>
+        <Box flexGrow={1}>
+          <Text bold={row.tone === 'ok'} dimColor={row.tone === 'dim'} wrap="truncate-end">{row.name}</Text>
+        </Box>
+        <Box width={MODEL_COLUMNS} justifyContent="flex-end">
+          <Text dimColor>{row.model}</Text>
+        </Box>
+        <Box width={CALLS_COLUMNS} justifyContent="flex-end">
+          <Text dimColor>{`${row.calls}×`}</Text>
+        </Box>
+        <Box width={TIME_COLUMNS} justifyContent="flex-end">
+          <Text {...tone}>{row.time}</Text>
+        </Box>
+      </Box>
+      <Box flexDirection="row">
+        <Text dimColor>{'└ '}</Text>
+        <Box flexGrow={1}>
+          <Text dimColor wrap="truncate-end">{row.detail}</Text>
+        </Box>
+        {row.test === null ? null : (
+          <Text>
+            <Text dimColor> </Text>
+            <Text color="success">{`${row.test.pass ?? ''}✓`}</Text>
+            {failed || row.test.fail === null ? <Text color="error">{` ${row.test.fail ?? ''}✗`}</Text> : null}
+          </Text>
+        )}
+        {row.pushed ? <Text color="warning"> ⚠ push</Text> : null}
+      </Box>
+    </Box>
+  )
 }
 
 function labelValue({ Box, Text }: Ui, label: string, value: string, tone: Tone): RenderElement {

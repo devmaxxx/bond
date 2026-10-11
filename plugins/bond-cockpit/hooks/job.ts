@@ -9,9 +9,13 @@ const STALE_MS = 2 * 60_000
 const KEEP_MS = 5 * 60_000
 const MAX_LOOPS = 8
 const LABEL_LIMIT = 60
-const PUSH = /\bgit\s+push\b|\bgh\s+pr\s+(create|merge)\b/
+// A command segment that runs a push, not one that only mentions it (`rg "git push"`).
+const PUSH = /^(?:git(?:\s+-C\s+\S+)?\s+push|gh\s+pr\s+(?:create|merge))\b/
 // The command's first line, past a leading `cd <dir> &&`, names a runner: an edit script that prints "failed" is no test.
-const RUNNER = /^(?:\S+=\S+\s+)*(?:npx\s+|pnpm\s+(?:exec\s+|run\s+|-\S+\s+\S+\s+)*|npm\s+(?:run\s+)?|yarn\s+|bun\s+(?:run\s+)?)?(vitest|jest|playwright|pytest|tsc|eslint|biome|node\s+--test|test|lint|typecheck|check|turbo)\b/
+// A tool run directly or through npx / pnpm exec, or a package script; never the shell's own `test`.
+const RUNNER = /^(?:\S+=\S+\s+)*(?:(?:npx|bunx|pnpm\s+exec|yarn|bun\s+x)\s+)?(vitest|jest|playwright|pytest|tsc|eslint|biome|node\s+--test|turbo)\b|^(?:pnpm|npm|yarn|bun)\s+(?:(?:-r|--recursive|--filter\s+\S+|-F\s+\S+|run)\s+)*(test|lint|typecheck|check)\b/
+// Only a checker reports in errors; a test runner's output may name them in a test title.
+const COUNTS_ERRORS = /^(tsc|eslint|biome|lint|typecheck|check)$/
 
 export const EMPTY_JOB: JobState = {
   task: null,
@@ -49,16 +53,17 @@ export function endJob(job: JobState, now: number): JobState {
 
 /** An agent starts: its spawn names it. A workflow script's agent counts toward its run. */
 export function agentSpawned(job: JobState, agentId: string, name: string, model: string, runId: string | undefined, now: number): JobState {
-  const loop = { ...(job.loops[agentId] ?? newLoop(now)), name: name || null, model: model || null, workflow: runId !== undefined }
+  const loop = { ...withDefaults(job.loops[agentId] ?? newLoop(now)), name: name || null, model: model || null, workflow: runId !== undefined, runId: runId || null }
   if (runId === undefined) {
     return { ...job, loops: { ...job.loops, [agentId]: loop } }
   }
   const current = job.workflow
-  const isSameRun = current !== null && (current.runId === null || current.runId === runId || runId === '')
+  // A run launched but not yet named by its result takes the first id it sees; the result corrects it.
+  const isSameRun = current !== null && ((current.runId ?? null) === null || current.runId === runId || runId === '')
   const run = isSameRun ? current : { at: now, name: null, runId: null, started: 0, done: 0 }
   const workflow = { ...run, runId: run.runId ?? (runId || null), started: run.started + 1 }
 
-  return { ...job, workflow, loops: { ...job.loops, [agentId]: loop } }
+  return { ...job, workflow, loops: { ...job.loops, [agentId]: { ...loop, runId: workflow.runId } } }
 }
 
 /** The Workflow call returned at launch with its script's name and run id. */
@@ -67,7 +72,13 @@ export function workflowLaunched(job: JobState, name: string | undefined, runId:
     return job
   }
 
-  return { ...job, workflow: { ...job.workflow, name: name ?? job.workflow.name, runId: job.workflow.runId ?? runId ?? null } }
+  if (runId === undefined || runId === job.workflow.runId) {
+    return { ...job, workflow: { ...job.workflow, name: name ?? job.workflow.name } }
+  }
+  // Another run's agent spawned first and lent the run its id: recount from this run's own agents.
+  const own = Object.values(job.loops).filter(loop => loop.runId === runId)
+
+  return { ...job, workflow: { at: job.workflow.at, name: name ?? job.workflow.name, runId, started: own.length, done: own.filter(loop => loop.done).length } }
 }
 
 export function toolStarted(job: JobState, id: string, tool: string, args: Record<string, unknown>, agentId: string | undefined, now: number): JobState {
@@ -77,14 +88,15 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
     const workflow = tool === 'Workflow' ? { at: now, name: null, runId: null, started: 0, done: 0 } : job.workflow
     return { ...job, tools: job.tools + 1, inFlight: [...job.inFlight, { id, label, at: now, asked: false }], workflow }
   }
-  const loop = job.loops[agentId] ?? newLoop(now)
-  const pushed = loop.pushed || (tool === 'Bash' && PUSH.test(String(args.command ?? '')))
+  const loop = withDefaults(job.loops[agentId] ?? newLoop(now))
+  const pushed = loop.pushed || (tool === 'Bash' && String(args.command ?? '').split(/&&|\|\||;|\||\n/).some(part => PUSH.test(part.trim())))
 
   return { ...job, tools: job.tools + 1, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false, pushed } } }
 }
 
 /** A test, typecheck or lint run's counts, when the command names a runner and its output reports any. */
-export function testRun(command: string, output: string): TestRun | null {
+/** A runner that printed no counts passed or failed by its exit, so a clean rerun clears an earlier red. */
+export function testRun(command: string, output: string, hasFailed = false): TestRun | null {
   const line = command.replace(/^\s*cd\s+\S+\s*&&\s*/, '').split('\n')[0]?.trim() ?? ''
   const runner = RUNNER.exec(line)
   if (runner === null) {
@@ -95,10 +107,13 @@ export function testRun(command: string, output: string): TestRun | null {
     return found === undefined ? null : Number(found[1])
   }
   // `44 passed` (vitest, jest, bun) or `# pass 44` (node --test).
+  const label = (runner[1] ?? runner[2] ?? line).replace(/\s+/g, ' ')
   const pass = last(/(\d+)\s+pass(?:ed|ing|es)?\b/gi) ?? last(/\bpass\s+(\d+)/gi)
-  const fail = last(/(\d+)\s+fail(?:ed|ing|ures?|s)?\b/gi) ?? last(/\bfail\s+(\d+)/gi) ?? last(/Found\s+(\d+)\s+errors?/gi) ?? last(/(\d+)\s+errors?\b/gi)
+  const errors = COUNTS_ERRORS.test(label) && pass === null ? (last(/Found\s+(\d+)\s+errors?/gi) ?? last(/(\d+)\s+errors?\b/gi)) : null
+  const fail = last(/(\d+)\s+fail(?:ed|ing|ures?|s)?\b/gi) ?? last(/\bfail\s+(\d+)/gi) ?? errors
 
-  return pass === null && fail === null ? null : { pass, fail, label: clip(runner[1] ?? line, 20) }
+  // `fail: null` means failed by its exit with no count printed.
+  return pass === null && fail === null ? { pass: null, fail: hasFailed ? null : 0, label } : { pass, fail: fail ?? 0, label }
 }
 
 /** The permission check asked: the call waits on a decision, not on the tool. */
@@ -123,7 +138,8 @@ export function loopEnded(job: JobState, agentId: string, now: number): JobState
   if (loop === undefined || loop.done) {
     return job
   }
-  const workflow = loop.workflow && job.workflow !== null ? { ...job.workflow, done: job.workflow.done + 1 } : job.workflow
+  const isThisRun = loop.workflow && job.workflow !== null && (loop.runId ?? null) === job.workflow.runId
+  const workflow = isThisRun && job.workflow !== null ? { ...job.workflow, done: job.workflow.done + 1 } : job.workflow
 
   return { ...job, workflow, loops: { ...job.loops, [agentId]: { ...loop, done: true, at: now } } }
 }
@@ -150,16 +166,13 @@ export function jobCard(job: JobState, agents: readonly AgentName[], now: number
   if (job.workflow !== null) {
     const { at, started, done } = job.workflow
     const isDone = isFinished(job.workflow)
-    rows.push({ kind: 'gauge', label: 'workflow', value: `${done}/${started}`, ratio: started === 0 ? 0 : done / started, note: isDone ? 'done' : elapsed(now - at), tone: isDone ? 'plain' : 'ok' })
-    const named = [job.workflow.name, job.workflow.runId].filter(part => part !== null).join(' · ')
-    if (named !== '') {
-      rows.push({ kind: 'line', text: named, tone: 'dim' })
-    }
+    rows.push({ kind: 'section', title: ['workflow', job.workflow.name, shortRun(job.workflow.runId)].filter(Boolean).join(' · '), tone: 'dim' })
+    rows.push({ kind: 'gauge', label: 'finished', value: `${done}/${started}`, ratio: started === 0 ? 0 : done / started, note: isDone ? 'done' : elapsed(now - at), tone: isDone ? 'plain' : 'ok' })
   }
   if (loops.length > 0) {
     const red = loops.filter(isRed).length
-    rows.push({ kind: 'section', title: `agents ${working} working${red > 0 ? ` · ${red} red` : ''}`, tone: 'dim' })
-    rows.push(...loops.slice(0, MAX_LOOPS).flatMap(loop => loopRows(loop, now)))
+    rows.push({ kind: 'section', title: `agents · ${working} working${red > 0 ? ` · ${red} red` : ''}`, tone: 'dim' })
+    rows.push(...loops.slice(0, MAX_LOOPS).map(loop => loopRow(loop, now)))
     if (loops.length > MAX_LOOPS) {
       rows.push({ kind: 'note', text: `+${loops.length - MAX_LOOPS} more`, tone: 'dim' })
     }
@@ -285,29 +298,41 @@ function listLoops(loops: Record<string, JobLoop>, agents: readonly AgentName[],
   const names = new Map(agents.map(agent => [agent.id, agent.description || agent.type]))
 
   return Object.entries(keptLoops(loops, now))
-    .map(([id, loop]) => ({ ...loop, id, name: loop.name ?? names.get(id) ?? `#${id.slice(0, 6)}` }))
+    .map(([id, loop]) => ({ ...withDefaults(loop), id, name: loop.name ?? names.get(id) ?? `#${id.slice(0, 6)}` }))
     .sort((a, b) => Number(isWorking(b, now)) - Number(isWorking(a, now)) || Number(a.done) - Number(b.done) || b.at - a.at)
 }
 
-// Two lines per loop: who it is and how it stands, then its latest tool and test.
-function loopRows(loop: ListedLoop, now: number): Row[] {
+// Working: green, its run time. Quiet: yellow, how long since its last call (it may be stuck). Done: grey, how long ago.
+function loopRow(loop: ListedLoop, now: number): Row {
   const isLive = isWorking(loop, now)
-  const state = loop.done ? `done ${elapsed(now - loop.at)} ago` : isLive ? `${elapsed(now - loop.firstAt)}` : `quiet ${elapsed(now - loop.at)}`
-  const head = [`${loop.done ? '✓' : '●'} ${loop.name}`, loop.model === null ? '' : shortModel(loop.model), `${loop.calls} calls`, state]
-  const test = loop.test === null ? '' : `${loop.test.label} ${loop.test.pass ?? '?'}✓ ${loop.test.fail ?? 0}✗`
-  const rows: Row[] = [
-    { kind: 'line', text: head.filter(part => part !== '').join(' · '), tone: isLive ? 'ok' : 'dim' },
-    { kind: 'line', text: `  ${[loop.done ? '' : loop.last, test].filter(part => part !== '').join(' · ') || '–'}`, tone: isRed(loop) ? 'bad' : 'dim' },
-  ]
-  if (loop.pushed) {
-    rows.push({ kind: 'line', text: '  ran git push / gh pr', tone: 'warn' })
-  }
+  const [mark, time, tone]: [string, string, Tone] = loop.done
+    ? ['✓', `${elapsed(now - loop.at)} ago`, 'dim']
+    : isLive
+      ? ['●', elapsed(now - loop.firstAt), 'ok']
+      : ['◌', `idle ${elapsed(now - loop.at)}`, 'warn']
+  const detail = loop.done ? (loop.test === null ? 'finished' : loop.test.label) : loop.last || 'starting'
 
-  return rows
+  return {
+    kind: 'agent',
+    mark,
+    name: loop.name,
+    model: loop.model === null ? '' : shortModel(loop.model),
+    calls: loop.calls,
+    time,
+    detail: loop.test !== null && !loop.done ? `${detail} · ${loop.test.label}` : detail,
+    test: loop.test === null ? null : { pass: loop.test.pass, fail: loop.test.fail },
+    pushed: loop.pushed,
+    tone,
+  }
+}
+
+function shortRun(runId: string | null): string {
+  return runId === null ? '' : runId.replace(/^wf_/, '').slice(0, 8)
 }
 
 function isRed(loop: JobLoop): boolean {
-  return (loop.test?.fail ?? 0) > 0
+  const test = loop.test ?? null
+  return test !== null && (test.fail === null || test.fail > 0)
 }
 
 function shortModel(model: string): string {
@@ -315,7 +340,12 @@ function shortModel(model: string): string {
 }
 
 function newLoop(now: number): JobLoop {
-  return { calls: 0, last: '', at: now, firstAt: now, done: false, workflow: false, name: null, model: null, test: null, pushed: false }
+  return { calls: 0, last: '', at: now, firstAt: now, done: false, workflow: false, runId: null, name: null, model: null, test: null, pushed: false }
+}
+
+// $.state outlives a plugin update: a loop saved by an older version lacks the newer fields.
+function withDefaults(loop: JobLoop): JobLoop {
+  return { ...newLoop(loop.at), ...loop, test: loop.test ?? null, name: loop.name ?? null, model: loop.model ?? null, runId: loop.runId ?? null, pushed: loop.pushed ?? false }
 }
 
 function isWorking(loop: Pick<JobLoop, 'done' | 'at'>, now: number): boolean {

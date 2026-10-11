@@ -71,19 +71,15 @@ test('a workflow counts the agents its script spawns, names them and shows their
   job = toolStarted(job, 't2', 'Bash', { command: 'git push -u origin x' }, 'b1', NOW + 2_000)
   job = loopEnded(job, 'sub', NOW + 3_000)
   const rows = jobCard(job, [], NOW + 64_000)?.rows ?? []
-  const lines = rows.flatMap(row => (row.kind === 'line' ? [row.text] : []))
+  const agents = rows.flatMap(row => (row.kind === 'agent' ? [[row.mark, row.name, row.model, row.calls, row.time, row.detail, row.test, row.pushed]] : []))
 
-  expect(rows).toContainEqual({ kind: 'gauge', label: 'workflow', value: '0/2', ratio: 0, note: '1m04s', tone: 'ok' })
-  expect(rows).toContainEqual({ kind: 'section', title: 'agents 2 working · 1 red', tone: 'dim' })
-  expect(lines).toEqual([
-    'batch-build · wf_36953d3d',
-    '● implement:B · opus · 1 calls · 1m04s',
-    '  Bash git push -u origin x',
-    '  ran git push / gh pr',
-    '● implement:A · opus · 1 calls · 1m04s',
-    '  Bash pnpm exec vitest run · vitest 44✓ 2✗',
-    '✓ review · haiku · 0 calls · done 1m01s ago',
-    '  –',
+  expect(rows).toContainEqual({ kind: 'section', title: 'workflow · batch-build · 36953d3d', tone: 'dim' })
+  expect(rows).toContainEqual({ kind: 'gauge', label: 'finished', value: '0/2', ratio: 0, note: '1m04s', tone: 'ok' })
+  expect(rows).toContainEqual({ kind: 'section', title: 'agents · 2 working · 1 red', tone: 'dim' })
+  expect(agents).toEqual([
+    ['●', 'implement:B', 'opus', 1, '1m04s', 'Bash git push -u origin x', null, true],
+    ['●', 'implement:A', 'opus', 1, '1m04s', 'Bash pnpm exec vitest run · vitest', { pass: 44, fail: 2 }, false],
+    ['✓', 'review', 'haiku', 0, '1m01s ago', 'finished', null, false],
   ])
 })
 
@@ -91,7 +87,44 @@ test('a test run is read only from a runner command, by the counts it printed la
   expect(testRun('node --test tests/*.test.mjs', '# pass 476\n# fail 0')).toEqual({ pass: 476, fail: 0, label: 'node --test' })
   expect(testRun('pnpm exec tsc --noEmit', 'Found 3 errors in 2 files.')).toEqual({ pass: null, fail: 3, label: 'tsc' })
   expect(testRun("python3 - <<'EOF'\nrun('vitest')", '1 failed')).toBe(null)
-  expect(testRun('pnpm exec vitest run', 'no output')).toBe(null)
+  expect(testRun('pnpm exec vitest run', 'no output')).toEqual({ pass: null, fail: 0, label: 'vitest' })
+  expect(testRun('pnpm exec vitest run', 'Tests 12 passed (12) · returns 2 errors')).toEqual({ pass: 12, fail: 0, label: 'vitest' })
+  expect(testRun('test -f log && cat log', '3 errors')).toBe(null)
+  expect(testRun('pnpm -r test', '3 failed | 2 passed')).toEqual({ pass: 2, fail: 3, label: 'test' })
+})
+
+test('a clean rerun clears a red loop', () => {
+  let job = toolStarted(startJob(EMPTY_JOB, 'task', NOW), 't1', 'Bash', { command: 'npx tsc --noEmit' }, 'a', NOW)
+  job = toolEnded(job, 't1', true, 'a', testRun('npx tsc --noEmit', 'Found 3 errors in 2 files.', true))
+  expect(jobCard(job, [], NOW)?.rows).toContainEqual({ kind: 'section', title: 'agents · 1 working · 1 red', tone: 'dim' })
+  job = toolEnded(toolStarted(job, 't2', 'Bash', { command: 'npx tsc --noEmit' }, 'a', NOW), 't2', false, 'a', testRun('npx tsc --noEmit', ''))
+  expect(jobCard(job, [], NOW)?.rows).toContainEqual({ kind: 'section', title: 'agents · 1 working', tone: 'dim' })
+})
+
+test('only a command that runs a push flags it', () => {
+  const pushed = (command: string) => toolStarted(EMPTY_JOB, 't', 'Bash', { command }, 'a', NOW).loops.a?.pushed
+  expect(pushed('rg "git push" docs/')).toBe(false)
+  expect(pushed('cd /w && git -C repo push origin x')).toBe(true)
+  expect(pushed('pnpm test; gh pr create --fill')).toBe(true)
+})
+
+test('a run counts only its own agents finishing, and its launch result fixes a borrowed id', () => {
+  let job = toolStarted(startJob(EMPTY_JOB, 'task', NOW), 'w1', 'Workflow', {}, undefined, NOW)
+  job = agentSpawned(job, 'a', 'A', 'opus', 'wf_A', NOW)
+  job = toolStarted(job, 'w2', 'Workflow', {}, undefined, NOW)
+  job = agentSpawned(job, 'a2', 'A2', 'opus', 'wf_A', NOW)
+  job = workflowLaunched(job, 'B', 'wf_B')
+  job = agentSpawned(job, 'x', 'X', 'opus', 'wf_B', NOW)
+  job = loopEnded(loopEnded(job, 'a', NOW), 'a2', NOW)
+
+  expect(job.workflow).toEqual({ at: NOW, name: 'B', runId: 'wf_B', started: 1, done: 0 })
+})
+
+test('a loop saved by an older version draws without the newer fields', () => {
+  const old = { calls: 2, last: 'Read a.ts', at: NOW, firstAt: NOW, done: false, workflow: true }
+  const job = { ...startJob(EMPTY_JOB, 'task', NOW), loops: { a: old } } as unknown as typeof EMPTY_JOB
+
+  expect(jobCard(job, [], NOW)?.rows).toContainEqual(expect.objectContaining({ kind: 'agent', name: '#a', test: null, pushed: false }))
 })
 
 test('the workflow count survives its agents dropping off the list', () => {
@@ -103,7 +136,7 @@ test('the workflow count survives its agents dropping off the list', () => {
   job = agentSpawned(job, 'e', 'e', 'opus', 'wf_x', NOW + 6 * 60_000)
   const rows = jobCard(job, [], NOW + 7 * 60_000)?.rows ?? []
 
-  expect(rows).toContainEqual({ kind: 'gauge', label: 'workflow', value: '4/5', ratio: 0.8, note: '7m00s', tone: 'ok' })
+  expect(rows).toContainEqual({ kind: 'gauge', label: 'finished', value: '4/5', ratio: 0.8, note: '7m00s', tone: 'ok' })
 })
 
 test('a loop that never reports its end goes quiet, stops the redraws, then drops off', () => {
@@ -111,7 +144,7 @@ test('a loop that never reports its end goes quiet, stops the redraws, then drop
 
   expect(isBusy(job, NOW + 10_000)).toBe(true)
   expect(isBusy(job, NOW + 3 * 60_000)).toBe(false)
-  expect(jobCard(job, [], NOW + 3 * 60_000)?.rows).toContainEqual({ kind: 'line', text: '● #fork1 · 1 calls · quiet 3m00s', tone: 'dim' })
+  expect(jobCard(job, [], NOW + 3 * 60_000)?.rows).toContainEqual(expect.objectContaining({ kind: 'agent', mark: '◌', name: '#fork1', time: 'idle 3m00s', tone: 'warn' }))
   expect(jobCard(job, [], NOW + 6 * 60_000)?.rows.some(row => row.kind === 'section')).toBe(false)
 })
 

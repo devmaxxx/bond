@@ -48,6 +48,8 @@ export type JobLoop = {
   done: boolean
   // A workflow script's agent() started it.
   workflow: boolean
+  // The run it belongs to, so only its own run's agents finish that run.
+  runId: string | null
   // From its spawn: the description it runs under and the model it runs on.
   name: string | null
   model: string | null

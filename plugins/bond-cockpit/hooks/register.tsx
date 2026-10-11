@@ -119,7 +119,7 @@ export const register: Register = (on, options) => {
     const ran = await next(e)
     await guard(async () => {
       const result = (ran.result ?? {}) as { stdout?: unknown; stderr?: unknown; workflowName?: string; runId?: string }
-      const test = tool === 'Bash' && agentId !== undefined ? testRun(String(args.command ?? ''), `${String(result.stdout ?? '')}\n${String(result.stderr ?? '')}`) : null
+      const test = tool === 'Bash' && agentId !== undefined ? testRun(String(args.command ?? ''), `${String(result.stdout ?? '')}\n${String(result.stderr ?? '')}`, ran.isError === true) : null
       await update($, job, current => {
         const ended = toolEnded(current, id, ran.deny !== undefined || ran.isError === true, agentId, test)
         return tool === 'Workflow' && agentId === undefined ? workflowLaunched(ended, result.workflowName, result.runId) : ended
