@@ -4,6 +4,8 @@ description: Fallback browser path — set up / open an always-on debuggable Chr
 
 # /bond:chrome-debug
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 **Reach for `claude-in-chrome` first.** It drives the user's real, already-signed-in
 Chrome through the browser extension, so every SSO session (Jira, Teams, the app
 under test) is already there and nothing has to be stood up. This command exists

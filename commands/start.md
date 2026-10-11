@@ -4,6 +4,8 @@ description: Check out a fresh typed branch to start work — creating the Jira 
 
 # /bond:start
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Spin up work in one step: **create a new Jira issue** from a free-text summary,
 then **check out a properly-named branch** for it. Where the project profile
 resolves `TRACKER=none` there is no issue to create — the free text names the
@@ -17,9 +19,10 @@ shared procedures: ticket creation to the **create** procedure in
 `${CLAUDE_PLUGIN_ROOT}/commands/jira.md`, and the branch to
 `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`. Read both.
 
-This command runs **autonomously** (see the autonomy note in
-`${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`): when a field is ambiguous but
-has a sensible default, choose it and report the choice — don't stop to ask. Only
+This command asks first, then runs **autonomously** (see the autonomy note in
+`${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`): every field the arguments leave
+ambiguous goes into the one upfront question, defaults recommended; after it,
+don't stop to ask. Only
 a genuine blocker (no project resolvable, tool error, dirty tree in in-place
 mode) pauses or aborts.
 

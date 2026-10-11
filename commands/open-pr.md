@@ -4,6 +4,8 @@ description: Open a pull request for the current branch (GitHub or Bitbucket) �
 
 # /open-pr
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Creates a pull request from the current branch into a base branch (`main` by default). The host is resolved from the `origin` remote: `gh` for a GitHub repo, the Bitbucket MCP server (`bond-bitbucket`) for a Bitbucket one.
 
 Usage: `/open-pr [base-branch] [--issue <ID>…]`

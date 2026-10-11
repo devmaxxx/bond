@@ -9,14 +9,15 @@
 
 ## Autonomy
 
-This flow runs without pausing for the user. Whenever a step would present a
-choice or ask the user to pick between viable options — an ambiguous branch,
-which of several candidates to use, a scope question with a sensible default —
-**do not ask**: pick the best option yourself, act on it, and record it in the
-plan file's `## Decisions` section (the options you considered, the one you
-chose, and a one-line rationale). Likewise **commit and push automatically**
-through the Ship + PR procedure — never ask the user to commit or push, just do
-it.
+Every choice the arguments leave open and the flow can see from the start — an
+ambiguous branch, which of several candidates to use, a scope question, whether
+to push and open the PR — goes into the **one upfront question** of the
+*Commands ask first* standing rule, before the first write. After it the flow
+runs without pausing: a choice that only surfaces mid-flow is **not asked** —
+pick the best option, act on it, and record it in the plan file's
+`## Decisions` section (the options you considered, the one you chose, and a
+one-line rationale). Commit and push go through the Ship + PR procedure as the
+upfront answer settled them — never a second time.
 
 Three things still stop the flow: a genuine blocker where no option is viable
 (missing type, error response, no branch found) — surface it and abort/pause as
@@ -393,7 +394,8 @@ Tell the user:
 the same value passed to **Set up the branch**; when unset, the **Default base
 branch** procedure resolves it).
 
-Commit and push happen here automatically — do not ask the user first.
+Commit and push happen here as the upfront question settled them — do not ask
+again.
 
 1. Validate, commit, and push the branch. Inside Bonliva that is
    `/bonliva-dev:ship`; where the profile is not Bonliva that command belongs to

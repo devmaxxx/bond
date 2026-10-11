@@ -4,6 +4,8 @@ description: Post a Teams card inviting reviewers to review a Bitbucket pull req
 
 # /bond-bonliva:request-review
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > **Needs a Teams channel.** Resolve the project profile
 > (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) first. With no
 > `TEAMS_CHANNEL`, report that the project has no review channel and stop:

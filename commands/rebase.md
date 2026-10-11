@@ -4,6 +4,8 @@ description: Rebase the current branch or a PR onto a fresh base — resolve con
 
 # /bond:rebase
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Brings a branch up to date with its base and leaves it pushed and green
 locally. The conflict work itself is **Resolve merge conflicts** in
 `${CLAUDE_PLUGIN_ROOT}/shared/merge-conflicts.md`; this command picks the

@@ -4,6 +4,8 @@ description: Sync Jira with your PRs — merged ⇒ QA (+ fixVersion), open ⇒ 
 
 # /bond-bonliva:jira-sync
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > **Needs a Jira tracker.** Resolve the project profile
 > (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`) first. Under
 > `TRACKER=none`, say the repo has no tracker and stop.

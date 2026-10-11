@@ -4,6 +4,8 @@ description: Publish a markdown doc (plan, investigation, runbook) to Outline, t
 
 # /bond-bonliva:publish-doc
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > **Needs the `bond-outline` MCP** (installed by `/bond-bonliva:setup-plugin`).
 > Its tools missing ⇒ say so, point at `setup-plugin`, and stop.
 

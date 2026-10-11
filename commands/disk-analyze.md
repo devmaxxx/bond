@@ -4,6 +4,8 @@ description: Analyze disk usage on macOS — find runaway logs, deleted-but-open
 
 # /bond:disk-analyze
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Find out where the disk went, and reclaim it **without breaking anything that is
 still running**. macOS only.
 

@@ -4,6 +4,8 @@ description: Open a branch, ticket or PR in its own worktree (env files + deps r
 
 # /bond:worktree
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 One place for the worktree chores that otherwise get done by hand, one `git
 worktree` call at a time: open a branch somewhere it cannot disturb the main
 checkout, close it without losing work, and sweep out the ones whose PR is long
@@ -15,8 +17,9 @@ convention (`../worktrees/<repo>-<slug>`); this command never invents another.
 Host, base branch and tracker come from the project profile,
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`.
 
-Runs autonomously per the **Autonomy** note in `implement-flow.md`: with several
-candidates, pick the best, act, and say which. The one exception is losing work
+Asks first, then runs autonomously per the **Autonomy** note in
+`implement-flow.md`: several candidates seen at the start go into the upfront
+question; ones found later, pick the best, act, and say which. The one exception is losing work
 — that is never a judgement call, it is a refusal.
 
 ## Usage

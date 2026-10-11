@@ -4,6 +4,8 @@ description: Post a message to a Microsoft Teams channel via a Workflow webhook
 
 # /bond-bonliva:teams-post
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Post a message to a Microsoft Teams **channel** using the bond webhook script at
 `${CLAUDE_PLUGIN_ROOT}/scripts/teams-post.sh`, which POSTs an Adaptive Card to a
 Power Automate "Post to a channel when a webhook request is received" Workflow.

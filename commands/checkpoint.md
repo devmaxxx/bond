@@ -4,6 +4,8 @@ description: Save, compare against, list or restore named snapshots of the worki
 
 # /bond:checkpoint
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 A named snapshot of the work in progress, so a long `/bond:implement` run or a risky
 refactor has somewhere to come back to. A checkpoint is a stash object stored in a
 dedicated ref: it records tracked and staged changes on top of `HEAD`, and creating one

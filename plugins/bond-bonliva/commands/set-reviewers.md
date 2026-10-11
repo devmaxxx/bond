@@ -4,6 +4,8 @@ description: Set or change the default reviewers added to PRs by /open-pr
 
 # /set-reviewers
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > **Bonliva default reviewers.** This file backs the `REVIEWERS` field of the
 > project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`), which
 > reads it **only for Bonliva repos** — the people listed here cannot open a

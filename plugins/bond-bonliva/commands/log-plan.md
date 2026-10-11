@@ -4,6 +4,8 @@ description: Generate a day/week/month time-log plan markdown by gathering commi
 
 # /log-plan
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 > **Bonliva time-logging.** The repos it walks come from `$HOME/.bond/projects.json`
 > (see `/bond-bonliva:projects`, whose discovery glob is configurable); the ticket titles
 > and merged PRs come from Jira and Bitbucket. Outside a profile with a Jira

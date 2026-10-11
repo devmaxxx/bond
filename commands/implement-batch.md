@@ -4,6 +4,8 @@ description: Implement a whole batch of issues — a Jira release, epic, JQL, ke
 
 # /bond:implement-batch
 
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
+
 Runs `/bond:implement` over many issues at once, each in its own worktree and
 its own subagent, at most `N` at a time. What it adds over launching them by
 hand is the scheduling: it predicts which files each issue will touch and never
