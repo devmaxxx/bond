@@ -8,6 +8,7 @@ const STALE_MS = 2 * 60_000
 // A finished or quiet loop stays listed this long, so a burst of agents can be read after it ends.
 const KEEP_MS = 5 * 60_000
 const MAX_LOOPS = 8
+const HISTORY = 12
 const LABEL_LIMIT = 60
 // A command segment that runs a push, not one that only mentions it (`rg "git push"`).
 const PUSH = /^(?:git(?:\s+-C\s+\S+)?\s+push|gh\s+pr\s+(?:create|merge))\b/
@@ -91,7 +92,9 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
   const loop = withDefaults(job.loops[agentId] ?? newLoop(now))
   const pushed = loop.pushed || (tool === 'Bash' && String(args.command ?? '').split(/&&|\|\||;|\||\n/).some(part => PUSH.test(part.trim())))
 
-  return { ...job, tools: job.tools + 1, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false, pushed } } }
+  const history = [...loop.history, { label, at: now }].slice(-HISTORY)
+
+  return { ...job, tools: job.tools + 1, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false, pushed, history } } }
 }
 
 /** A test, typecheck or lint run's counts, when the command names a runner and its output reports any. */
@@ -186,6 +189,28 @@ export function jobCard(job: JobState, agents: readonly AgentName[], now: number
     tone: isActive ? 'ok' : 'dim',
     rows,
   }
+}
+
+/** The agent tab: one loop's state, last test and latest calls, newest first. */
+export function agentCard(job: JobState, agentId: string | null, agents: readonly AgentName[], now: number): Card {
+  const stored = agentId === null ? undefined : job.loops[agentId]
+  if (agentId === null || stored === undefined) {
+    return { title: 'Agent', status: '', badge: '', tone: 'dim', rows: [{ kind: 'note', text: 'Press an agent in the job tab', tone: 'dim' }] }
+  }
+  const loop = withDefaults(stored)
+  const [row] = listLoops({ [agentId]: loop }, agents, now).map(listed => loopRow(listed, now))
+  const rows: Row[] = row === undefined ? [] : [row]
+  if (loop.runId !== null) {
+    rows.push({ kind: 'pair', label: 'run', value: '', note: loop.runId, tone: 'dim' })
+  }
+  rows.push({ kind: 'pair', label: 'started', value: elapsed(now - loop.firstAt), note: 'ago', tone: 'dim' })
+  if (loop.history.length > 0) {
+    rows.push({ kind: 'section', title: 'latest calls', tone: 'dim' })
+    rows.push(...[...loop.history].reverse().map(call => ({ kind: 'line' as const, text: `${elapsed(now - call.at).padStart(6)}  ${call.label}`, tone: 'dim' as const })))
+  }
+  const isLive = isWorking(loop, now)
+
+  return { title: row?.kind === 'agent' ? row.name : 'Agent', status: loop.done ? '✓ done' : isLive ? '● working' : '◌ idle', badge: loop.model === null ? '' : shortModel(loop.model), tone: loop.done ? 'dim' : isLive ? 'ok' : 'warn', rows }
 }
 
 /** The job in three rows for the short page: the task, what runs now, and how many agents work. */
@@ -314,6 +339,7 @@ function loopRow(loop: ListedLoop, now: number): Row {
 
   return {
     kind: 'agent',
+    id: loop.id,
     mark,
     name: loop.name,
     model: loop.model === null ? '' : shortModel(loop.model),
@@ -340,12 +366,12 @@ function shortModel(model: string): string {
 }
 
 function newLoop(now: number): JobLoop {
-  return { calls: 0, last: '', at: now, firstAt: now, done: false, workflow: false, runId: null, name: null, model: null, test: null, pushed: false }
+  return { calls: 0, last: '', at: now, firstAt: now, done: false, workflow: false, runId: null, name: null, model: null, test: null, pushed: false, history: [] }
 }
 
 // $.state outlives a plugin update: a loop saved by an older version lacks the newer fields.
 function withDefaults(loop: JobLoop): JobLoop {
-  return { ...newLoop(loop.at), ...loop, test: loop.test ?? null, name: loop.name ?? null, model: loop.model ?? null, runId: loop.runId ?? null, pushed: loop.pushed ?? false }
+  return { ...newLoop(loop.at), ...loop, test: loop.test ?? null, name: loop.name ?? null, model: loop.model ?? null, runId: loop.runId ?? null, pushed: loop.pushed ?? false, history: loop.history ?? [] }
 }
 
 function isWorking(loop: Pick<JobLoop, 'done' | 'at'>, now: number): boolean {

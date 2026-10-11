@@ -106,7 +106,7 @@ export type Row =
   // A note packed under the row before it.
   | { kind: 'line'; text: string; tone: Tone }
   // One agent loop: a head line (mark, name, model, calls, time) and a detail line (latest tool, last test, push).
-  | { kind: 'agent'; mark: string; name: string; model: string; calls: number; time: string; detail: string; test: { pass: number | null; fail: number | null } | null; pushed: boolean; tone: Tone }
+  | { kind: 'agent'; id: string; mark: string; name: string; model: string; calls: number; time: string; detail: string; test: { pass: number | null; fail: number | null } | null; pushed: boolean; tone: Tone }
   | { kind: 'gauge'; label: string; value: string; ratio: number; note: string; tone: Tone }
   | { kind: 'section'; title: string; tone: Tone }
 

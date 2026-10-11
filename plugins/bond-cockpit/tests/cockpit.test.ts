@@ -73,13 +73,15 @@ test('the job card draws each workflow agent with its test counts and a push war
   current = toolEnded(current, 't1', false, 'a1', testRun('pnpm exec vitest run', '2 failed | 44 passed'))
   current = toolStarted(current, 't2', 'Bash', { command: 'git push' }, 'a1', 1_000_000)
   const card = jobCard(current, [], 1_060_000)
-  on('ui.render', { component: 'Pane', requestId: 'job-probe' }, ($, e) => drawCards($.ui.resolve(e), card === null ? [] : [card], e.props.bodyColumns))
+  on('ui.render', { component: 'Pane', requestId: 'job-probe' }, ($, e) => drawCards($.ui.resolve(e), card === null ? [] : [card], e.props.bodyColumns, () => undefined))
 
   for (const surface of SURFACES) {
     const pane = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'job-probe' })
     for (const text of ['implement:A', 'opus', '44✓', ' 2✗', ' ⚠ push', 'Bash git push']) {
       expect(await pane.find({ type: 'Text', text })).toBeDefined()
     }
+    // Pressing needs the button drawn by the plugin's own hook; this probe is the test's, so check the drawing.
+    expect(await pane.find({ type: 'Button', key: 'agent:a1' })).toBeDefined()
     await pane.unmount()
   }
 })

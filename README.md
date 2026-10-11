@@ -97,7 +97,11 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   time, then its latest tool and last test, typecheck or lint counts — red when
   any failed, with a warning when it ran `git push` or `gh pr create`. Working
   ones first, quiet after two minutes without a call, gone five minutes after
-  finishing. The cockpit tab's `agents` row adds the red and pushed counts. The **Cache** card wears the
+  finishing. The cockpit tab's `agents` row adds the red and pushed counts. Press an
+  agent's name (ctrl+x into the pane, arrows, Enter) and an **agent** tab
+  opens: its state, run, model, its last 12 calls with their ages, and a
+  message line that sends it a note the way SendMessage does — to check on it
+  or change what it does next. The **Cache** card wears the
   entry's state on its border and
   header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
   split into read / wrote / new tokens, then a TTL meter with the countdown, and

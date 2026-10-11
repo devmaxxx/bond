@@ -57,6 +57,8 @@ export type JobLoop = {
   test: { pass: number | null; fail: number | null; label: string } | null
   // It ran git push or gh pr create/merge; agents in a batch never push.
   pushed: boolean
+  // Its latest tool calls, oldest first, for the agent tab.
+  history: { label: string; at: number }[]
 }
 
 /** What the session is doing: the prompt it works on, the tools in flight, the agent loops it runs. */
@@ -85,6 +87,8 @@ declare module 'claude-code' {
       usage: UsageSnapshot | null
       job: JobState
       beat: number
+      // The agent the agent tab shows.
+      watched: string | null
     }
   }
 }

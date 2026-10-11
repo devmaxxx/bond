@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl } from './cache'
-import { EMPTY_JOB, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
+import { EMPTY_JOB, agentCard, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
 import { drawCards } from './pane'
 import { summaryCard } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
@@ -15,6 +15,7 @@ const SESSION = 'bond-cockpit-session'
 const SESSION_TITLE = 'session'
 const BRIEF = 'bond-cockpit-brief'
 const BRIEF_TITLE = 'cockpit'
+const AGENT = 'bond-cockpit-agent'
 const PANE_COLUMNS = 46
 const TICK_MS = 1000
 const DEFAULT_CACHE_TTL = 'auto'
@@ -30,6 +31,7 @@ const countdown = atom({ plugin: 'bond-cockpit', key: 'countdown' } as const, ''
 const job = atom({ plugin: 'bond-cockpit', key: 'job' } as const, EMPTY_JOB)
 // The second the pane last redrew for elapsed times; written only while something runs.
 const beat = atom({ plugin: 'bond-cockpit', key: 'beat' } as const, 0)
+const watched = atom({ plugin: 'bond-cockpit', key: 'watched' } as const, null)
 
 // session.start fires again after /clear; a tick left running would stack with the new one.
 let tick: Timer | null = null
@@ -213,7 +215,33 @@ export const register: Register = (on, options) => {
     const [entry] = cacheCards(cacheNow, sessionNow, now, warnMs)
     const cards = [...(current === null ? [] : [current]), ...(entry === undefined ? [] : [entry])]
 
-    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns)
+    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns, agentId => void openAgent($, agentId, agents).catch(() => undefined))
+  })
+
+  // One agent up close: its latest calls, and a line to message it (SendMessage's own delivery).
+  on('ui.render', { component: 'Pane', requestId: AGENT }, async ($, e) => {
+    const [jobNow, agentId, now, agents] = await Promise.all([read($, job), read($, watched), $.clock.now(), $.agent.list().catch(() => []), read($, beat)])
+    const ui = $.ui.resolve(e)
+    const card = agentCard(jobNow, agentId, agents, now)
+    // A surface with no text field (mobile) shows the agent without the message line.
+    const Input = 'Input' in ui ? ui.Input : undefined
+    const send = async (text: string) => {
+      if (agentId === null || text.trim() === '') {
+        return
+      }
+      const sent = await $.session.send({ to: { agentId }, text }).catch((error: unknown) => ({ deny: String(error) }))
+      const refused = (sent as { deny?: string }).deny
+      $.ui.toast(refused === undefined ? `bond-cockpit: sent to ${card.title}` : `bond-cockpit: not sent: ${refused}`)
+    }
+
+    return (
+      <ui.Box flexDirection="column">
+        {drawCards(ui, [card], e.props.bodyColumns)}
+        {agentId === null || Input === undefined ? null : (
+          <Input key="say" label="message" placeholder={`tell ${card.title} what to change`} submitLabel="send" onSubmit={(text: string) => void send(text)} />
+        )}
+      </ui.Box>
+    )
   })
 
   on('ui.render', { component: 'Pane', requestId: SESSION }, async ($, e) => {
@@ -259,6 +287,14 @@ async function openPanes($: EngineInterface) {
   await openJob($)
 
   return $.ui.open({ id: BRIEF, title: BRIEF_TITLE, columns: PANE_COLUMNS })
+}
+
+async function openAgent($: EngineInterface, agentId: string, agents: readonly { id: string; description: string }[]) {
+  await update($, watched, () => agentId)
+  const current = await read($, job)
+  const name = current.loops[agentId]?.name ?? agents.find(agent => agent.id === agentId)?.description ?? `#${agentId.slice(0, 6)}`
+  await $.ui.open({ id: AGENT, title: `agent ${name}`, columns: PANE_COLUMNS, focus: true })
+  await $.ui.focus({ requestId: AGENT, key: 'say' }).catch(() => undefined)
 }
 
 async function pushStatus($: EngineInterface): Promise<void> {

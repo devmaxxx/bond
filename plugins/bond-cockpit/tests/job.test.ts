@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CacheSnapshot, UsageSnapshot } from '../types'
-import { EMPTY_JOB, agentSpawned, elapsed, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
+import { EMPTY_JOB, agentCard, agentSpawned, elapsed, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
 import { summaryCard } from '../hooks/summary'
 
 const NOW = Date.parse('2026-10-12T12:00:00Z')
@@ -178,6 +178,19 @@ test('the short page keeps the job, the cache and only the gauges that matter', 
   expect(card.title).toBe('Cockpit')
   expect(card.badge).toBe('10s · $1.50')
   expect(labels).toEqual(['now', 'cache', '5h', 'spend', 'context'])
+})
+
+test('the agent tab shows one agent and its latest calls, newest first', () => {
+  let job = agentSpawned(startJob(EMPTY_JOB, 'task', NOW), 'a1', 'implement:A', 'claude-opus-5-5', 'wf_1', NOW)
+  job = toolStarted(job, 't1', 'Read', { file_path: '/w/a.ts' }, 'a1', NOW + 1_000)
+  job = toolStarted(job, 't2', 'Bash', { command: 'pnpm exec vitest run' }, 'a1', NOW + 5_000)
+  const card = agentCard(job, 'a1', [], NOW + 10_000)
+
+  expect(card.title).toBe('implement:A')
+  expect(card.status).toBe('● working')
+  expect(card.badge).toBe('opus')
+  expect(card.rows.flatMap(row => (row.kind === 'line' ? [row.text] : []))).toEqual(['    5s  Bash pnpm exec vitest run', '    9s  Read a.ts'])
+  expect(agentCard(job, null, [], NOW).rows).toEqual([{ kind: 'note', text: 'Press an agent in the job tab', tone: 'dim' }])
 })
 
 test('tool labels name what the call works on', () => {

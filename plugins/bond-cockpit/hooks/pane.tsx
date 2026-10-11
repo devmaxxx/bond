@@ -37,13 +37,14 @@ const CALLS_COLUMNS = 5
 const TIME_COLUMNS = 8
 
 /** `columns` is the pane body's width; bars stretch to fill whatever the card has. */
-export function drawCards(ui: Ui, cards: readonly Card[], columns: number): RenderElement {
+/** `onAgent`, when given, makes each agent's name a button that opens it. */
+export function drawCards(ui: Ui, cards: readonly Card[], columns: number, onAgent?: (agentId: string) => void): RenderElement {
   const inner = Math.max(20, columns - CARD_CHROME)
 
-  return <ui.Box flexDirection="column">{cards.map(card => drawCard(ui, card, inner))}</ui.Box>
+  return <ui.Box flexDirection="column">{cards.map(card => drawCard(ui, card, inner, onAgent))}</ui.Box>
 }
 
-function drawCard(ui: Ui, card: Card, inner: number): RenderElement {
+function drawCard(ui: Ui, card: Card, inner: number, onAgent?: (agentId: string) => void): RenderElement {
   const { Box, Text } = ui
 
   return (
@@ -55,12 +56,12 @@ function drawCard(ui: Ui, card: Card, inner: number): RenderElement {
         </Box>
         <Text dimColor>{card.badge}</Text>
       </Box>
-      {card.rows.map((row, index) => drawRow(ui, row, `${card.title}-${index}`, inner))}
+      {card.rows.map((row, index) => drawRow(ui, row, `${card.title}-${index}`, inner, onAgent))}
     </Box>
   )
 }
 
-function drawRow(ui: Ui, row: Row, key: string, inner: number): RenderElement {
+function drawRow(ui: Ui, row: Row, key: string, inner: number, onAgent?: (agentId: string) => void): RenderElement {
   const { Box, Text } = ui
   const tone = TONE_PROPS[row.tone]
   switch (row.kind) {
@@ -147,7 +148,7 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number): RenderElement {
         </Box>
       )
     case 'agent':
-      return drawAgent(ui, row, key)
+      return drawAgent(ui, row, key, onAgent)
     case 'line':
       return (
         <Box key={key}>
@@ -165,7 +166,7 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number): RenderElement {
 
 // Head: what runs and how long, in fixed right-hand columns so a list of agents reads as a table.
 // Detail: its latest tool, then its last test as coloured counts and a push warning, right-aligned.
-function drawAgent({ Box, Text }: Ui, row: Extract<Row, { kind: 'agent' }>, key: string): RenderElement {
+function drawAgent({ Box, Text, Button }: Ui, row: Extract<Row, { kind: 'agent' }>, key: string, onAgent?: (agentId: string) => void): RenderElement {
   const tone = TONE_PROPS[row.tone]
   const failed = (row.test?.fail ?? 0) > 0
 
@@ -174,7 +175,13 @@ function drawAgent({ Box, Text }: Ui, row: Extract<Row, { kind: 'agent' }>, key:
       <Box flexDirection="row">
         <Text {...tone}>{`${row.mark} `}</Text>
         <Box flexGrow={1}>
-          <Text bold={row.tone === 'ok'} dimColor={row.tone === 'dim'} wrap="truncate-end">{row.name}</Text>
+          {onAgent === undefined ? (
+            <Text bold={row.tone === 'ok'} dimColor={row.tone === 'dim'} wrap="truncate-end">{row.name}</Text>
+          ) : (
+            <Button key={`agent:${row.id}`} plain label={`open ${row.name}`} onPress={() => onAgent(row.id)}>
+              <Text bold={row.tone === 'ok'} dimColor={row.tone === 'dim'} wrap="truncate-end">{row.name}</Text>
+            </Button>
+          )}
         </Box>
         <Box width={MODEL_COLUMNS} justifyContent="flex-end">
           <Text dimColor>{row.model}</Text>
