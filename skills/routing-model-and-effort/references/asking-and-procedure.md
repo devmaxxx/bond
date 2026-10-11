@@ -36,4 +36,4 @@ Agent(subagent_type: "bond:effort-xhigh", model: "fable", description: "fable/xh
 Agent(subagent_type: "bond:effort-xhigh", model: "opus",  description: "opus/xhigh build · policy table", prompt: "Phase: build. Plan: … scan: … Repro: …")
 ```
 
-Unanswered, the same task runs `plan=opus/high build=opus/high → here, here`. A `medium` or `low` task in an `opus`/`high` session prints `→ here` too: downward never spawns.
+Unanswered, the same task runs `plan=opus/high build=opus/high → here, here`. A `medium` or `low` task in an `opus`/`high` session prints `→ here` too: downward never spawns, recon on `haiku` aside.
