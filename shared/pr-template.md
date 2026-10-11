@@ -39,6 +39,12 @@ names it in the summary.
 
 If no ticket IDs were found, drop the prefix and use just the description.
 
+**`prTitle: conventional`.** A repo whose squash merge takes the PR title as the commit
+subject and checks it in CI states `"prTitle": "conventional"` in `.bond/project.json`. There
+the title is the Conventional subject of the work — the oldest conventional subject of the
+branch — with no ticket prefix, and `hooks/check-pr.mjs` demands that shape instead of
+refusing it. The issue goes into the body (`Closes #<n>`).
+
 ## Description
 
 ```markdown

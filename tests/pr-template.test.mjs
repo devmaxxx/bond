@@ -13,6 +13,7 @@ import {
   isBonlivaRemote,
   isGhPrCreate,
   resolveDraft,
+  resolvePrTitle,
   titleProblems,
 } from "../hooks/pr-template.mjs";
 import { scrubShell } from "../hooks/shell.mjs";
@@ -442,6 +443,29 @@ describe("the Bitbucket MCP path", () => {
       "mcp__bond-bitbucket__create_draft_pull_request",
     );
     assert.deepEqual(errors, []);
+  });
+});
+
+describe("a repo whose squash subject is the PR title", () => {
+  const ORIGIN = "https://github.com/olkp1/beauty-crm.git";
+
+  it("demands a Conventional Commits subject and refuses a plain sentence", () => {
+    assert.deepEqual(titleProblems("feat(api): the client's own reviews", "conventional"), []);
+    assert.equal(titleProblems("Tidy the export", "conventional").length, 1);
+    assert.equal(titleProblems("[W4] BE-M07 T03 — reviews", "conventional").length, 1);
+    assert.equal(titleProblems("wip: stuff", "conventional").length, 1);
+  });
+
+  it("reads the style from `prTitle` in the manifest, plain otherwise", () => {
+    assert.equal(resolvePrTitle(repo(ORIGIN, { prTitle: "conventional" })), "conventional");
+    assert.equal(resolvePrTitle(repo(ORIGIN, { draft: false })), "plain");
+    assert.equal(resolvePrTitle(repo(ORIGIN)), "plain");
+  });
+
+  it("lets a gh pr create through with a conventional title there", () => {
+    const cmd = `gh pr create --title "feat(api): tidy the export" --body "${GOOD_BODY}"`;
+    const errors = checkBash(cmd, { requireDraft: () => false, titleStyle: () => "conventional" });
+    assert.ok(errors === null || errors.length === 0, String(errors));
   });
 });
 

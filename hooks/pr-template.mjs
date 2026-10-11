@@ -25,8 +25,33 @@ const COMMIT_SUBJECT = /^[a-z]+(?:\([^)]*\))?!?:\s/;
 const COMMIT_TITLE =
   "the title is a Conventional Commits subject — write a plain sentence, led by its issue (`#164: …`, `ERP-123: …`) when it has one";
 
-export function titleProblems(title) {
-  return typeof title === "string" && COMMIT_SUBJECT.test(title.trim()) ? [COMMIT_TITLE] : [];
+// The Conventional Commits types a repo's commit-msg check accepts; looser here would pass a
+// title CI then reds.
+const CONVENTIONAL_SUBJECT =
+  /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9][a-z0-9._/-]*\))?!?: \S/;
+const PLAIN_TITLE =
+  "this repo's squash commit takes the PR title as its subject (`prTitle: conventional` in .bond/project.json) — write `<type>(<scope>): <description>`";
+
+/** `style` is the repo's `prTitle`: `plain` refuses a commit subject, `conventional` demands one. */
+export function titleProblems(title, style = "plain") {
+  if (typeof title !== "string") {
+    return [];
+  }
+  const subject = COMMIT_SUBJECT.test(title.trim());
+  if (style === "conventional") {
+    return CONVENTIONAL_SUBJECT.test(title.trim()) ? [] : [PLAIN_TITLE];
+  }
+  return subject ? [COMMIT_TITLE] : [];
+}
+
+/**
+ * A repo whose squash merge takes the PR title as the commit subject — and checks
+ * it in CI — states `"prTitle": "conventional"` in `.bond/project.json`.
+ */
+export function resolvePrTitle(cwd) {
+  const root = gitOutput(cwd, "rev-parse", "--show-toplevel");
+  const manifest = root === null ? null : readManifest(join(root, ".bond", "project.json"));
+  return manifest?.prTitle === "conventional" ? "conventional" : "plain";
 }
 
 /**
@@ -154,7 +179,10 @@ export function isGhPrCreate(scrubbed) {
  * on every Bash call. It receives the PR's explicit target — true/false when
  * `--repo` names one, null otherwise — and the `cd` target, if any.
  */
-export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {}) {
+export function checkBash(
+  cmd,
+  { requireDraft = (target) => target ?? true, titleStyle = () => "plain" } = {},
+) {
   const scrubbed = scrubShell(cmd);
   if (!isGhPrCreate(scrubbed)) {
     return null;
@@ -164,6 +192,7 @@ export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {
     return null;
   }
 
+  const dir = cdTarget(cmd);
   const problems = [];
   if (FILL.test(scrubbed)) {
     problems.push(
@@ -173,14 +202,14 @@ export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {
   if (!DRAFT.test(scrubbed)) {
     const repo = flagValue(cmd, "-R|--repo");
     const target = repo !== null ? BONLIVA_REPO_FLAG.test(repo) : null;
-    if (requireDraft(target, cdTarget(cmd))) {
+    if (requireDraft(target, dir)) {
       problems.push(
         "this repo opens PRs as drafts — add --draft (the author publishes when ready)",
       );
     }
   }
 
-  problems.push(...titleProblems(flagValue(cmd, "-t|--title")));
+  problems.push(...titleProblems(flagValue(cmd, "-t|--title"), titleStyle(dir)));
 
   const body = bodyFromCommand(cmd);
   if (body === null) {
@@ -200,7 +229,7 @@ export function checkBash(cmd, { requireDraft = (target) => target ?? true } = {
 export function checkMcp(
   input,
   toolName,
-  { requireDraft = (target) => target ?? true } = {},
+  { requireDraft = (target) => target ?? true, titleStyle = () => "plain" } = {},
 ) {
   if (toolName === "mcp__bond-bitbucket__create_pull_request") {
     const target =
@@ -213,7 +242,7 @@ export function checkMcp(
       ];
     }
   }
-  const titled = titleProblems(input.title);
+  const titled = titleProblems(input.title, titleStyle());
   const body = typeof input.description === "string" ? input.description : null;
   if (body === null) {
     return titled.length > 0 ? titled : null;

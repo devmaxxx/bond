@@ -78,10 +78,12 @@ working on.
    them from the commit range.
 2. The cheap slice locally: `lint`, `typecheck`, the unit sets of the touched
    packages.
-3. **Ask Max before the push.** On a yes:
+3. **Ask the owner before the push.** On a yes:
    `pnpm tasks pr <first MID-T##> <MID-T##> …` — the first id first, since the
-   branch is its. The body ends with one `Closes #n` per card, then the
-   trailer block; nothing goes under it.
+   branch is its. The title is the branch's oldest Conventional subject — the
+   squash subject plan-check judges — so the first commit of the batch is
+   one; `pr` refuses a branch without one. The body ends with one `Closes #n`
+   per card, then the trailer block; nothing goes under it.
 4. Hand over to the repository's `pull-request` skill for the run, the merge
    condition and the squash.
 
