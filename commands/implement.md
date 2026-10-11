@@ -82,7 +82,7 @@ Run these shared procedures in order:
 
 1. **Analyse the codebase** — `FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed.
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
-3. **Implement** then **Test** — `SCOPE` = the whole plan — when the plan names three or more files, build through `superpowers:subagent-driven-development` (available when the superpowers plugin is installed; otherwise in-thread): the main thread keeps the plan and the verdicts, test output stays in the subagent.
+3. **Implement** then **Test** — `SCOPE` = the whole plan — when the plan names three or more files, build through `superpowers:subagent-driven-development` (available when the superpowers plugin is installed; otherwise in-thread): the main thread keeps the plan and the verdicts, test output stays in the subagent. With two or more tickets, each ticket is instead a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — and that file's review (every lens, `must`/`should`/`nit`) and single fix pass come before item 4.
 4. **Review and fix** — `/code-review` over the work at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
 5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**.
 

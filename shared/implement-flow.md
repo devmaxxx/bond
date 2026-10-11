@@ -17,7 +17,9 @@ runs without pausing: a choice that only surfaces mid-flow is **not asked** —
 pick the best option, act on it, and record it in the plan file's
 `## Decisions` section (the options you considered, the one you chose, and a
 one-line rationale). Commit and push go through the Ship + PR procedure as the
-upfront answer settled them — never a second time.
+upfront answer settled them — never a second time. The upfront question is
+phrased, and its answers recorded as owner rulings apart from your own
+decisions, per `${CLAUDE_PLUGIN_ROOT}/shared/owner-questions.md`.
 
 Three things still stop the flow: a genuine blocker where no option is viable
 (missing type, error response, no branch found) — surface it and abort/pause as

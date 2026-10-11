@@ -115,15 +115,21 @@ Jira.
 
 ### 3. Conflict map
 
-One read-only `Explore` agent per selected issue, all launched in one message,
-each given the issue's summary, description and comments. Each returns only:
+One read-only `Explore` agent (`model: haiku`) per selected issue, or per group
+of about five, all launched in one message, each given the issues' summary,
+description and comments. Each returns only:
 
 ```
+<KEY> verdict: ready | mostly-built | already-done | blocked | needs-owner
 <KEY> files: <path>, <path>, …        # existing files it will edit
 <KEY> new: <dir>/…                     # where new files will go
 <KEY> shared: lockfile | migrations | generated client | i18n | route registry | none
 <KEY> confidence: high | low
 ```
+
+Re-check every `ready`, `mostly-built` and `already-done` verdict yourself
+against the code (`${CLAUDE_PLUGIN_ROOT}/shared/track-build.md`, **Recon**); a
+`blocked` or `needs-owner` one is set aside like a step 2 blocker.
 
 Two issues **conflict** when they share an edited file, a new-file directory
 that holds an index or barrel, or any `shared` kind except `i18n` (keyed JSON
@@ -138,9 +144,11 @@ missed one costs a merge conflict.
 
 1. **Group** (`--group` only). Conflicting issues that are one piece of work —
    one links the other (`relates to`, `duplicates`, a subtask), or they share
-   most of their edited files — become one item, at most 3 keys, implemented as
-   one `/bond:implement <KEY1> <KEY2>` run: one branch, one PR. Log each group
-   and why.
+   most of their edited files, or one shared kind (a migration sequence, a
+   contract version, a generated client) — become one item, at most 10 keys,
+   implemented as one `/bond:implement <KEY1> <KEY2> …` run: one branch, one PR,
+   built as one track of `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md`. Log each
+   group and why.
 2. **Chain** every remaining conflicting pair: the later-ranked item gets
    `after` = the earlier one. An item that conflicts with two items that do not
    conflict with each other cannot stack on both branches: `after` is a list,
