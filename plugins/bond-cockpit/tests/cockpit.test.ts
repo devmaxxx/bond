@@ -46,3 +46,18 @@ test('before the first request the status line is empty and the pane says so', a
     await ui.unmount()
   }
 })
+
+test('the cockpit and session tabs draw before the first request', async ($, on) => {
+  stubHost(on)
+
+  await $.command.run(RUN_COCKPIT)
+
+  for (const surface of SURFACES) {
+    const brief = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'bond-cockpit-brief', props: { ...PANE.props, title: 'cockpit' } })
+    expect(await brief.find({ type: 'Text', text: 'Cockpit' })).toBeDefined()
+    await brief.unmount()
+    const session = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'bond-cockpit-session', props: { ...PANE.props, title: 'session' } })
+    expect(await session.find({ type: 'Text', text: 'Session' })).toBeDefined()
+    await session.unmount()
+  }
+})

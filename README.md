@@ -81,14 +81,21 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
-  **Job** comes first while there is one: the prompt being worked on, its
+  Three tabs (ctrl+x tab cycles them; `/bond-cockpit job` or `session` opens
+  one). **cockpit**, in front, keeps only what matters now: the task, what
+  runs now, agents working with a workflow's finished/started count, the
+  cache hit and countdown, and the 5h and context gauges (other limits only
+  once they turn yellow or red). **job** has the full Job card, then the
+  Cache card. **session** has the Session card.
+  The **Job** card: the prompt being worked on, its
   elapsed time (`took …` once done), what runs now — the tool in flight with
-  what it works on and for how long, `thinking`, or `waiting for you` — the
-  tool count with failures and the last tool, a `workflow` gauge of finished
-  over started agents while a Workflow runs, and one row per agent loop
-  (subagent, teammate or workflow agent) with its calls and latest tool,
-  working ones first, finished ones dimmed for five minutes. Then two bordered
-  cards. **Cache** wears the entry's state on its border and
+  what it works on and for how long, `approve?` when the permission check
+  asked, `thinking`, or `waiting for you` — the tool count with failures and
+  the last tool, a `workflow` gauge of the run's finished over started agents,
+  and one row per agent loop (subagent, teammate or workflow agent) with its
+  calls and latest tool, working ones first, quiet after two minutes without a
+  call, gone five minutes after finishing. The **Cache** card wears the
+  entry's state on its border and
   header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
   split into read / wrote / new tokens, then a TTL meter with the countdown, and
   advice only once there is something to do. **Session** stays grey: hit rate

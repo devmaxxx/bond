@@ -3,12 +3,18 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl } from './cache'
-import { EMPTY_JOB, endJob, jobCard, loopEnded, startJob, toolEnded, toolStarted } from './job'
+import { EMPTY_JOB, endJob, isBusy, jobCard, loopEnded, startJob, toolAsked, toolEnded, toolStarted } from './job'
 import { drawCards } from './pane'
+import { summaryCard } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
+// Three tabs: the short page is opened last, so it is in front; job and session sit behind it.
 const PANE = 'bond-cockpit'
-const PANE_TITLE = 'bond cockpit'
+const PANE_TITLE = 'job'
+const SESSION = 'bond-cockpit-session'
+const SESSION_TITLE = 'session'
+const BRIEF = 'bond-cockpit-brief'
+const BRIEF_TITLE = 'cockpit'
 const PANE_COLUMNS = 46
 const TICK_MS = 1000
 const DEFAULT_CACHE_TTL = 'auto'
@@ -42,8 +48,8 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit pane' })
-    openPane($).catch(() => undefined)
+    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit: the short page, or `job` / `session` for that tab' })
+    openPanes($).catch(() => undefined)
     await measure($).catch(() => undefined)
     await pushStatus($)
     tick?.cancel()
@@ -52,11 +58,12 @@ export const register: Register = (on, options) => {
     return started
   })
 
-  on('command.run', { command: 'bond-cockpit' }, async $ => {
-    await openPane($)
+  on('command.run', { command: 'bond-cockpit' }, async ($, e) => {
+    const tab = e.args.trim()
+    await (tab === 'job' ? openJob($) : tab === 'session' ? openSession($) : openPanes($))
     await pushStatus($)
 
-    return { text: 'bond cockpit opened.' }
+    return { text: tab === 'job' || tab === 'session' ? `bond cockpit: ${tab} tab opened.` : 'bond cockpit opened; ctrl+x tab cycles cockpit, job and session.' }
   })
 
   on('session.end', async ($, e, next) => {
@@ -72,21 +79,20 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // The job starts with the main loop's turn, not the prompt: a prompt typed mid-turn is queued, and a
+  // delivery (a task notification, a peer message) submits one too.
   on('turn.start', async ($, e, next) => {
-    isTurnRunning = true
+    const agentId = (e as { agentId?: string }).agentId
+    if (agentId === undefined) {
+      isTurnRunning = true
+      await guard(async () => {
+        const now = await $.clock.now()
+        await update($, job, current => startJob(current, e.text, now))
+      })
+    }
 
     return next(e)
   })
-
-  on('prompt.submit', async ($, e, next) => {
-    const submitted = await next(e)
-    await guard(async () => {
-      const now = await $.clock.now()
-      await update($, job, current => startJob(current, e.text, now))
-    })
-
-    return submitted
-  }).catch(($, e, next) => next(e))
 
   on('turn.complete', async ($, e, next) => {
     const completed = await next(e)
@@ -108,11 +114,25 @@ export const register: Register = (on, options) => {
     const agentId = e.agentId
     const startedAt = await $.clock.now().catch(() => 0)
     const id = e.tool_use_id ?? `${tool}-${startedAt}`
-    await guard(() => update($, job, current => toolStarted(current, id, tool, e as unknown as Record<string, unknown>, agentId, startedAt)))
+    await guard(async () => {
+      const isListed = await isListedAgent($, agentId)
+      await update($, job, current => toolStarted(current, id, tool, e as unknown as Record<string, unknown>, agentId, isListed, startedAt))
+    })
     const ran = await next(e)
-    await guard(() => update($, job, current => toolEnded(current, id, tool, ran.deny !== undefined || ran.isError === true, agentId)))
+    await guard(() => update($, job, current => toolEnded(current, id, ran.deny !== undefined || ran.isError === true, agentId)))
 
     return ran
+  }).catch(($, e, next) => next(e))
+
+  // Observes only: an `ask` verdict means the call may now wait on the person, not on the tool.
+  on('tool.check', async ($, e, next) => {
+    const verdict = await next(e)
+    const id = e.tool_use_id
+    if (verdict.decision === 'ask' && id !== undefined && e.agentId === undefined) {
+      await guard(() => update($, job, current => toolAsked(current, id)))
+    }
+
+    return verdict
   }).catch(($, e, next) => next(e))
 
   on('turn.step', async function* ($, e, next) {
@@ -159,31 +179,66 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const [cacheNow, sessionNow, now, modelsNow, usageNow, jobNow, agents] = await Promise.all([
+    const [cacheNow, sessionNow, now, jobNow, agents] = await Promise.all([
       read($, cache),
       read($, session),
       $.clock.now(),
-      read($, models),
-      read($, usage),
       read($, job),
       $.agent.list().catch(() => []),
       // Not used below: reading them subscribes the pane to the countdown and the beat, so it redraws as they tick.
       read($, countdown),
       read($, beat),
     ])
-    const ui = $.ui.resolve(e)
     const current = jobCard(jobNow, agents, now)
-    const cards = [
-      ...(current === null ? [] : [current]),
-      ...intoSession(cacheCards(cacheNow, sessionNow, now, warnMs), [modelsCard(modelsNow), usageCard(usageNow, now)]),
-    ]
+    const [entry] = cacheCards(cacheNow, sessionNow, now, warnMs)
+    const cards = [...(current === null ? [] : [current]), ...(entry === undefined ? [] : [entry])]
 
-    return drawCards(ui, cards, e.props.bodyColumns)
+    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns)
+  })
+
+  on('ui.render', { component: 'Pane', requestId: SESSION }, async ($, e) => {
+    const [cacheNow, sessionNow, now, modelsNow, usageNow] = await Promise.all([
+      read($, cache),
+      read($, session),
+      $.clock.now(),
+      read($, models),
+      read($, usage),
+      read($, countdown),
+    ])
+    const cards = intoSession(cacheCards(cacheNow, sessionNow, now, warnMs).slice(1), [modelsCard(modelsNow), usageCard(usageNow, now)])
+    const shown = cards.length > 0 ? cards : [{ title: 'Session', status: '', badge: '', tone: 'dim' as const, rows: [{ kind: 'note' as const, text: 'No request yet', tone: 'dim' as const }] }]
+
+    return drawCards($.ui.resolve(e), shown, e.props.bodyColumns)
+  })
+
+  on('ui.render', { component: 'Pane', requestId: BRIEF }, async ($, e) => {
+    const [cacheNow, now, usageNow, jobNow] = await Promise.all([
+      read($, cache),
+      $.clock.now(),
+      read($, usage),
+      read($, job),
+      // Not used below: reading them subscribes the page to the countdown and the beat, so it redraws as they tick.
+      read($, countdown),
+      read($, beat),
+    ])
+
+    return drawCards($.ui.resolve(e), [summaryCard(jobNow, cacheNow, usageNow, now, warnMs)], e.props.bodyColumns)
   })
 }
 
-function openPane($: EngineInterface) {
+function openJob($: EngineInterface) {
   return $.ui.open({ id: PANE, title: PANE_TITLE, columns: PANE_COLUMNS })
+}
+
+function openSession($: EngineInterface) {
+  return $.ui.open({ id: SESSION, title: SESSION_TITLE, columns: PANE_COLUMNS })
+}
+
+async function openPanes($: EngineInterface) {
+  await openSession($)
+  await openJob($)
+
+  return $.ui.open({ id: BRIEF, title: BRIEF_TITLE, columns: PANE_COLUMNS })
 }
 
 async function pushStatus($: EngineInterface): Promise<void> {
@@ -200,7 +255,7 @@ async function measure($: EngineInterface): Promise<void> {
 
 async function onTick($: EngineInterface): Promise<void> {
   const [cacheNow, shown, now, jobNow] = await Promise.all([read($, cache), read($, countdown), $.clock.now(), read($, job)])
-  if (isTurnRunning || Object.values(jobNow.loops).some(loop => !loop.done)) {
+  if (isTurnRunning || isBusy(jobNow, now)) {
     await update($, beat, () => Math.floor(now / 1000))
   }
   const text = cacheStatus(cacheNow, now, warnMs) ?? ''
@@ -214,6 +269,20 @@ async function onTick($: EngineInterface): Promise<void> {
     const seconds = Math.ceil((cacheNow.at + cacheNow.ttlMs - now) / 1000)
     $.ui.toast(`bond-cockpit: cache expires in ${seconds}s: send a message now`)
   }
+}
+
+// Only a loop's first call asks: a workflow's agents are the ones the engine's list does not name.
+async function isListedAgent($: EngineInterface, agentId: string | undefined): Promise<boolean> {
+  if (agentId === undefined) {
+    return false
+  }
+  const current = await read($, job)
+  if (current.workflow === null || agentId in current.loops) {
+    return false
+  }
+  const agents = await $.agent.list()
+
+  return agents.some(agent => agent.id === agentId)
 }
 
 // The Job card is a view: a failure in its bookkeeping must never fail the tool call or the turn it watches.

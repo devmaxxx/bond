@@ -46,6 +46,8 @@ export type JobLoop = {
   at: number
   firstAt: number
   done: boolean
+  // Its first tool call came while a Workflow ran and the engine's agent list does not name it.
+  workflow: boolean
 }
 
 /** What the session is doing: the prompt it works on, the tools in flight, the agent loops it runs. */
@@ -54,13 +56,14 @@ export type JobState = {
   startedAt: number | null
   endedAt: number | null
   // Main-loop tool calls not yet answered, oldest first.
-  inFlight: { id: string; label: string; at: number }[]
+  // `asked`: the permission check put it to a decision, so it may be waiting on the person.
+  inFlight: { id: string; label: string; at: number; asked: boolean }[]
   tools: number
   failed: number
   recent: string[]
   loops: Record<string, JobLoop>
-  // When a Workflow call started; null when none runs.
-  workflowAt: number | null
+  // The latest Workflow run: when it was launched, and its agents started and finished since.
+  workflow: { at: number; started: number; done: number } | null
 }
 
 declare module 'claude-code' {
