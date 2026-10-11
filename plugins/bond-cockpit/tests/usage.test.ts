@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
-import { EMPTY_MODELS, modelsCard, recordModel, shortModel, usageCard, usageSnapshot } from '../hooks/usage'
+import type { Card } from '../hooks/cache'
+import { EMPTY_MODELS, intoSession, modelsCard, recordModel, shortModel, usageCard, usageSnapshot } from '../hooks/usage'
 
 const TURN = { input_tokens: 10, output_tokens: 90, cache_read_input_tokens: 900, cache_creation_input_tokens: 0 }
 const NOW = Date.parse('2026-10-11T12:00:00Z')
@@ -71,4 +72,23 @@ test('a window already past its reset is left out until a response reports it ag
   )
 
   expect([card?.tone, card?.rows.map(row => (row.kind === 'meter' ? row.label : ''))]).toEqual(['plain', ['ctx 10% of 200.0k']])
+})
+
+test('models and usage join the Session card: rows after its own, badges after its badge', () => {
+  const session: Card = { title: 'Session', status: '', badge: '2 requests', tone: 'plain', rows: [{ kind: 'note', text: 'own', tone: 'plain' }] }
+  const cache: Card = { title: 'Cache', status: '', badge: '', tone: 'ok', rows: [] }
+  const models = modelsCard(recordModel(EMPTY_MODELS, 'claude-opus-5-5', TURN, true))
+  const usage = usageCard(usageSnapshot({ context: { window: 200_000, percent: 95 }, rateLimits: [], cost: { usd: 2 } }), NOW)
+  const [first, merged] = intoSession([cache, session], [models, usage])
+
+  expect(first).toBe(cache)
+  expect([merged?.title, merged?.badge, merged?.tone, merged?.rows.length]).toEqual(['Session', '2 requests · opus-5-5 · $2.00', 'plain', 3])
+})
+
+test('before the first request usage still shows, in a Session card of its own', () => {
+  const cache: Card = { title: 'Cache', status: '', badge: '', tone: 'dim', rows: [] }
+  const usage = usageCard(usageSnapshot({ context: { window: 200_000, percent: 5 }, rateLimits: [] }), NOW)
+
+  expect(intoSession([cache], [null, usage]).map(card => card.title)).toEqual(['Cache', 'Session'])
+  expect(intoSession([cache], [null, null])).toEqual([cache])
 })

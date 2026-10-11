@@ -4,7 +4,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl } from './cache'
 import { drawCards } from './pane'
-import { EMPTY_MODELS, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
+import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
 const PANE = 'bond-cockpit'
 const PANE_TITLE = 'bond cockpit'
@@ -136,7 +136,7 @@ export const register: Register = (on, options) => {
       read($, countdown),
     ])
     const ui = $.ui.resolve(e)
-    const cards = [...cacheCards(cacheNow, sessionNow, now, warnMs), modelsCard(modelsNow), usageCard(usageNow, now)].filter(card => card !== null)
+    const cards = intoSession(cacheCards(cacheNow, sessionNow, now, warnMs), [modelsCard(modelsNow), usageCard(usageNow, now)])
 
     return drawCards(ui, cards, e.props.bodyColumns)
   })

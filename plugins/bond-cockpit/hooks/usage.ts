@@ -82,6 +82,23 @@ export function usageCard(usage: UsageSnapshot | null, now: number): Card | null
   }
 }
 
+/** Models and usage ride in the Session card: their rows after its own, their badges after its badge. */
+export function intoSession(cards: readonly Card[], parts: readonly (Card | null)[]): Card[] {
+  const extra = parts.filter(part => part !== null)
+  if (extra.length === 0) {
+    return [...cards]
+  }
+  const base: Card = cards.find(card => card.title === 'Session') ?? { title: 'Session', status: '', badge: '', tone: 'plain', rows: [] }
+  const session: Card = {
+    ...base,
+    badge: [base.badge, ...extra.map(part => part.badge)].filter(badge => badge !== '').join(' · '),
+    tone: extra.find(part => part.tone !== 'plain')?.tone ?? base.tone,
+    rows: [...base.rows, ...extra.flatMap(part => part.rows)],
+  }
+
+  return [...cards.filter(card => card !== base), session]
+}
+
 /** `claude-opus-5-5-20260101` → `opus-5-5`: the pane is 46 columns. */
 export function shortModel(model: string): string {
   return model.replace(/^claude-/, '').replace(/\[1m\]$/, '').replace(/-\d{8}$/, '')
