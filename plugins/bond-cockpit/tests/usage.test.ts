@@ -16,7 +16,7 @@ test('models are tallied per model, subagents included, the main thread one mark
   tally = recordModel(tally, 'claude-opus-5-5', TURN, true)
   const card = modelsCard(tally)
 
-  expect(card?.badge).toBe('opus-5-5')
+  expect(card?.badge).toBe('')
   expect(card?.rows).toEqual([
     { kind: 'pair', label: 'opus-5-5', value: '2.0k', note: '2 req · main', tone: 'heading' },
     { kind: 'pair', label: 'haiku-5-5', value: '1.0k', note: '1 req', tone: 'plain' },
@@ -49,9 +49,9 @@ test('usage shows each rate-limit window with its reset, the context fill and th
   expect(card?.badge).toBe('$1.23')
   expect(card?.tone).toBe('plain')
   expect(card?.rows).toEqual([
-    { kind: 'meter', label: '5h 80% · 2h10m', ratio: 0.8, tone: 'warn' },
-    { kind: 'meter', label: 'week 30% · 4d', ratio: 0.3, tone: 'ok' },
-    { kind: 'meter', label: 'ctx 45% of 200.0k', ratio: 0.45, tone: 'ok' },
+    { kind: 'gauge', label: '5h', value: '80%', ratio: 0.8, note: '2h10m', tone: 'warn' },
+    { kind: 'gauge', label: 'week', value: '30%', ratio: 0.3, note: '4d', tone: 'ok' },
+    { kind: 'gauge', label: 'context', value: '45%', ratio: 0.45, note: '200.0k', tone: 'ok' },
   ])
 })
 
@@ -71,10 +71,10 @@ test('a window already past its reset is left out until a response reports it ag
     NOW,
   )
 
-  expect([card?.tone, card?.rows.map(row => (row.kind === 'meter' ? row.label : ''))]).toEqual(['plain', ['ctx 10% of 200.0k']])
+  expect([card?.tone, card?.rows.map(row => (row.kind === 'gauge' ? row.label : ''))]).toEqual(['plain', ['context']])
 })
 
-test('models and usage join the Session card: rows after its own, badges after its badge', () => {
+test('models and usage join the Session card as titled sections, the cost after its badge', () => {
   const session: Card = { title: 'Session', status: '', badge: '2 requests', tone: 'plain', rows: [{ kind: 'note', text: 'own', tone: 'plain' }] }
   const cache: Card = { title: 'Cache', status: '', badge: '', tone: 'ok', rows: [] }
   const models = modelsCard(recordModel(EMPTY_MODELS, 'claude-opus-5-5', TURN, true))
@@ -82,7 +82,8 @@ test('models and usage join the Session card: rows after its own, badges after i
   const [first, merged] = intoSession([cache, session], [models, usage])
 
   expect(first).toBe(cache)
-  expect([merged?.title, merged?.badge, merged?.tone, merged?.rows.length]).toEqual(['Session', '2 requests · opus-5-5 · $2.00', 'plain', 3])
+  expect([merged?.title, merged?.badge, merged?.tone]).toEqual(['Session', '2 requests · $2.00', 'plain'])
+  expect(merged?.rows.map(row => row.kind)).toEqual(['note', 'section', 'pair', 'section', 'gauge'])
 })
 
 test('before the first request usage still shows, in a Session card of its own', () => {

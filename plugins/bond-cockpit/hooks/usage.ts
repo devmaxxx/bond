@@ -34,9 +34,9 @@ export function modelsCard(tally: ModelTally): Card | null {
   }
 
   return {
-    title: 'Models',
+    title: 'models',
     status: '',
-    badge: tally.current === null ? '' : shortModel(tally.current),
+    badge: '',
     tone: 'plain',
     rows: models.map(([model, seen]) => ({
       kind: 'pair',
@@ -55,16 +55,20 @@ export function usageCard(usage: UsageSnapshot | null, now: number): Card | null
   // A window past its reset is stale until the next response reports it again.
   const live = usage.rateLimits.filter(limit => limit.resetsAt === undefined || !(Date.parse(limit.resetsAt) <= now))
   const rows: Row[] = live.map(limit => ({
-    kind: 'meter',
-    label: `${WINDOW_LABEL[limit.kind] ?? limit.kind} ${limit.percentUsed}%${resetLabel(limit.resetsAt, now)}`,
+    kind: 'gauge',
+    label: WINDOW_LABEL[limit.kind] ?? limit.kind,
+    value: `${limit.percentUsed}%`,
     ratio: limit.percentUsed / 100,
+    note: resetLabel(limit.resetsAt, now),
     tone: usedTone(limit.percentUsed),
   }))
   if (usage.contextPercent !== null) {
     rows.push({
-      kind: 'meter',
-      label: `ctx ${usage.contextPercent}% of ${tokens(usage.contextWindow)}`,
+      kind: 'gauge',
+      label: 'context',
+      value: `${usage.contextPercent}%`,
       ratio: usage.contextPercent / 100,
+      note: tokens(usage.contextWindow),
       tone: usedTone(usage.contextPercent),
     })
   }
@@ -74,7 +78,7 @@ export function usageCard(usage: UsageSnapshot | null, now: number): Card | null
   const worst = Math.max(...live.map(limit => limit.percentUsed), 0)
 
   return {
-    title: 'Usage',
+    title: 'usage',
     status: '',
     badge: usage.costUsd === null ? '' : `$${usage.costUsd.toFixed(2)}`,
     tone: worst >= 90 ? usedTone(worst) : 'plain',
@@ -82,7 +86,7 @@ export function usageCard(usage: UsageSnapshot | null, now: number): Card | null
   }
 }
 
-/** Models and usage ride in the Session card: their rows after its own, their badges after its badge. */
+/** Models and usage ride in the Session card: each its own titled section after the card's rows, their badges after its badge. */
 export function intoSession(cards: readonly Card[], parts: readonly (Card | null)[]): Card[] {
   const extra = parts.filter(part => part !== null)
   if (extra.length === 0) {
@@ -93,7 +97,7 @@ export function intoSession(cards: readonly Card[], parts: readonly (Card | null
     ...base,
     badge: [base.badge, ...extra.map(part => part.badge)].filter(badge => badge !== '').join(' · '),
     tone: extra.find(part => part.tone !== 'plain')?.tone ?? base.tone,
-    rows: [...base.rows, ...extra.flatMap(part => part.rows)],
+    rows: [...base.rows, ...extra.flatMap((part): Row[] => [{ kind: 'section', title: part.title, tone: 'dim' }, ...part.rows])],
   }
 
   return [...cards.filter(card => card !== base), session]
@@ -119,8 +123,8 @@ function resetLabel(resetsAt: string | undefined, now: number): string {
   }
   const minutes = Math.max(0, Math.round((at - now) / 60_000))
   if (minutes >= 48 * 60) {
-    return ` · ${Math.round(minutes / (24 * 60))}d`
+    return `${Math.round(minutes / (24 * 60))}d`
   }
 
-  return minutes >= 60 ? ` · ${Math.floor(minutes / 60)}h${minutes % 60}m` : ` · ${minutes}m`
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}h${minutes % 60}m` : `${minutes}m`
 }

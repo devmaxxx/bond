@@ -30,6 +30,7 @@ const CARD_CHROME = 4
 const LABEL_COLUMNS = 11
 const VALUE_COLUMNS = 6
 const HIT_COLUMNS = 9
+const GAUGE_NOTE_COLUMNS = 6
 const MIN_VISIBLE_SHARE = 0.01
 
 /** `columns` is the pane body's width; bars stretch to fill whatever the card has. */
@@ -115,6 +116,31 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number): RenderElement {
           <Box marginLeft={2} flexGrow={1}>
             <Text dimColor wrap="truncate-end">{row.note}</Text>
           </Box>
+        </Box>
+      )
+    case 'gauge': {
+      // Label, value and note sit in the same columns as the pair rows, so every bar starts and ends in line.
+      const cells = Math.max(4, inner - LABEL_COLUMNS - VALUE_COLUMNS - GAUGE_NOTE_COLUMNS - 2)
+      const filled = Math.round(Math.min(1, Math.max(0, row.ratio)) * cells)
+      return (
+        <Box key={key} flexDirection="row">
+          {labelValue(ui, row.label, row.value, row.tone)}
+          <Box marginLeft={1}>
+            <Text>
+              <Text {...tone}>{FILLED.repeat(filled)}</Text>
+              <Text dimColor>{EMPTY.repeat(cells - filled)}</Text>
+            </Text>
+          </Box>
+          <Box width={GAUGE_NOTE_COLUMNS + 1} justifyContent="flex-end">
+            <Text dimColor>{row.note}</Text>
+          </Box>
+        </Box>
+      )
+    }
+    case 'section':
+      return (
+        <Box key={key} flexDirection="row" marginTop={1}>
+          <Text dimColor>{`${row.title} ${EMPTY.repeat(Math.max(0, inner - row.title.length - 1))}`}</Text>
         </Box>
       )
     case 'note':
