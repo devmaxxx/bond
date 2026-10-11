@@ -46,8 +46,15 @@ export type JobLoop = {
   at: number
   firstAt: number
   done: boolean
-  // Its first tool call came while a Workflow ran and the engine's agent list does not name it.
+  // A workflow script's agent() started it.
   workflow: boolean
+  // From its spawn: the description it runs under and the model it runs on.
+  name: string | null
+  model: string | null
+  // Its latest test, typecheck or lint run, by the counts the runner printed.
+  test: { pass: number | null; fail: number | null; label: string } | null
+  // It ran git push or gh pr create/merge; agents in a batch never push.
+  pushed: boolean
 }
 
 /** What the session is doing: the prompt it works on, the tools in flight, the agent loops it runs. */
@@ -62,8 +69,8 @@ export type JobState = {
   failed: number
   recent: string[]
   loops: Record<string, JobLoop>
-  // The latest Workflow run: when it was launched, and its agents started and finished since.
-  workflow: { at: number; started: number; done: number } | null
+  // The latest Workflow run: when it was launched, its script's name, and its agents started and finished since.
+  workflow: { at: number; name: string | null; runId: string | null; started: number; done: number } | null
 }
 
 declare module 'claude-code' {

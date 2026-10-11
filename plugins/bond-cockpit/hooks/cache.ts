@@ -103,6 +103,8 @@ export type Row =
   | { kind: 'pair'; label: string; value: string; note: string; tone: Tone }
   | { kind: 'trend'; label: string; value: string; hits: number[]; tone: Tone }
   | { kind: 'note'; text: string; tone: Tone }
+  // A note packed under the row before it, for lists with two lines per item.
+  | { kind: 'line'; text: string; tone: Tone }
   | { kind: 'gauge'; label: string; value: string; ratio: number; note: string; tone: Tone }
   | { kind: 'section'; title: string; tone: Tone }
 

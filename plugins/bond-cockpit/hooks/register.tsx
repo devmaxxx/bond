@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl } from './cache'
-import { EMPTY_JOB, endJob, isBusy, jobCard, loopEnded, startJob, toolAsked, toolEnded, toolStarted } from './job'
+import { EMPTY_JOB, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
 import { drawCards } from './pane'
 import { summaryCard } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
@@ -114,14 +114,34 @@ export const register: Register = (on, options) => {
     const agentId = e.agentId
     const startedAt = await $.clock.now().catch(() => 0)
     const id = e.tool_use_id ?? `${tool}-${startedAt}`
-    await guard(async () => {
-      const isListed = await isListedAgent($, agentId)
-      await update($, job, current => toolStarted(current, id, tool, e as unknown as Record<string, unknown>, agentId, isListed, startedAt))
-    })
+    const args = e as unknown as Record<string, unknown>
+    await guard(() => update($, job, current => toolStarted(current, id, tool, args, agentId, startedAt)))
     const ran = await next(e)
-    await guard(() => update($, job, current => toolEnded(current, id, ran.deny !== undefined || ran.isError === true, agentId)))
+    await guard(async () => {
+      const result = (ran.result ?? {}) as { stdout?: unknown; stderr?: unknown; workflowName?: string; runId?: string }
+      const test = tool === 'Bash' && agentId !== undefined ? testRun(String(args.command ?? ''), `${String(result.stdout ?? '')}\n${String(result.stderr ?? '')}`) : null
+      await update($, job, current => {
+        const ended = toolEnded(current, id, ran.deny !== undefined || ran.isError === true, agentId, test)
+        return tool === 'Workflow' && agentId === undefined ? workflowLaunched(ended, result.workflowName, result.runId) : ended
+      })
+    })
 
     return ran
+  }).catch(($, e, next) => next(e))
+
+  // Observes only: the spawn names the agent and its model, and a workflow's agent counts toward its run.
+  on('agent.spawn', async ($, e, next) => {
+    const spawned = await next(e)
+    const agentId = spawned.deny === undefined ? spawned.agentId : undefined
+    if (agentId !== undefined && spawned.deny === undefined) {
+      const model = spawned.model
+      await guard(async () => {
+        const now = await $.clock.now()
+        await update($, job, current => agentSpawned(current, agentId, e.description, model, e.workflow?.runId, now))
+      })
+    }
+
+    return spawned
   }).catch(($, e, next) => next(e))
 
   // Observes only: an `ask` verdict means the call may now wait on the person, not on the tool.
@@ -269,20 +289,6 @@ async function onTick($: EngineInterface): Promise<void> {
     const seconds = Math.ceil((cacheNow.at + cacheNow.ttlMs - now) / 1000)
     $.ui.toast(`bond-cockpit: cache expires in ${seconds}s: send a message now`)
   }
-}
-
-// Only a loop's first call asks: a workflow's agents are the ones the engine's list does not name.
-async function isListedAgent($: EngineInterface, agentId: string | undefined): Promise<boolean> {
-  if (agentId === undefined) {
-    return false
-  }
-  const current = await read($, job)
-  if (current.workflow === null || agentId in current.loops) {
-    return false
-  }
-  const agents = await $.agent.list()
-
-  return agents.some(agent => agent.id === agentId)
 }
 
 // The Job card is a view: a failure in its bookkeeping must never fail the tool call or the turn it watches.

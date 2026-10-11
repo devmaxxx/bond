@@ -91,10 +91,13 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   elapsed time (`took …` once done), what runs now — the tool in flight with
   what it works on and for how long, `approve?` when the permission check
   asked, `thinking`, or `waiting for you` — the tool count with failures and
-  the last tool, a `workflow` gauge of the run's finished over started agents,
-  and one row per agent loop (subagent, teammate or workflow agent) with its
-  calls and latest tool, working ones first, quiet after two minutes without a
-  call, gone five minutes after finishing. The **Cache** card wears the
+  the last tool, a `workflow` gauge of the run's finished over started agents
+  with the script's name and run id, and two lines per agent loop (subagent,
+  teammate or workflow agent): its name and model from the spawn, calls and run
+  time, then its latest tool and last test, typecheck or lint counts — red when
+  any failed, with a warning when it ran `git push` or `gh pr create`. Working
+  ones first, quiet after two minutes without a call, gone five minutes after
+  finishing. The cockpit tab's `agents` row adds the red and pushed counts. The **Cache** card wears the
   entry's state on its border and
   header (`● warm`, `◐ expiring`, `○ expired`): the hit rate beside one bar
   split into read / wrote / new tokens, then a TTL meter with the countdown, and

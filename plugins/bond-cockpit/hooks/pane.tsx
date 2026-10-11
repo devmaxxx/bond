@@ -143,6 +143,12 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number): RenderElement {
           <Text dimColor>{`${row.title} ${EMPTY.repeat(Math.max(0, inner - row.title.length - 1))}`}</Text>
         </Box>
       )
+    case 'line':
+      return (
+        <Box key={key}>
+          <Text wrap="truncate-end" {...tone}>{row.text}</Text>
+        </Box>
+      )
     case 'note':
       return (
         <Box key={key} marginTop={1}>

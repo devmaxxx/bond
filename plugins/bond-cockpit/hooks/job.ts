@@ -9,6 +9,9 @@ const STALE_MS = 2 * 60_000
 const KEEP_MS = 5 * 60_000
 const MAX_LOOPS = 8
 const LABEL_LIMIT = 60
+const PUSH = /\bgit\s+push\b|\bgh\s+pr\s+(create|merge)\b/
+// The command's first line, past a leading `cd <dir> &&`, names a runner: an edit script that prints "failed" is no test.
+const RUNNER = /^(?:\S+=\S+\s+)*(?:npx\s+|pnpm\s+(?:exec\s+|run\s+|-\S+\s+\S+\s+)*|npm\s+(?:run\s+)?|yarn\s+|bun\s+(?:run\s+)?)?(vitest|jest|playwright|pytest|tsc|eslint|biome|node\s+--test|test|lint|typecheck|check|turbo)\b/
 
 export const EMPTY_JOB: JobState = {
   task: null,
@@ -23,6 +26,7 @@ export const EMPTY_JOB: JobState = {
 }
 
 export type AgentName = { id: string; description: string; type: string }
+export type TestRun = NonNullable<JobLoop['test']>
 
 /**
  * A main-loop turn starts. A typed prompt starts a new job: counts restart, loops still listed
@@ -43,20 +47,58 @@ export function endJob(job: JobState, now: number): JobState {
   return { ...job, endedAt: now, inFlight: [] }
 }
 
-/** `isListed`: the engine's agent list names the loop, so it is a subagent or teammate, not a workflow's agent. */
-export function toolStarted(job: JobState, id: string, tool: string, args: Record<string, unknown>, agentId: string | undefined, isListed: boolean, now: number): JobState {
+/** An agent starts: its spawn names it. A workflow script's agent counts toward its run. */
+export function agentSpawned(job: JobState, agentId: string, name: string, model: string, runId: string | undefined, now: number): JobState {
+  const loop = { ...(job.loops[agentId] ?? newLoop(now)), name: name || null, model: model || null, workflow: runId !== undefined }
+  if (runId === undefined) {
+    return { ...job, loops: { ...job.loops, [agentId]: loop } }
+  }
+  const current = job.workflow
+  const isSameRun = current !== null && (current.runId === null || current.runId === runId || runId === '')
+  const run = isSameRun ? current : { at: now, name: null, runId: null, started: 0, done: 0 }
+  const workflow = { ...run, runId: run.runId ?? (runId || null), started: run.started + 1 }
+
+  return { ...job, workflow, loops: { ...job.loops, [agentId]: loop } }
+}
+
+/** The Workflow call returned at launch with its script's name and run id. */
+export function workflowLaunched(job: JobState, name: string | undefined, runId: string | undefined): JobState {
+  if (job.workflow === null) {
+    return job
+  }
+
+  return { ...job, workflow: { ...job.workflow, name: name ?? job.workflow.name, runId: job.workflow.runId ?? runId ?? null } }
+}
+
+export function toolStarted(job: JobState, id: string, tool: string, args: Record<string, unknown>, agentId: string | undefined, now: number): JobState {
   const label = toolLabel(tool, args)
   if (agentId === undefined) {
     // The Workflow call returns once the run is launched; its agents report through their own loops.
-    const workflow = tool === 'Workflow' ? { at: now, started: 0, done: 0 } : job.workflow
+    const workflow = tool === 'Workflow' ? { at: now, name: null, runId: null, started: 0, done: 0 } : job.workflow
     return { ...job, tools: job.tools + 1, inFlight: [...job.inFlight, { id, label, at: now, asked: false }], workflow }
   }
-  const known = job.loops[agentId]
-  const joinsWorkflow = known === undefined && job.workflow !== null && !isListed
-  const loop: JobLoop = known ?? { calls: 0, last: '', at: now, done: false, firstAt: now, workflow: joinsWorkflow }
-  const workflow = joinsWorkflow && job.workflow !== null ? { ...job.workflow, started: job.workflow.started + 1 } : job.workflow
+  const loop = job.loops[agentId] ?? newLoop(now)
+  const pushed = loop.pushed || (tool === 'Bash' && PUSH.test(String(args.command ?? '')))
 
-  return { ...job, tools: job.tools + 1, workflow, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false } } }
+  return { ...job, tools: job.tools + 1, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false, pushed } } }
+}
+
+/** A test, typecheck or lint run's counts, when the command names a runner and its output reports any. */
+export function testRun(command: string, output: string): TestRun | null {
+  const line = command.replace(/^\s*cd\s+\S+\s*&&\s*/, '').split('\n')[0]?.trim() ?? ''
+  const runner = RUNNER.exec(line)
+  if (runner === null) {
+    return null
+  }
+  const last = (re: RegExp) => {
+    const found = [...output.matchAll(re)].at(-1)
+    return found === undefined ? null : Number(found[1])
+  }
+  // `44 passed` (vitest, jest, bun) or `# pass 44` (node --test).
+  const pass = last(/(\d+)\s+pass(?:ed|ing|es)?\b/gi) ?? last(/\bpass\s+(\d+)/gi)
+  const fail = last(/(\d+)\s+fail(?:ed|ing|ures?|s)?\b/gi) ?? last(/\bfail\s+(\d+)/gi) ?? last(/Found\s+(\d+)\s+errors?/gi) ?? last(/(\d+)\s+errors?\b/gi)
+
+  return pass === null && fail === null ? null : { pass, fail, label: clip(runner[1] ?? line, 20) }
 }
 
 /** The permission check asked: the call waits on a decision, not on the tool. */
@@ -64,10 +106,11 @@ export function toolAsked(job: JobState, id: string): JobState {
   return { ...job, inFlight: job.inFlight.map(call => (call.id === id ? { ...call, asked: true } : call)) }
 }
 
-export function toolEnded(job: JobState, id: string, hasFailed: boolean, agentId: string | undefined): JobState {
+export function toolEnded(job: JobState, id: string, hasFailed: boolean, agentId: string | undefined, test: TestRun | null = null): JobState {
   const failed = job.failed + (hasFailed ? 1 : 0)
   if (agentId !== undefined) {
-    return { ...job, failed }
+    const loop = job.loops[agentId]
+    return loop === undefined || test === null ? { ...job, failed } : { ...job, failed, loops: { ...job.loops, [agentId]: { ...loop, test } } }
   }
   const finished = job.inFlight.find(call => call.id === id)
   const recent = finished === undefined ? job.recent : [...job.recent, finished.label].slice(-RECENT_TOOLS)
@@ -108,10 +151,15 @@ export function jobCard(job: JobState, agents: readonly AgentName[], now: number
     const { at, started, done } = job.workflow
     const isDone = isFinished(job.workflow)
     rows.push({ kind: 'gauge', label: 'workflow', value: `${done}/${started}`, ratio: started === 0 ? 0 : done / started, note: isDone ? 'done' : elapsed(now - at), tone: isDone ? 'plain' : 'ok' })
+    const named = [job.workflow.name, job.workflow.runId].filter(part => part !== null).join(' · ')
+    if (named !== '') {
+      rows.push({ kind: 'line', text: named, tone: 'dim' })
+    }
   }
   if (loops.length > 0) {
-    rows.push({ kind: 'section', title: `agents ${working} working`, tone: 'dim' })
-    rows.push(...loops.slice(0, MAX_LOOPS).map(loop => loopRow(loop, now)))
+    const red = loops.filter(isRed).length
+    rows.push({ kind: 'section', title: `agents ${working} working${red > 0 ? ` · ${red} red` : ''}`, tone: 'dim' })
+    rows.push(...loops.slice(0, MAX_LOOPS).flatMap(loop => loopRows(loop, now)))
     if (loops.length > MAX_LOOPS) {
       rows.push({ kind: 'note', text: `+${loops.length - MAX_LOOPS} more`, tone: 'dim' })
     }
@@ -139,8 +187,15 @@ export function jobBrief(job: JobState, now: number): { rows: Row[]; isActive: b
     rows.push(nowRow(job, isRunning, now))
   }
   if (working > 0 || job.workflow !== null) {
-    const workflow = job.workflow === null ? '' : `workflow ${job.workflow.done}/${job.workflow.started}`
-    rows.push({ kind: 'pair', label: 'agents', value: String(working), note: workflow, tone: working > 0 ? 'ok' : 'dim' })
+    const loops = Object.values(keptLoops(job.loops, now))
+    const red = loops.filter(isRed).length
+    const pushed = loops.filter(loop => loop.pushed).length
+    const note = [
+      job.workflow === null ? '' : `${job.workflow.name ?? 'workflow'} ${job.workflow.done}/${job.workflow.started}`,
+      red > 0 ? `${red} red` : '',
+      pushed > 0 ? `${pushed} pushed` : '',
+    ].filter(part => part !== '').join(' · ')
+    rows.push({ kind: 'pair', label: 'agents', value: String(working), note, tone: red > 0 || pushed > 0 ? 'warn' : working > 0 ? 'ok' : 'dim' })
   }
 
   return { rows, isActive: isRunning || working > 0, badge: jobBadge(job, isRunning, now) }
@@ -224,30 +279,46 @@ function jobBadge(job: JobState, isRunning: boolean, now: number): string {
   return job.endedAt === null ? '' : `took ${elapsed(job.endedAt - job.startedAt)}`
 }
 
-type ListedLoop = JobLoop & { id: string; name: string }
+type ListedLoop = Omit<JobLoop, 'name'> & { id: string; name: string }
 
 function listLoops(loops: Record<string, JobLoop>, agents: readonly AgentName[], now: number): ListedLoop[] {
   const names = new Map(agents.map(agent => [agent.id, agent.description || agent.type]))
 
   return Object.entries(keptLoops(loops, now))
-    .map(([id, loop]) => ({ ...loop, id, name: names.get(id) ?? `#${id.slice(0, 6)}` }))
+    .map(([id, loop]) => ({ ...loop, id, name: loop.name ?? names.get(id) ?? `#${id.slice(0, 6)}` }))
     .sort((a, b) => Number(isWorking(b, now)) - Number(isWorking(a, now)) || Number(a.done) - Number(b.done) || b.at - a.at)
 }
 
-function loopRow(loop: ListedLoop, now: number): Row {
-  const label = clip(`${loop.done ? '✓' : '●'} ${loop.name}`, 10)
-  const value = String(loop.calls)
-  if (loop.done) {
-    return { kind: 'pair', label, value, note: `done ${elapsed(now - loop.at)} ago`, tone: 'dim' }
-  }
-  if (!isWorking(loop, now)) {
-    return { kind: 'pair', label, value, note: `quiet ${elapsed(now - loop.at)} · ${loop.last}`, tone: 'dim' }
+// Two lines per loop: who it is and how it stands, then its latest tool and test.
+function loopRows(loop: ListedLoop, now: number): Row[] {
+  const isLive = isWorking(loop, now)
+  const state = loop.done ? `done ${elapsed(now - loop.at)} ago` : isLive ? `${elapsed(now - loop.firstAt)}` : `quiet ${elapsed(now - loop.at)}`
+  const head = [`${loop.done ? '✓' : '●'} ${loop.name}`, loop.model === null ? '' : shortModel(loop.model), `${loop.calls} calls`, state]
+  const test = loop.test === null ? '' : `${loop.test.label} ${loop.test.pass ?? '?'}✓ ${loop.test.fail ?? 0}✗`
+  const rows: Row[] = [
+    { kind: 'line', text: head.filter(part => part !== '').join(' · '), tone: isLive ? 'ok' : 'dim' },
+    { kind: 'line', text: `  ${[loop.done ? '' : loop.last, test].filter(part => part !== '').join(' · ') || '–'}`, tone: isRed(loop) ? 'bad' : 'dim' },
+  ]
+  if (loop.pushed) {
+    rows.push({ kind: 'line', text: '  ran git push / gh pr', tone: 'warn' })
   }
 
-  return { kind: 'pair', label, value, note: loop.last, tone: 'ok' }
+  return rows
 }
 
-function isWorking(loop: JobLoop, now: number): boolean {
+function isRed(loop: JobLoop): boolean {
+  return (loop.test?.fail ?? 0) > 0
+}
+
+function shortModel(model: string): string {
+  return /opus|sonnet|haiku|fable/.exec(model)?.[0] ?? model
+}
+
+function newLoop(now: number): JobLoop {
+  return { calls: 0, last: '', at: now, firstAt: now, done: false, workflow: false, name: null, model: null, test: null, pushed: false }
+}
+
+function isWorking(loop: Pick<JobLoop, 'done' | 'at'>, now: number): boolean {
   return !loop.done && now - loop.at < STALE_MS
 }
 
