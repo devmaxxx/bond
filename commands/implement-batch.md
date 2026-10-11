@@ -18,6 +18,13 @@ and the procedures it names in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`.
 This command owns only selection, the conflict map, the schedule and the ledger.
 Read both files.
 
+A repository that owns its task flow has a companion command instead: in
+beauty-crm (`.bond/project.json` with `tracker: none` and a `pnpm tasks` CLI)
+the batch is `/bond-beauty-crm:batch`. When it is not installed, say so and
+offer to enable it in the clone's `.claude/settings.local.json` before running
+this one — the generic flow knows nothing of the repository's claim, its
+plan-file dependencies or its trailers.
+
 Autonomous per the **Autonomy** note in `implement-flow.md`. It never stops to
 ask mid-batch: an issue that would need a question is set aside and reported.
 
@@ -108,15 +115,21 @@ Jira.
 
 ### 3. Conflict map
 
-One read-only `Explore` agent per selected issue, all launched in one message,
-each given the issue's summary, description and comments. Each returns only:
+One read-only `Explore` agent (`model: haiku`) per selected issue, or per group
+of about five, all launched in one message, each given the issues' summary,
+description and comments. Each returns only:
 
 ```
+<KEY> verdict: ready | mostly-built | already-done | blocked | needs-owner
 <KEY> files: <path>, <path>, …        # existing files it will edit
 <KEY> new: <dir>/…                     # where new files will go
 <KEY> shared: lockfile | migrations | generated client | i18n | route registry | none
 <KEY> confidence: high | low
 ```
+
+Re-check every `ready`, `mostly-built` and `already-done` verdict yourself
+against the code (`${CLAUDE_PLUGIN_ROOT}/shared/track-build.md`, **Recon**); a
+`blocked` or `needs-owner` one is set aside like a step 2 blocker.
 
 Two issues **conflict** when they share an edited file, a new-file directory
 that holds an index or barrel, or any `shared` kind except `i18n` (keyed JSON
@@ -131,9 +144,11 @@ missed one costs a merge conflict.
 
 1. **Group** (`--group` only). Conflicting issues that are one piece of work —
    one links the other (`relates to`, `duplicates`, a subtask), or they share
-   most of their edited files — become one item, at most 3 keys, implemented as
-   one `/bond:implement <KEY1> <KEY2>` run: one branch, one PR. Log each group
-   and why.
+   most of their edited files, or one shared kind (a migration sequence, a
+   contract version, a generated client) — become one item, at most 10 keys,
+   implemented as one `/bond:implement <KEY1> <KEY2> …` run: one branch, one PR,
+   built as one track of `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md`. Log each
+   group and why.
 2. **Chain** every remaining conflicting pair: the later-ranked item gets
    `after` = the earlier one. An item that conflicts with two items that do not
    conflict with each other cannot stack on both branches: `after` is a list,
@@ -145,6 +160,14 @@ missed one costs a merge conflict.
    <predecessor branch>`): its PR stacks on the earlier one and must merge after
    it. On GitHub, merging the predecessor with branch deletion retargets the
    stacked PR to the base; on Bitbucket it does not — say so in the report.
+   A squash merge rewrites the predecessor into one new commit, so the
+   retargeted PR goes `DIRTY` even when nothing truly conflicts: rebase it with
+   `git rebase --onto origin/<base> <predecessor's last head sha>`, re-run the
+   cheap slice and push `--force-with-lease`. Record that sha in the ledger
+   when the predecessor opens, since its branch is deleted on merge.
+   When most selected issues conflict through one shared kind (a contract
+   version, a generated client, migrations), chaining yields a stack as deep
+   as the batch: offer `--group` instead.
 3. Print the schedule: items in start order, each with its keys, predicted
    files, `after`, and group. `--dry-run` ⇒ stop here.
 
