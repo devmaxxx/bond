@@ -30,6 +30,7 @@ the repo's own statement about itself beats a guess made from its URL.
   "baseBranch": "main",
   "reviewers": [],
   "draft": false,
+  "prTitle": "plain",
   "teamsChannel": null,
   "clockifyProject": null
 }
@@ -86,6 +87,13 @@ First match wins:
 Step 3 is why this list exists: `dev` is the right fallback inside Bonliva and
 the wrong one everywhere else. Applying it to a repo whose default branch is
 `main` cuts the branch off a base that does not exist.
+
+### `PR_TITLE` — `plain` or `conventional`
+
+`prTitle` in the manifest, else **`plain`**: a sentence led by its issue, per
+`shared/pr-template.md`. `conventional` is for a repo whose squash commit takes the PR
+title as its subject and whose CI checks it — the title is then a Conventional Commits
+subject, and `hooks/check-pr.mjs` enforces whichever the profile says.
 
 ### `TRACKER` — `jira` or `none`
 
