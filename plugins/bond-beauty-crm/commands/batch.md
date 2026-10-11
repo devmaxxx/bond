@@ -96,9 +96,12 @@ contradictions.
 
 ## 3. Claim before the first edit
 
-- `pnpm tasks claim <n>` from the main checkout. A track's first card creates
-  its worktree; each other card of the track is
-  `pnpm tasks claim <n> --join` from inside that worktree.
+- Per track, from the main checkout: `pnpm tasks claim <first n> <n> …` — the
+  first card creates the track's worktree, the rest join it, in order, stopping
+  at the first refusal. On a task-sync without the multi-id form,
+  `pnpm tasks claim <first n>`, then `pnpm tasks claim <n> --join` per card
+  from inside that worktree. A batch is one track: its cards may span
+  milestones.
 - A claim refused on the login ⇒ retry with the `GH_TOKEN` prefix, never skip.
 - A claim that printed `spawnSync pnpm ENOENT` ⇒ in the worktree,
   `pnpm install --frozen-lockfile` then
@@ -150,8 +153,9 @@ its lenses.
 
 ## 6. After the build
 
-1. Read the results. Close the tasks that close without code, with
-   `pnpm tasks done` and the closing text from the plan.
+1. Read the results. Close the tasks that close without code, with the closing
+   text from the plan, in one `pnpm tasks done <MID-T##> <MID-T##> …` (one id
+   per call on a task-sync without the multi-id form).
 2. Remaining owner items ⇒ questions again, per step 2.
 3. Rebase each track onto `origin/main` — behind main, `pnpm tasks trailers`
    prints a bogus `Plan-Reopen` per task main ticked since the cut — and run the
