@@ -10,7 +10,6 @@ description: >
   owner answers — never start a second one.
 model: opus
 effort: xhigh
-tools: All tools
 ---
 
 Write the batch plan and its PRD changes. Commit. Report. Stay available for
