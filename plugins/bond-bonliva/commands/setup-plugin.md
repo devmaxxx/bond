@@ -14,9 +14,9 @@ Set up the bond plugin for this user. This does three things:
 
 Use the bond plugin's bundled `.mcp.json` (at `${CLAUDE_PLUGIN_ROOT}/.mcp.json`) as the canonical template for the MCP servers.
 
-To avoid colliding with any servers the user already runs, every bond server is named with a **`bond-` prefix**. The template keys are already prefixed, so they install into the user scope verbatim:
+To avoid colliding with any servers the user already runs, every bond server is named with a **`bond-` prefix**. The template keys are already prefixed, so they install into each project's local scope verbatim:
 
-| Server (template key = user-scope name) | Type | Auth | Notes |
+| Server (template key = local-scope name) | Type | Auth | Notes |
 |-----------------------------------------|------|------|-------|
 | `bond-atlassian` | `sse` (remote) | OAuth (browser on first use) | Official Atlassian MCP server. No env vars. |
 | `bond-bitbucket` | `stdio` (`uvx`) | API token | Requires `uv` toolchain. |
@@ -24,9 +24,9 @@ To avoid colliding with any servers the user already runs, every bond server is 
 | `bond-teams` | `stdio` (`npx`) | Microsoft Graph OAuth | Requires Node/`npx`. No env vars — auth is a separate one-time CLI step. |
 | `bond-outline` | `stdio` (`npx`) | API key | Requires Node/`npx`. |
 
-This command **only ever manages `bond-` prefixed servers**. It never reads values from, modifies, or removes any other user-scope server — including a user's own unprefixed `atlassian` / `bitbucket` / `clockify`. Because the template keys are themselves `bond-` prefixed, each server installs under the exact key from the template with no renaming.
+This command **only ever manages `bond-` prefixed servers**. It never reads values from, modifies, or removes any other server — including a user's own unprefixed `atlassian` / `bitbucket` / `clockify`. Because the template keys are themselves `bond-` prefixed, each server installs under the exact key from the template with no renaming.
 
-User-scope servers live in the top-level `mcpServers` of `~/.claude.json`. Manage them with the `claude mcp` CLI (`--scope local`) rather than editing `~/.claude.json` by hand — that file also holds session state and is easy to corrupt.
+Local-scope servers live in `~/.claude.json` under each project's path, so every `claude mcp` call below runs once per target project (point 1 above), from that project's directory: `cd <path> && claude mcp …`. Manage them with the `claude mcp` CLI rather than editing `~/.claude.json` by hand — that file also holds session state and is easy to corrupt.
 
 Run this after installing the plugin, after a plugin update introduces new servers, or when rotating tokens.
 
@@ -60,7 +60,7 @@ If the user passed explicit `--reset` flags, honor those and skip this question 
 - **Projects to track** — configure the projects `/bond-bonliva:log-plan` scans (step 6d).
 - **Woodpecker CI** — install/check `woodpecker-cli` and set `WOODPECKER_SERVER` / `WOODPECKER_TOKEN` (step 6e).
 
-Then run only the steps that map to the selection — always do step 1 (locate the template); only run step 7 if "MCP servers" or a server-specific credential was chosen. If **Everything** is selected — or it's the first run with no existing user-scope bond config — run every step. For a chosen credential item, treat it as an implicit `--reset` of those keys: re-prompt and overwrite the existing value.
+Then run only the steps that map to the selection — always do step 1 (locate the template); only run step 7 if "MCP servers" or a server-specific credential was chosen. If **Everything** is selected — or it's the first run with no bond server in any target project yet — run every step. For a chosen credential item, treat it as an implicit `--reset` of those keys: re-prompt and overwrite the existing value.
 
 ### 1. Locate the template
 
@@ -92,12 +92,12 @@ For each server in the template, check the runtime it needs:
   If install fails, point at https://docs.astral.sh/uv/getting-started/installation/ and abort.
 - **`command: "npx"`** (e.g. `bond-clockify`) — verify `npx` is on PATH; if missing, tell the user to install Node.js (https://nodejs.org) and abort.
 
-### 3. Read the current user-scope config
+### 3. Read each project's current config
 
-List the servers already installed in the user scope:
+From each target project's directory, list the servers already installed:
 
 ```sh
-claude mcp list --scope local
+cd <path> && claude mcp list
 ```
 
 For any `bond-` prefixed server you intend to touch, inspect its current definition (including resolved env keys) with:
@@ -112,21 +112,21 @@ This is the source of truth for what already exists. Do **not** edit `~/.claude.
 
 ### 4. Detect superseded servers
 
-The plugin previously shipped a `jira` server (`uvx mcp-atlassian`) that is now replaced by the remote `atlassian` SSE server. If the user scope has a **`bond-jira`** server (or a legacy unprefixed `bond`-installed `jira` server) whose command is `uvx` with `args` containing `mcp-atlassian`, ask the user (`AskUserQuestion`):
+A `jira` server (`uvx mcp-atlassian`) is superseded by the remote `bond-atlassian` SSE server. If a target project sees a **`bond-jira`** server (or a legacy unprefixed `bond`-installed `jira` server) whose command is `uvx` with `args` containing `mcp-atlassian`, ask the user (`AskUserQuestion`):
 
-> The legacy `bond-jira` server (`uvx mcp-atlassian`) is superseded by `bond-atlassian` (official SSE). Remove it from your user-scope config?
+> The legacy `bond-jira` server (`uvx mcp-atlassian`) is superseded by `bond-atlassian` (official SSE). Remove it?
 
-- **Yes** — `claude mcp remove bond-jira --scope local`.
+- **Yes** — `claude mcp remove bond-jira` (no `--scope`: it removes the server from whichever scope holds it, and older bond versions installed it at user scope).
 - **No** — leave it.
 
 Never assume an unprefixed `jira` server belongs to bond — leave it alone.
 
 ### 5. Diff against the template
 
-For each template key `<name>` (already `bond-` prefixed), compare `template.mcpServers.<name>` against the user-scope server of the same name:
+For each template key `<name>` (already `bond-` prefixed), compare `template.mcpServers.<name>` against the project's server of the same name:
 
-- **`<name>` missing from the user scope** → mark it for install (the template definition verbatim).
-- **`<name>` already in the user scope** → reconcile per type:
+- **`<name>` missing from the project** → mark it for install (the template definition verbatim).
+- **`<name>` already in the project** → reconcile per type:
   - **SSE/HTTP servers**: compare `type` and `url`. If they differ, ask whether to take the template's values. Default: keep the user's existing config. There are no env vars to merge.
   - **stdio servers**: compare `command`, `args`, and the set of `env` keys.
     - If `command` or `args` differ, ask whether to keep theirs or take the template's. Default: keep theirs.
@@ -134,11 +134,11 @@ For each template key `<name>` (already `bond-` prefixed), compare `template.mcp
 
 **Reset mode override:** if `--reset` was passed, also mark for re-resolution every existing env key that is in scope — all of them for bare `--reset`, or only the named ones for `--reset <VAR_NAME> ...`. These are added to the set from step 6 and will overwrite the current values. Keys outside the reset scope still follow the "never overwrite" rule above.
 
-Any other user-scope server — `bond-` prefixed but not in the template, or any non-`bond-` server — is left completely untouched.
+Any other server — `bond-` prefixed but not in the template, or any non-`bond-` server — is left completely untouched.
 
 ### 6. Resolve env values for additions
 
-Only applies to stdio servers. For each env key being **added** (missing from the user scope), prefer in order:
+Only applies to stdio servers. For each env key being **added** (missing from the project's server), prefer in order:
 
 1. Process environment (`$VAR_NAME` set and non-empty)
 2. The template's literal default (e.g. `${BITBUCKET_WORKSPACE:-https://bitbucket.org}` → `https://bitbucket.org` when unset)
@@ -314,12 +314,12 @@ woodpecker-cli info
 
 This step is optional — skipping it never blocks the rest of setup.
 
-### 7. Install / update servers in the user scope
+### 7. Install / update servers in each project's local scope
 
-For each server to install or update, write it with `claude mcp add-json` at user scope. The template key `<name>` is already `bond-` prefixed and is used as-is. Build the full per-server JSON object (the value from `template.mcpServers.<name>`, with env values resolved from step 6) and run:
+For each target project and each server to install or update there, write it with `claude mcp add-json` at local scope, from that project's directory. The template key `<name>` is already `bond-` prefixed and is used as-is. Build the full per-server JSON object (the value from `template.mcpServers.<name>`, with env values resolved from step 6) and run:
 
 ```sh
-claude mcp add-json <name> '<json>' --scope local
+cd <path> && claude mcp add-json <name> '<json>' --scope local
 ```
 
 `add-json` overwrites an existing server of the same name, so when updating an existing server pass the **merged** object — template definition plus every existing env value preserved from step 5 — not the bare template. For env keys in the `--reset` scope, use the freshly prompted value from step 6 instead of the preserved one.
@@ -328,14 +328,14 @@ For a server that needs no changes at all, skip it (don't re-add). In reset mode
 
 ### 8. Verify and report
 
-Run `claude mcp list --scope local` to confirm, then print one of:
+Run `cd <path> && claude mcp list` in each target project to confirm, then print one of:
 
-- **Already in sync** — `✓ bond-* user-scope MCP servers already match the template, nothing to do.`
+- **Already in sync** — `✓ bond-* local-scope MCP servers already match the template, nothing to do.`
 - **Updated** — list each change, e.g.:
   ```
-  ✓ Installed server (user scope): bond-atlassian (SSE, OAuth)
+  ✓ Installed server (local scope, <project>): bond-atlassian (SSE, OAuth)
   ✓ Removed superseded server: bond-jira
-  ✓ Installed server (user scope): bond-bitbucket (env prompted)
+  ✓ Installed server (local scope, <project>): bond-bitbucket (env prompted)
   ✓ Reset env values: BITBUCKET_TOKEN on bond-bitbucket
   ✓ Configured BOND_USER_NAME in ~/.claude/settings.json
   ✓ Configured BOND_TEAMS_WEBHOOK_URL in ~/.claude/settings.json
