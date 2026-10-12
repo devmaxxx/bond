@@ -1,0 +1,46 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, it } from "node:test";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const PLUGINS = join(ROOT, "plugins");
+const AGENT_ROOTS = [
+  join(ROOT, "agents"),
+  ...readdirSync(PLUGINS).map((plugin) => join(PLUGINS, plugin, "agents")),
+].filter(existsSync);
+
+const agents = AGENT_ROOTS.flatMap((root) =>
+  readdirSync(root)
+    .filter((name) => name.endsWith(".md"))
+    .map((name) => join(root, name)),
+);
+
+const toolsLine = (file) =>
+  readFileSync(file, "utf8")
+    .split("---")[1]
+    ?.split("\n")
+    .find((line) => line.startsWith("tools:"));
+
+// Claude Code reads `tools:` as a list of tool names and refuses to spawn an agent whose
+// list resolves to nothing — `tools: All tools` is two unknown names, not "everything".
+// An agent that needs every tool leaves the line out and inherits them.
+describe("an agent's tools line names tools", () => {
+  it("finds the agents", () => assert.ok(agents.length > 0));
+
+  for (const file of agents) {
+    it(relative(ROOT, file), () => {
+      const line = toolsLine(file);
+      if (line === undefined) return;
+      const names = line
+        .slice("tools:".length)
+        .replace(/[[\]]/g, "")
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean);
+      assert.ok(names.length > 0, "an empty tools line");
+      for (const name of names) assert.match(name, /^[A-Za-z][\w*-]*$/, `not a tool name: "${name}"`);
+    });
+  }
+});

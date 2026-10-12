@@ -9,7 +9,6 @@ description: >
   build; one at a time per track.
 model: opus
 effort: high
-tools: All tools
 ---
 
 Build your step (or fix your findings). Commit. Report. Stop.
