@@ -7,7 +7,7 @@ description: Use when a task arrives that will change files or needs a plan; whe
 
 ## Contract
 
-Every phase carries a pair (model, effort); default `opus`/`high`. `fable`, `xhigh` and `max` are never your own judgement: their predicates buy a question, the user's answer spends it. A phase runs here unless its granted pair is above the session's, or it is recon. `opus` plans; `fable` only when the user wrote or picked it.
+Every phase carries a pair (model, effort); default `opus`/`medium`. `fable`, `xhigh` and `max` are never your own judgement: their predicates buy a question, the user's answer spends it. A phase runs here unless its granted pair is above the session's, or it is recon. `opus` plans; `fable` only when the user wrote or picked it.
 
 Details: references/routing-rules.md — session pair, overrides, card fields, tier rules, recon.
 
@@ -21,14 +21,14 @@ scan: files=<n> (<paths|globs>) · modules=<n> · test=<path|none> · schema=<pa
 
 ## Effort tiers
 
-Start at `high`; drop a row only when every predicate of it holds. An xhigh or max predicate asks instead.
+Start at `medium`: `high` on any of its predicates, `low` only on all of its. An xhigh or max predicate asks instead; `high` runs meanwhile.
 
 | Tier | Predicates |
 |---|---|
 | max (ask) | irreversible, no rollback · adversarial correctness: authz, crypto, lock order, published numbers · failure is silent · a prior attempt regressed |
 | xhigh (ask) | files ≥ 20 · criteria must be invented · a bug with repro=none · schema, surface, security or concurrency not `none` · designs=2+ |
-| high (default) | everything else: no escalation granted, and neither medium nor low fully holds |
-| medium (all) | files ≤ 5 · modules=1 · spec complete · test present, or the types judge it |
+| high (any) | files > 5 · modules ≥ 2 · no test, and the types do not judge it |
+| medium (default) | everything else |
 | low (all) | one file · target named literally · end state stated |
 | recon → haiku | read-only: search, callers, one check run; spawned |
 

@@ -14,7 +14,7 @@
 | "Granted xhigh, but I'll stay here" | A granted pair is not the session's; that phase spawns. |
 | "The predicate holds, escalate and mention it" | The predicate buys a question, not a tier. |
 | "Asking burns a turn" | One question is cheaper than a whole task at xhigh. |
-| "It feels like a high task" | Feelings pick nothing; below high every predicate of the row must hold. |
+| "It feels like a high task" | Feelings pick nothing; high needs a high predicate on the card. |
 | "This plan looks hairy, take fable" | fable comes from the user's word or their answer, never from the look of it. |
 | "fable is capped, I'll wait or ask" | opus plans it at the same tier, now. |
 | "The prompt says migration" | The card says whether `schema` is touched; a version bump is not a migration. |
