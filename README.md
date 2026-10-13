@@ -86,7 +86,7 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   matters now: the task, then a few lines from each other tab under a heading
   that opens it (press it, or `j` / `s` in the pane) — under **job**, what runs
   now and agents working with a workflow's finished/started count; under
-  **session**, the cache hit and countdown, the main model with the session's
+  **session**, the cache hit and countdown, the main model with its own
   tokens and requests, and the 5h and context gauges (other limits only once
   they turn yellow or red). **job** has the full Job card, then the Cache
   card. **session** has the Session card.

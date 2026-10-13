@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
-import type { CacheTtl } from './cache'
+import type { CacheTtl, TabName } from './cache'
 import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
 import { drawCards } from './pane'
 import { summaryCard } from './summary'
@@ -62,7 +62,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'bond-cockpit' }, async ($, e) => {
     const tab = e.args.trim()
-    const isTab = tab === 'job' || tab === 'session'
+    const isTab = isTabName(tab)
     await (isTab ? openTab($, tab) : openPanes($))
     await pushStatus($)
 
@@ -276,7 +276,11 @@ export const register: Register = (on, options) => {
   })
 }
 
-function openTab($: EngineInterface, tab: string, focus?: true) {
+function isTabName(text: string): text is TabName {
+  return text === 'job' || text === 'session'
+}
+
+function openTab($: EngineInterface, tab: TabName, focus?: true) {
   const [id, title] = tab === 'job' ? [PANE, PANE_TITLE] : [SESSION, SESSION_TITLE]
 
   return $.ui.open({ id, title, columns: PANE_COLUMNS, ...(focus === undefined ? {} : { focus }) })

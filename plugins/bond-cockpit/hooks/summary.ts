@@ -15,9 +15,7 @@ function isImportant(row: Row): boolean {
 export function summaryCard(job: JobState, cache: CacheSnapshot | null, usage: UsageSnapshot | null, models: ModelTally, now: number, warnMs: number): Card {
   const brief = jobBrief(job, now)
   const usageNow = usageCard(usage, now)
-  // jobBrief leads with the task when there is one; it heads the card, above the tab sections.
-  const task = job.task === null ? [] : brief.rows.slice(0, 1)
-  const work = job.task === null ? brief.rows : brief.rows.slice(1)
+  const task: Row[] = job.task === null ? [] : [{ kind: 'note', text: job.task, tone: 'plain' }]
   const session: Row[] = []
   if (cache !== null) {
     const view = cacheView(cache, now, warnMs)
@@ -38,27 +36,26 @@ export function summaryCard(job: JobState, cache: CacheSnapshot | null, usage: U
     rows: [
       ...task,
       { kind: 'section', title: 'job', tab: 'job', tone: 'dim' },
-      ...(work.length > 0 ? work : [{ kind: 'line', text: 'Nothing running', tone: 'dim' } as const]),
+      ...(brief.rows.length > 0 ? brief.rows : [{ kind: 'line', text: 'Nothing running', tone: 'dim' } as const]),
       { kind: 'section', title: 'session', tab: 'session', tone: 'dim' },
       ...(session.length > 0 ? session : [{ kind: 'line', text: 'No request yet', tone: 'dim' } as const]),
     ],
   }
 }
 
+// The main model's own numbers, as the session tab's models section shows them; the rest are only counted.
 function modelRow(models: ModelTally): Row | null {
-  const seen = Object.values(models.byModel)
-  if (models.current === null || seen.length === 0) {
+  const main = models.current === null ? undefined : models.byModel[models.current]
+  if (models.current === null || main === undefined) {
     return null
   }
-  const requests = seen.reduce((sum, model) => sum + model.requests, 0)
-  const spent = seen.reduce((sum, model) => sum + model.tokens, 0)
-  const others = seen.length - 1
+  const others = Object.keys(models.byModel).length - 1
 
   return {
     kind: 'pair',
     label: 'model',
-    value: tokens(spent),
-    note: [shortModel(models.current), `${requests} req`, others > 0 ? `+${others} more` : ''].filter(part => part !== '').join(' · '),
+    value: tokens(main.tokens),
+    note: [shortModel(models.current), `${main.requests} req`, others > 0 ? `+${others} more` : ''].filter(part => part !== '').join(' · '),
     tone: 'plain',
   }
 }

@@ -1,7 +1,7 @@
 import type { EngineInterface, RenderElement } from 'claude-code'
 
 import { hitTone } from './cache'
-import type { Card, Row, Segment, Tone } from './cache'
+import type { Card, Row, Segment, TabName, Tone } from './cache'
 
 export type Ui = ReturnType<EngineInterface['ui']['resolve']>
 
@@ -35,9 +35,10 @@ const MIN_VISIBLE_SHARE = 0.01
 const MODEL_COLUMNS = 7
 const CALLS_COLUMNS = 5
 const TIME_COLUMNS = 8
+const TAB_HOTKEY: Record<TabName, string> = { job: 'j', session: 's' }
 
 /** Given, `onAgent` makes each agent's name a button that opens it, and `onTab` each tab heading. */
-export type Presses = { onAgent?: (agentId: string) => void; onTab?: (tab: string) => void }
+export type Presses = { onAgent?: (agentId: string) => void; onTab?: (tab: TabName) => void }
 
 /** `columns` is the pane body's width; bars stretch to fill whatever the card has. */
 export function drawCards(ui: Ui, cards: readonly Card[], columns: number, presses: Presses = {}): RenderElement {
@@ -149,7 +150,7 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number, presses: Presses)
       return (
         <Box key={key} flexDirection="row" marginTop={1}>
           {tab === undefined || presses.onTab === undefined ? heading : (
-            <ui.Button key={`tab:${tab}`} plain label={`open ${tab}`} hotkey={tab.charAt(0)} onPress={() => presses.onTab?.(tab)}>
+            <ui.Button key={`tab:${tab}`} plain label={`open ${tab}`} hotkey={TAB_HOTKEY[tab]} onPress={() => presses.onTab?.(tab)}>
               {heading}
             </ui.Button>
           )}

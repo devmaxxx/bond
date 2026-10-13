@@ -179,7 +179,15 @@ test('the main tab keeps the task, then the job and session tabs in brief: cache
   expect(card.title).toBe('Cockpit')
   expect(card.badge).toBe('10s · $1.50')
   expect(outline).toEqual(['note', '[job]', 'now', '[session]', 'cache', 'model', '5h', 'spend', 'context'])
-  expect(card.rows.find(row => row.kind === 'pair' && row.label === 'model')).toMatchObject({ value: '15.0k', note: 'opus-5-5 · 6 req · +1 more' })
+  expect(card.rows.find(row => row.kind === 'pair' && row.label === 'model')).toMatchObject({ value: '12.0k', note: 'opus-5-5 · 4 req · +1 more' })
+})
+
+test('agents working with no task yet go under the job heading, and the card has no task line', () => {
+  const job = agentSpawned(EMPTY_JOB, 'a1', 'implement:A', 'claude-opus-5-5', undefined, NOW)
+  const card = summaryCard(toolStarted(job, 't1', 'Read', { file_path: '/w/a.ts' }, 'a1', NOW), null, null, { current: null, byModel: {} }, NOW + 1_000, 10_000)
+
+  expect(card.status).toBe('● working')
+  expect(card.rows.map(row => (row.kind === 'section' ? `[${row.tab}]` : 'label' in row ? row.label : row.kind === 'line' ? row.text : row.kind))).toEqual(['[job]', 'now', 'agents', '[session]', 'No request yet'])
 })
 
 test('before anything runs the main tab still heads both tabs, each saying it is empty', () => {
