@@ -21,6 +21,8 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
 | `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task where there is no tracker — then branch, plan, and code |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
+| `/linkedin`       | Write a LinkedIn post or article from the source, facts and numbers checked, with an optional cover-image prompt |
+| `/linkedin-draft` | Put an approved post or article into LinkedIn's composer or article editor through Chrome — a draft, never published |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
 | `/sweep-pr`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
@@ -366,6 +368,7 @@ claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-c
 - **context-cost** — what a screenshot, a whole-file read or an unbounded command costs once the session carries it, and the cheaper form that answers the same question. Measured: cache reads are 65 % of weighted cost, and the 15 largest sessions on one machine carried 42 % of its usage. Bundled under `skills/context-cost/`.
 - **verification-loop** — runs the repo's own build, typecheck, lint and tests (commands read from CI config first, then `package.json`/`Makefile`), scans the added lines for secrets and debug leftovers, and reports one `READY` / `NOT READY` line; a gate the repo lacks is `n/a`, never `PASS`. Sits before finishing-with-code-review. Bundled under `skills/verification-loop/`.
 - **security-checklist** — a checklist over the changed lines only, by section (secrets, input, injection, authn/authz, web, uploads, exposure, abuse), each picked by what the diff touches; findings as `file:line` with the attack and the fix. Bundled under `skills/security-checklist/`.
+- **linkedin-writing** — voice and format for LinkedIn posts and articles: facts from the repo, numbers checked against the vendor's docs, attribution left to the author, plain text for posts, one cover-image prompt with its technical description, and how to fill LinkedIn's editors in Chrome without publishing. Used by `/linkedin` and `/linkedin-draft`. Bundled under `skills/linkedin-writing/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
 
 ## Agents

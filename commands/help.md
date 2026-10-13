@@ -22,6 +22,8 @@ Output the following table verbatim:
 | `/bond:implement-batch`| Implement many tickets in parallel worktrees, scheduled so no two touch the same files           |
 | `/bond:implement`      | Take a Jira ticket or a free-text task, create a typed branch, plan, and code                    |
 | `/bond:investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc           |
+| `/bond:linkedin`       | Write a LinkedIn post or article from the source, numbers checked, with an optional cover-image prompt |
+| `/bond:linkedin-draft` | Put an approved post or article into LinkedIn through Chrome as a draft, never published         |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
 | `/bond:open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                   |
 | `/bond:sweep-pr`       | Sweep open PRs: retarget, rebase, restart infra CI, merge the green ones under `--merge`          |
