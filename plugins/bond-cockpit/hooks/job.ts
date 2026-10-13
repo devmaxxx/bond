@@ -235,9 +235,6 @@ export function jobBrief(job: JobState, now: number): { rows: Row[]; isActive: b
   const isRunning = job.startedAt !== null && job.endedAt === null
   const working = Object.values(keptLoops(job.loops, now)).filter(loop => isWorking(loop, now)).length
   const rows: Row[] = []
-  if (job.task !== null) {
-    rows.push({ kind: 'note', text: job.task, tone: 'plain' })
-  }
   if (job.task !== null || working > 0) {
     rows.push(nowRow(job, isRunning, now))
   }

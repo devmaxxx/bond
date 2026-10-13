@@ -24,10 +24,13 @@ const RUN_COCKPIT = {
   presentation: { isFullscreen: true, columns: 180 },
 } as const
 
-function stubHost(on: On): (string | undefined)[] {
+function stubHost(on: On, opened: string[] = []): (string | undefined)[] {
   const statuses: (string | undefined)[] = []
   on('clock.now', () => ({ value: 1_000_000 }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.open', (_, e) => {
+    opened.push(e.id)
+    return { value: { isPlaced: true } }
+  })
   on('ui.status', (_, e) => {
     statuses.push(e.text)
     return { value: undefined }
@@ -50,15 +53,27 @@ test('before the first request the status line is empty and the pane says so', a
   }
 })
 
-test('the cockpit and session tabs draw before the first request', async ($, on) => {
+test('main opens first, so its tab leads, and again last, so it is the one shown', async ($, on) => {
+  const opened: string[] = []
+  stubHost(on, opened)
+
+  await $.command.run(RUN_COCKPIT)
+
+  expect(opened).toEqual(['bond-cockpit-main', 'bond-cockpit', 'bond-cockpit-session', 'bond-cockpit-main'])
+})
+
+test('the main and session tabs draw before the first request, main with a button per tab', async ($, on) => {
   stubHost(on)
 
   await $.command.run(RUN_COCKPIT)
 
   for (const surface of SURFACES) {
-    const brief = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'bond-cockpit-brief', props: { ...PANE.props, title: 'cockpit' } })
-    expect(await brief.find({ type: 'Text', text: 'Cockpit' })).toBeDefined()
-    await brief.unmount()
+    const main = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'bond-cockpit-main', props: { ...PANE.props, title: 'main' } })
+    expect(await main.find({ type: 'Text', text: 'Cockpit' })).toBeDefined()
+    expect(await main.find({ type: 'Button', key: 'tab:job' })).toBeDefined()
+    expect(await main.find({ type: 'Button', key: 'tab:session' })).toBeDefined()
+    expect(await main.find({ type: 'Text', text: 'No request yet' })).toBeDefined()
+    await main.unmount()
     const session = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'bond-cockpit-session', props: { ...PANE.props, title: 'session' } })
     expect(await session.find({ type: 'Text', text: 'Session' })).toBeDefined()
     await session.unmount()
@@ -73,7 +88,7 @@ test('the job card draws each workflow agent with its test counts and a push war
   current = toolEnded(current, 't1', false, 'a1', testRun('pnpm exec vitest run', '2 failed | 44 passed'))
   current = toolStarted(current, 't2', 'Bash', { command: 'git push' }, 'a1', 1_000_000)
   const card = jobCard(current, [], 1_060_000)
-  on('ui.render', { component: 'Pane', requestId: 'job-probe' }, ($, e) => drawCards($.ui.resolve(e), card === null ? [] : [card], e.props.bodyColumns, () => undefined))
+  on('ui.render', { component: 'Pane', requestId: 'job-probe' }, ($, e) => drawCards($.ui.resolve(e), card === null ? [] : [card], e.props.bodyColumns, { onAgent: () => undefined }))
 
   for (const surface of SURFACES) {
     const pane = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...PANE, requestId: 'job-probe' })
