@@ -36,15 +36,17 @@ const MODEL_COLUMNS = 7
 const CALLS_COLUMNS = 5
 const TIME_COLUMNS = 8
 
+/** Given, `onAgent` makes each agent's name a button that opens it, and `onTab` each tab heading. */
+export type Presses = { onAgent?: (agentId: string) => void; onTab?: (tab: string) => void }
+
 /** `columns` is the pane body's width; bars stretch to fill whatever the card has. */
-/** `onAgent`, when given, makes each agent's name a button that opens it. */
-export function drawCards(ui: Ui, cards: readonly Card[], columns: number, onAgent?: (agentId: string) => void): RenderElement {
+export function drawCards(ui: Ui, cards: readonly Card[], columns: number, presses: Presses = {}): RenderElement {
   const inner = Math.max(20, columns - CARD_CHROME)
 
-  return <ui.Box flexDirection="column">{cards.map(card => drawCard(ui, card, inner, onAgent))}</ui.Box>
+  return <ui.Box flexDirection="column">{cards.map(card => drawCard(ui, card, inner, presses))}</ui.Box>
 }
 
-function drawCard(ui: Ui, card: Card, inner: number, onAgent?: (agentId: string) => void): RenderElement {
+function drawCard(ui: Ui, card: Card, inner: number, presses: Presses): RenderElement {
   const { Box, Text } = ui
 
   return (
@@ -56,12 +58,12 @@ function drawCard(ui: Ui, card: Card, inner: number, onAgent?: (agentId: string)
         </Box>
         <Text dimColor>{card.badge}</Text>
       </Box>
-      {card.rows.map((row, index) => drawRow(ui, row, `${card.title}-${index}`, inner, onAgent))}
+      {card.rows.map((row, index) => drawRow(ui, row, `${card.title}-${index}`, inner, presses))}
     </Box>
   )
 }
 
-function drawRow(ui: Ui, row: Row, key: string, inner: number, onAgent?: (agentId: string) => void): RenderElement {
+function drawRow(ui: Ui, row: Row, key: string, inner: number, presses: Presses): RenderElement {
   const { Box, Text } = ui
   const tone = TONE_PROPS[row.tone]
   switch (row.kind) {
@@ -141,14 +143,21 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number, onAgent?: (agentI
         </Box>
       )
     }
-    case 'section':
+    case 'section': {
+      const { tab } = row
+      const heading = <Text dimColor>{`${row.title} ${EMPTY.repeat(Math.max(0, inner - row.title.length - 1))}`}</Text>
       return (
         <Box key={key} flexDirection="row" marginTop={1}>
-          <Text dimColor>{`${row.title} ${EMPTY.repeat(Math.max(0, inner - row.title.length - 1))}`}</Text>
+          {tab === undefined || presses.onTab === undefined ? heading : (
+            <ui.Button key={`tab:${tab}`} plain label={`open ${tab}`} hotkey={tab.charAt(0)} onPress={() => presses.onTab?.(tab)}>
+              {heading}
+            </ui.Button>
+          )}
         </Box>
       )
+    }
     case 'agent':
-      return drawAgent(ui, row, key, onAgent)
+      return drawAgent(ui, row, key, presses.onAgent)
     case 'line':
       return (
         <Box key={key}>

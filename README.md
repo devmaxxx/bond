@@ -81,12 +81,15 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns (opened unasked, from 144), inline above the prompt otherwise.
-  Three tabs (ctrl+x tab cycles them; `/bond-cockpit job` or `session` opens
-  one). **cockpit**, in front, keeps only what matters now: the task, what
-  runs now, agents working with a workflow's finished/started count, the
-  cache hit and countdown, and the 5h and context gauges (other limits only
-  once they turn yellow or red). **job** has the full Job card, then the
-  Cache card. **session** has the Session card.
+  Three tabs, main first and in front (ctrl+x tab cycles them;
+  `/bond-cockpit job` or `session` opens one). **main** keeps only what
+  matters now: the task, then a few lines from each other tab under a heading
+  that opens it (press it, or `j` / `s` in the pane) — under **job**, what runs
+  now and agents working with a workflow's finished/started count; under
+  **session**, the cache hit and countdown, the main model with the session's
+  tokens and requests, and the 5h and context gauges (other limits only once
+  they turn yellow or red). **job** has the full Job card, then the Cache
+  card. **session** has the Session card.
   The **Job** card: the prompt being worked on, its
   elapsed time (`took …` once done), what runs now — the tool in flight with
   what it works on and for how long, `approve?` when the permission check
@@ -97,7 +100,7 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   time, then its latest tool and last test, typecheck or lint counts — red when
   any failed, with a warning when it ran `git push` or `gh pr create`. Working
   ones first, quiet after two minutes without a call, gone five minutes after
-  finishing. The cockpit tab's `agents` row adds the red and pushed counts. Press an
+  finishing. The main tab's `agents` row adds the red and pushed counts. Press an
   agent's name (ctrl+x into the pane, arrows, Enter) and an **agent** tab
   opens: its state, run, model, its last 12 calls with their ages, and a
   message line that sends it a note the way SendMessage does — to check on it

@@ -8,13 +8,13 @@ import { drawCards } from './pane'
 import { summaryCard } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
-// Three tabs: the short page is opened last, so it is in front; job and session sit behind it.
+// Three tabs in open order: main, job, session. The agent tab opens beside them on a press.
+const MAIN = 'bond-cockpit-main'
+const MAIN_TITLE = 'main'
 const PANE = 'bond-cockpit'
 const PANE_TITLE = 'job'
 const SESSION = 'bond-cockpit-session'
 const SESSION_TITLE = 'session'
-const BRIEF = 'bond-cockpit-brief'
-const BRIEF_TITLE = 'cockpit'
 const AGENT = 'bond-cockpit-agent'
 const PANE_COLUMNS = 46
 const TICK_MS = 1000
@@ -50,7 +50,7 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit: the short page, or `job` / `session` for that tab' })
+    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit: the main tab, or `job` / `session` for that tab' })
     openPanes($).catch(() => undefined)
     await measure($).catch(() => undefined)
     await pushStatus($)
@@ -62,10 +62,11 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'bond-cockpit' }, async ($, e) => {
     const tab = e.args.trim()
-    await (tab === 'job' ? openJob($) : tab === 'session' ? openSession($) : openPanes($))
+    const isTab = tab === 'job' || tab === 'session'
+    await (isTab ? openTab($, tab) : openPanes($))
     await pushStatus($)
 
-    return { text: tab === 'job' || tab === 'session' ? `bond cockpit: ${tab} tab opened.` : 'bond cockpit opened; ctrl+x tab cycles cockpit, job and session.' }
+    return { text: isTab ? `bond cockpit: ${tab} tab opened.` : 'bond cockpit opened; ctrl+x tab cycles main, job and session.' }
   })
 
   on('session.end', async ($, e, next) => {
@@ -215,7 +216,7 @@ export const register: Register = (on, options) => {
     const [entry] = cacheCards(cacheNow, sessionNow, now, warnMs)
     const cards = [...(current === null ? [] : [current]), ...(entry === undefined ? [] : [entry])]
 
-    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns, agentId => void openAgent($, agentId, agents).catch(() => undefined))
+    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns, { onAgent: agentId => void openAgent($, agentId, agents).catch(() => undefined) })
   })
 
   // One agent up close: its latest calls, and a line to message it (SendMessage's own delivery).
@@ -258,34 +259,36 @@ export const register: Register = (on, options) => {
     return drawCards($.ui.resolve(e), shown, e.props.bodyColumns)
   })
 
-  on('ui.render', { component: 'Pane', requestId: BRIEF }, async ($, e) => {
-    const [cacheNow, now, usageNow, jobNow] = await Promise.all([
+  on('ui.render', { component: 'Pane', requestId: MAIN }, async ($, e) => {
+    const [cacheNow, now, usageNow, jobNow, modelsNow] = await Promise.all([
       read($, cache),
       $.clock.now(),
       read($, usage),
       read($, job),
+      read($, models),
       // Not used below: reading them subscribes the page to the countdown and the beat, so it redraws as they tick.
       read($, countdown),
       read($, beat),
     ])
+    const card = summaryCard(jobNow, cacheNow, usageNow, modelsNow, now, warnMs)
 
-    return drawCards($.ui.resolve(e), [summaryCard(jobNow, cacheNow, usageNow, now, warnMs)], e.props.bodyColumns)
+    return drawCards($.ui.resolve(e), [card], e.props.bodyColumns, { onTab: tab => void openTab($, tab, true).catch(() => undefined) })
   })
 }
 
-function openJob($: EngineInterface) {
-  return $.ui.open({ id: PANE, title: PANE_TITLE, columns: PANE_COLUMNS })
+function openTab($: EngineInterface, tab: string, focus?: true) {
+  const [id, title] = tab === 'job' ? [PANE, PANE_TITLE] : [SESSION, SESSION_TITLE]
+
+  return $.ui.open({ id, title, columns: PANE_COLUMNS, ...(focus === undefined ? {} : { focus }) })
 }
 
-function openSession($: EngineInterface) {
-  return $.ui.open({ id: SESSION, title: SESSION_TITLE, columns: PANE_COLUMNS })
-}
-
+// Tabs keep their open order, so main opens first to lead them; the last pane opened is the one shown, so it opens again after.
 async function openPanes($: EngineInterface) {
-  await openSession($)
-  await openJob($)
+  await $.ui.open({ id: MAIN, title: MAIN_TITLE, columns: PANE_COLUMNS })
+  await openTab($, 'job')
+  await openTab($, 'session')
 
-  return $.ui.open({ id: BRIEF, title: BRIEF_TITLE, columns: PANE_COLUMNS })
+  return $.ui.open({ id: MAIN, title: MAIN_TITLE, columns: PANE_COLUMNS })
 }
 
 async function openAgent($: EngineInterface, agentId: string, agents: readonly { id: string; description: string }[]) {

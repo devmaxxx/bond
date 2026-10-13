@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import type { CacheSnapshot, UsageSnapshot } from '../types'
+import type { CacheSnapshot, ModelTally, UsageSnapshot } from '../types'
 import { EMPTY_JOB, agentCard, agentSpawned, sendNotice, elapsed, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
 import { summaryCard } from '../hooks/summary'
 
@@ -158,7 +158,7 @@ test('a new prompt restarts the counts but keeps agents still listed', () => {
   expect(Object.keys(job.loops)).toEqual(['bg'])
 })
 
-test('the short page keeps the job, the cache and only the gauges that matter', () => {
+test('the main tab keeps the task, then the job and session tabs in brief: cache, model and only the gauges that matter', () => {
   let job = startJob(EMPTY_JOB, 'ship it', NOW)
   job = toolStarted(job, 't1', 'Edit', { file_path: '/a/b.ts' }, undefined, NOW)
   const cache: CacheSnapshot = { read: 900, wrote: 0, fresh: 100, at: NOW, ttlMs: 3_600_000, ttlSource: 'plan' }
@@ -172,12 +172,21 @@ test('the short page keeps the job, the cache and only the gauges that matter', 
     contextWindow: 200_000,
     costUsd: 1.5,
   }
-  const card = summaryCard(job, cache, usage, NOW + 10_000, 10_000)
-  const labels = card.rows.flatMap(row => ('label' in row ? [row.label] : []))
+  const models: ModelTally = { current: 'claude-opus-5-5', byModel: { 'claude-opus-5-5': { requests: 4, tokens: 12_000 }, 'claude-haiku-5-5': { requests: 2, tokens: 3_000 } } }
+  const card = summaryCard(job, cache, usage, models, NOW + 10_000, 10_000)
+  const outline = card.rows.map(row => (row.kind === 'section' ? `[${row.tab}]` : 'label' in row ? row.label : row.kind))
 
   expect(card.title).toBe('Cockpit')
   expect(card.badge).toBe('10s · $1.50')
-  expect(labels).toEqual(['now', 'cache', '5h', 'spend', 'context'])
+  expect(outline).toEqual(['note', '[job]', 'now', '[session]', 'cache', 'model', '5h', 'spend', 'context'])
+  expect(card.rows.find(row => row.kind === 'pair' && row.label === 'model')).toMatchObject({ value: '15.0k', note: 'opus-5-5 · 6 req · +1 more' })
+})
+
+test('before anything runs the main tab still heads both tabs, each saying it is empty', () => {
+  const card = summaryCard(EMPTY_JOB, null, null, { current: null, byModel: {} }, NOW, 10_000)
+
+  expect(card.status).toBe('○ idle')
+  expect(card.rows.map(row => (row.kind === 'section' ? `[${row.tab}]` : row.kind === 'line' ? row.text : row.kind))).toEqual(['[job]', 'Nothing running', '[session]', 'No request yet'])
 })
 
 test('the agent tab shows one agent and its latest calls, newest first', () => {
