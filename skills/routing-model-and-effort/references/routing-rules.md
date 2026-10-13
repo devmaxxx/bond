@@ -1,6 +1,6 @@
 # Contract
 
-Every phase carries a pair (model, effort). Default pair: `opus`/`high`, plan and build alike. `fable`, `xhigh` and `max` are never taken on your own judgement: their predicates buy a question, and only the user's answer spends it. Below `high` the tier table decides alone — downward is free. **Phases run here, in this session, by default.** A new subagent is spawned only when a phase's pair is above the session's and the user named it or granted it in answer to the escalation question. A pair at or below the session's runs here: a fresh context re-reads everything this session already holds, and that costs more than a lower tier saves. The one exception is recon (last section), which spawns on `haiku`. Model and effort freeze at spawn: `SendMessage` keeps them, `fork` keeps the parent's whole pair and is never a routing move.
+Every phase carries a pair (model, effort). Default pair: `opus`/`medium`, plan and build alike. `fable`, `xhigh` and `max` are never taken on your own judgement: their predicates buy a question, and only the user's answer spends it. Up to `high` the tier table decides alone. **Phases run here, in this session, by default.** A new subagent is spawned only when a phase's pair is above the session's and the user named it or granted it in answer to the escalation question. A pair at or below the session's runs here: a fresh context re-reads everything this session already holds, and that costs more than a lower tier saves. The one exception is recon (last section), which spawns on `haiku`. Model and effort freeze at spawn: `SendMessage` keeps them, `fork` keeps the parent's whole pair and is never a routing move.
 
 Predicates are measured, not guessed: a scan of the repository fills a card, and the tier table reads the card. The prompt alone settles only the `low` row.
 
@@ -24,11 +24,11 @@ Unless the `low` row holds from the prompt alone, scan before routing. Read-only
 - `repro`: a failing test or command, when the task is a bug.
 - `designs`: your call, not the repo's — `1` when the request fixes the approach, `2+` otherwise, each named in three words.
 
-A `?` counts as the predicate holding: above `high` it asks, below `high` it blocks the drop. The card goes into every spawn prompt; the builder does not rescan.
+A `?` counts as the predicate holding: above `high` it asks, on the `high` row it takes `high`, on the `low` row it blocks the drop. The card goes into every spawn prompt; the builder does not rescan.
 
 # Effort tiers
 
-Start at `high`. Drop to `medium` or `low` when every predicate of that row holds on the card. Any xhigh or max predicate: do not take the tier — ask (below), and run `high` until the answer says otherwise.
+Start at `medium`. Take `high` when any `high` predicate holds on the card; drop to `low` when every `low` predicate does. Any xhigh or max predicate: do not take the tier — ask (below), and run `high` until the answer says otherwise.
 
 The thresholds are the table's: 20 and 5. A number of your own is not a predicate. Plan runs at the task's tier. The build tier is one lower whenever the plan in hand names every file and its edit and no escalation is in force; a relayed summary is not a plan.
 

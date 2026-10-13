@@ -29,7 +29,7 @@ scan: files=14 (src/auth/**, src/api/roles.ts, migrations/) · modules=3 · test
 AskUserQuestion: "schema=migrations/, surface=GET /roles, security=authz, designs=2+. Route it up?"
   fable plans, opus builds (Recommended) — designs=2+ with authz on the surface: fable settles db-table vs config-table once, before 14 files move; ≈1.7× one high plan, builds stay opus
   opus/xhigh — same care on both phases, no separate design pass; ≈1.6× high throughout
-  opus/high — default; what it leaves to chance: the old-API shim written after the migration instead of before it
+  opus/high — no escalation; what it leaves to chance: the old-API shim written after the migration instead of before it
 answer: fable plans, opus builds
 route: tier=xhigh (schema, surface, security, designs — granted) plan=fable/xhigh build=opus/xhigh → spawn, spawn
 Agent(subagent_type: "bond:effort-xhigh", model: "fable", description: "fable/xhigh plan · policy table", prompt: "Phase: plan. scan: … ")

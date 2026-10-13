@@ -36,12 +36,12 @@ or cleanup, and never wait to be asked.
 
 Apply the `bond:routing-model-and-effort` skill at the start of every task that
 will change files or needs a plan. **The skill owns the tier table, the scan and
-the spawn rule.** The default pair is opus/high.
+the spawn rule.** The default pair is opus/medium.
 
 The one thing worth repeating here, because it is a standing instruction to *me*
 rather than a routing detail: never take fable, xhigh or max on your own
 judgement. A predicate firing buys a question, not a tier — ask once, name the
-predicate, and run opus/high until the answer arrives. Dropping to medium or low
+predicate, and run opus/high until the answer arrives. Any tier up to high
 needs no question.
 
 ## Caveman mode — always on
