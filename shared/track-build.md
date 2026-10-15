@@ -44,9 +44,11 @@ on another track's: it builds as soon as its plan is final.
 
 Before launching, print it: how many agents each phase starts and why — one
 implementer per step, one reviewer and at most one fixer per track — and how
-many run at once (one per track). Make as many tracks as the code splits into
-without shared files, up to four — more tracks is more parallel build, and two
-is the floor, not the target. Typical: 8–16 agents in all.
+many run at once: one per track, and **no more than two tracks building at a
+time**, since every implementer runs tests on the same machine (**The cheap
+slice**). Make as many tracks as the code splits into without shared files, up
+to four — a third and fourth track queue behind the first two. Typical: 8–16
+agents in all.
 
 ## 4. The build
 
@@ -71,7 +73,11 @@ async function track(name, worktree, steps) {
     : null
   return { name, built, review, fix }
 }
-return parallel(TRACKS.map(t => () => track(t.name, t.worktree, t.steps)))
+// two tracks at a time: the third starts when one of the first two finishes
+const queue = [...TRACKS], results = []
+const lane = async () => { for (let t; (t = queue.shift()); ) results.push(await track(t.name, t.worktree, t.steps)) }
+await parallel([lane, lane])
+return results
 ```
 
 **Implementers are opus.** A step is one issue, or two small ones in the same
@@ -134,9 +140,9 @@ and test runners default to one worker per core. Four tracks with
 started about 190 vitest processes and 44 GB on a 36 GB Mac: the OS killed
 processes and the machine had to be rebooted (beauty-crm, 2026-10-15). So:
 
-- **One slice at a time.** The lead runs the tracks' slices one after another,
-  never in parallel, and never alongside an implementer that is running tests.
-  Implementers within the build already run one per track; keep it that way.
+- **At most two at once.** No more than two test runs on the machine at a
+  time — a track's slice, or an implementer or fixer running its tests, counts
+  as one. The lead queues the rest and starts the next as one finishes.
 - **Touched packages only.** Filter to the changed workspaces
   (`--filter='[origin/main]'` in turbo, no `...`); dependents are the forge's.
 - **Cap the parallelism.** The task runner at two (`turbo --concurrency=2`),
