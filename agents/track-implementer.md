@@ -30,7 +30,9 @@ Build your step (or fix your findings). Commit. Report. Stop.
   a conflict between it and the code is an `owner_items` entry, not a guess.
 - A failing test first. At the end, the cheap slice: lint, typecheck, the unit
   sets of the touched packages, this step's integration specs. End-to-end is
-  the forge's.
+  the forge's. Touched packages only — never their dependents — with the task
+  runner and the test runner capped at two (`turbo --concurrency=2`,
+  `vitest --maxWorkers=2`): other tracks test on the same machine.
 - Before editing a symbol, measure its blast radius with the repo's tool; report
   HIGH or CRITICAL in `impact_warnings`.
 - Every third-party API against its pinned version's docs (`docs-explorer`),

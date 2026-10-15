@@ -171,7 +171,10 @@ its lenses.
    settles, ask-class ones go to the owner together with the merge word.
 3. Rebase each track onto `origin/main` — behind main, `pnpm tasks trailers`
    prints a bogus `Plan-Reopen` per task main ticked since the cut — and run the
-   cheap slice.
+   cheap slice, **one track at a time**, per `track-build.md` **The cheap
+   slice**: `pnpm turbo run lint typecheck --filter='[origin/main]'
+   --concurrency=2`, then `pnpm turbo run test --filter='[origin/main]'
+   --concurrency=2 -- --maxWorkers=2` — never `...[origin/main]`.
 4. On the owner's push word from round 1 (asked now only when round 1 did not
    settle it): per track,
    `pnpm tasks pr <first MID-T##> <MID-T##> …` (the PR body ends with a
