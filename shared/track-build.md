@@ -44,9 +44,11 @@ on another track's: it builds as soon as its plan is final.
 
 Before launching, print it: how many agents each phase starts and why — one
 implementer per step, one reviewer and at most one fixer per track — and how
-many run at once (one per track). Make as many tracks as the code splits into
-without shared files, up to four — more tracks is more parallel build, and two
-is the floor, not the target. Typical: 8–16 agents in all.
+many run at once: one per track, and **no more than two tracks building at a
+time**, since every implementer runs tests on the same machine (**The cheap
+slice**). Make as many tracks as the code splits into without shared files, up
+to four — a third and fourth track queue behind the first two. Typical: 8–16
+agents in all.
 
 ## 4. The build
 
@@ -71,7 +73,11 @@ async function track(name, worktree, steps) {
     : null
   return { name, built, review, fix }
 }
-return parallel(TRACKS.map(t => () => track(t.name, t.worktree, t.steps)))
+// two tracks at a time: the third starts when one of the first two finishes
+const queue = [...TRACKS], results = []
+const lane = async () => { for (let t; (t = queue.shift()); ) results.push(await track(t.name, t.worktree, t.steps)) }
+await parallel([lane, lane])
+return results
 ```
 
 **Implementers are opus.** A step is one issue, or two small ones in the same
@@ -84,7 +90,8 @@ code.
   (L) and your own items before the first edit.
 - A failing test first; at the end the cheap slice — lint, typecheck, the unit
   sets of the touched packages, the integration specs of this step. End-to-end
-  runs are the forge's.
+  runs are the forge's. Keep the slice small (see **The cheap slice** below):
+  only the touched packages, never their dependents, and capped parallelism.
 - Before editing a symbol, measure its blast radius with the repo's tooling;
   report HIGH or CRITICAL in `impact_warnings`.
 - Verify every third-party API against the pinned version's docs
@@ -124,6 +131,25 @@ one line, the fix in one line.
 
 One fixer per track takes every `must` and `should`. A finding it disagrees with
 goes to `rejected_findings` with the reason; it is never silently dropped.
+
+### The cheap slice
+
+Each track's slice runs its tests on the same machine as every other track's,
+and test runners default to one worker per core. Four tracks with
+`--filter='...[origin/main]'` (the changed packages **and every dependent**)
+started about 190 vitest processes and 44 GB on a 36 GB Mac: the OS killed
+processes and the machine had to be rebooted (beauty-crm, 2026-10-15). So:
+
+- **At most two at once.** No more than two test runs on the machine at a
+  time — a track's slice, or an implementer or fixer running its tests, counts
+  as one. The lead queues the rest and starts the next as one finishes.
+- **Touched packages only.** Filter to the changed workspaces
+  (`--filter='[origin/main]'` in turbo, no `...`); dependents are the forge's.
+- **Cap the parallelism.** The task runner at two (`turbo --concurrency=2`),
+  the test runner at two workers (`vitest --maxWorkers=2`, or the runner's
+  equivalent), and a single changed spec file run by path when that is enough.
+- Say the limits in every prompt that runs tests: an implementer, a fixer and
+  a test runner each inherit no limit otherwise.
 
 ## 5. After the build
 
