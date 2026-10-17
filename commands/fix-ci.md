@@ -160,8 +160,10 @@ is gone after the rebase — re-run its failing command before fixing it.
 
 ### 5. Wait for the re-run
 
-Skip under `--no-wait`. Wait in the background — a `run_in_background` loop or
-the Monitor tool, never a foreground poll:
+Skip under `--no-wait`. Hand the wait to a background subagent that runs the
+poll below in its own shell, re-runs it when a call times out, and returns the
+settled line — the session runs no wait loop of its own (standing rule
+«Waiting goes to an agent»):
 
 - **GitHub PR** (Woodpecker statuses included — they land in the rollup):
   ```sh

@@ -223,8 +223,8 @@ Each iteration is one **round**; stop after `--rounds`, counted in the ledger.
 **a. Wait** — first, if the base moved and the PR now conflicts (GitHub
 `mergeable: CONFLICTING`; on Bitbucket the local trial merge below), run
 **Resolve merge conflicts** and push before waiting: CI does not run, and bots
-do not review, a PR that cannot merge. Then wait in the background — a `run_in_background` loop or the Monitor tool,
-never a foreground poll — until **both** settle:
+do not review, a PR that cannot merge. Then hand the wait to a background subagent — the session runs no wait loop
+of its own (standing rule «Waiting goes to an agent») — until **both** settle:
 
 - **CI** — **PR details and CI status** reads **passed** or **failed**. Read the
   check runs themselves: GitHub's `mergeStateStatus: BLOCKED` usually just means
@@ -241,9 +241,9 @@ never a foreground poll — until **both** settle:
 
 A review of `APPROVED` with nothing new is a pass for this round.
 
-On GitHub, run the poll through the Monitor tool (or `run_in_background`) — it
-checks every **5 seconds** and prints one `settled …` line when both have
-settled, which is the wake-up:
+On GitHub, the subagent runs the poll in its own shell, re-running it when a
+call times out — it checks every **5 seconds** and prints one `settled …` line
+when both have settled, which the subagent returns as the wake-up:
 
 ```sh
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/ship-pr-poll.sh" \

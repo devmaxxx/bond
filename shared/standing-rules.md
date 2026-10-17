@@ -108,6 +108,16 @@ A task reported done with the review unrun is not done. The router's card names
 the skips — a docs-only or comment-only diff, or a small low-risk one — and a skip is said in words,
 as is a review that found nothing.
 
+## Waiting goes to an agent — always on
+
+Waiting on something outside the session — a PR's CI, a review, another PR
+freeing a CI slot, a merge, a deploy — is handed to a background subagent that
+polls and returns once the condition settles or a deadline passes. The session
+itself runs no wait loop: not a foreground `sleep`, not a `run_in_background`
+`until` loop, not a Monitor. The agent carries the exact check, the
+cadence, the deadline and the account rule, reads only, and reports the end
+state in a few lines; the next step is the session's, on that report.
+
 ## Lessons go into bond, not memory — always on
 
 Do not write memory files: not the auto-memory directory, not a repo's
