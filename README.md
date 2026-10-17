@@ -478,6 +478,7 @@ bond/
 │   ├── suggest-compact.mjs # PreToolUse: a /compact reminder at 50 calls and every 25 after
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
+│   ├── vendor/shell-guards.mjs  # bundled shell-guards: does this line run git commit?
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
 │   ├── check-pr.mjs        # PreToolUse: block a PR that breaks the shared template
 │   └── check-doc.mjs       # PostToolUse: flag a written md/txt with a signature
@@ -491,6 +492,7 @@ bond/
 │   ├── context-audit.test.mjs
 │   ├── skill-size.test.mjs
 │   ├── shell.test.mjs
+│   ├── check-commit.test.mjs
 │   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 ├── plugins/bond-cockpit/   # prompt-cache status line + pane mod (function hooks)

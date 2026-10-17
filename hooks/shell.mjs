@@ -1,8 +1,8 @@
 /**
  * Deciding whether a Bash command really *runs* something, as opposed to merely
- * containing its name. Shared by check-pr.mjs and check-commit.mjs, both of
- * which once matched a bare substring and blocked work that ran no such command
- * — a `python3 - <<'PY'` diagnostic that printed the words was enough.
+ * containing its name. Shared by pr-template.mjs and secrets-guard.mjs. A bare
+ * substring match blocked work that ran no such command — a `python3 - <<'PY'`
+ * diagnostic that printed the words was enough.
  */
 
 // $3 is the rest of the header line, kept because a `&& gh …` can live there.
