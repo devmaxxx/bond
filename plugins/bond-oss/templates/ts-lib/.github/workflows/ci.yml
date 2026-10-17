@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  # Bare, so a PR into any branch runs CI.
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        node: [22, 24]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+
+  # Installs the packed tarball into a fresh project and imports every export,
+  # which catches a wrong `files`, `exports` or missing types before npm does.
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only
+      - name: Install the tarball and import every export
+        run: |
+          pnpm pack --pack-destination "$RUNNER_TEMP"
+          mkdir "$RUNNER_TEMP/consumer" && cd "$RUNNER_TEMP/consumer"
+          npm init -y >/dev/null
+          npm install "$RUNNER_TEMP"/*.tgz
+          name=$(node -p "require('$GITHUB_WORKSPACE/package.json').name")
+          node --input-type=module -e "
+            const pkg = (await import('$GITHUB_WORKSPACE/package.json', { with: { type: 'json' } })).default
+            for (const key of Object.keys(pkg.exports ?? { '.': 0 })) {
+              if (key.endsWith('.json')) continue
+              await import(key === '.' ? '$name' : '$name/' + key.slice(2))
+            }
+          "

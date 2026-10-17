@@ -1,0 +1,6 @@
+node_modules
+dist
+dist-pack
+*.tgz
+coverage
+.DS_Store

@@ -47,6 +47,15 @@ Then output this second table verbatim — these need `bond-bonliva@devmaxxx` en
 | `/bond-bonliva:setup-plugin`   | Set up the bond-bonliva plugin: install MCP servers and configure env vars                              |
 | `/bond-bonliva:teams-post`     | Post a message to a Teams channel via a Workflow webhook                                        |
 
+Then output this third table verbatim — these need `bond-oss@devmaxxx` enabled (globally, or in each library repo):
+
+| Command | Purpose |
+| --- | --- |
+| `/bond-oss:new-lib` | Create an npm library: free-name check, house-stack scaffold, GitHub repo, CI/release workflows, README, examples |
+| `/bond-oss:audit`   | Audit a library against the stack and its alternatives (license, package, CI, README, examples) and fix the drift in one PR |
+| `/bond-oss:demo`    | Add or refresh examples checked in CI, a Pages/Expo demo, and README GIFs made by scripts |
+| `/bond-oss:release` | Release PR, merge on green, tag, one watched publish run, npm + GitHub release verified; first release bootstraps trusted publishing |
+
 ### 2. Done
 
 Do not perform any other action.

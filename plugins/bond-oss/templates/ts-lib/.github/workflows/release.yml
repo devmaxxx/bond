@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # On a branch it is a dry run: build, test and pack, publish nothing.
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      dist-tag: ${{ steps.meta.outputs.dist-tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - id: meta
+        name: Tag matches package version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [[ "$GITHUB_REF" == refs/tags/* && "v$version" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # A prerelease must never become `latest`.
+          case "$version" in
+            *-*) echo "dist-tag=next" >> "$GITHUB_OUTPUT" ;;
+            *) echo "dist-tag=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm pack --pack-destination dist-pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: dist-pack/*.tgz
+
+  # The only job holding id-token: it runs no dependency code, so a compromised
+  # devDependency in `pack` cannot publish.
+  publish:
+    needs: pack
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1+, and a dist-tag under OIDC 11.21.0+;
+      # the npm bundled with Node may be older.
+      - run: npm install -g npm@^11.21.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: dist-pack
+      - name: Publish unless already on npm
+        env:
+          VERSION: ${{ needs.pack.outputs.version }}
+          DIST_TAG: ${{ needs.pack.outputs.dist-tag }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          if npm view "$name@$VERSION" version --prefer-online >/dev/null 2>&1; then
+            echo "$name@$VERSION is already on npm; skipping publish"
+          else
+            npm publish dist-pack/*.tgz --access public --tag "$DIST_TAG"
+          fi
+      - name: GitHub release from CHANGELOG
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.pack.outputs.version }}
+        run: |
+          awk -v v="$VERSION" '/^## /{ if (f) exit; h=$2; gsub(/[][]/, "", h); f = (h == v); next } f' CHANGELOG.md > notes.md
+          test -s notes.md || echo "See CHANGELOG.md" > notes.md
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md $prerelease

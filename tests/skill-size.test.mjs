@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SKILL_ROOTS = [join(ROOT, "skills"), join(ROOT, "plugins", "bond-bonliva", "skills")];
+const SKILL_ROOTS = [
+  join(ROOT, "skills"),
+  join(ROOT, "plugins", "bond-bonliva", "skills"),
+  join(ROOT, "plugins", "bond-oss", "skills"),
+];
 
 // Every SKILL.md body is in the context of every prompt, so the body carries the
 // procedure and nothing else; the detail lives in references/ and is read on demand.
