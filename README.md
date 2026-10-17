@@ -146,6 +146,28 @@ bond's Jira/`gh` commands do not know. Enable it in the beauty-crm clone only:
 | `/bond-beauty-crm:batch` | Close several milestone tasks that share files in one PR: `claim`, `claim --join`, `done` each, one `pr` |
 | `/bond-beauty-crm:implement` | Start a task: claim its card, ask every question before the first edit (`shared/questions-first.md`), build, `done`, `pr` |
 
+## bond-oss (open-source library companion)
+
+`plugins/bond-oss/` creates, audits, demos and releases npm libraries on one stack
+(pnpm, tsdown, Vitest, `@antfu/eslint-config`, ESM-only) and publishes them through
+npm trusted publishing (OIDC, no token). Its skills — `oss-lib-stack`,
+`npm-publishing`, `oss-release-flow`, `oss-demos` — carry the traps the libraries
+already hit; `templates/` holds the files a new lib starts from. Personal names
+(GitHub owner, license holder, npm user) live in `~/.config/bond/oss.json`, never
+in the plugin.
+
+```json
+// ~/.claude/settings.json (or a library's .claude/settings.local.json)
+{ "enabledPlugins": { "bond-oss@devmaxxx": true } }
+```
+
+| Command | Purpose |
+| --- | --- |
+| `/bond-oss:new-lib` | Free-name check, scaffold from `templates/ts-lib`, GitHub repo, CI + release workflows, README, examples, first PR |
+| `/bond-oss:audit` | Check a lib against the stack and its alternatives; fix license, package, CI, README and examples drift in one PR |
+| `/bond-oss:demo` | Examples run in CI, a GitHub Pages or Expo demo, GIFs recorded by committed scripts |
+| `/bond-oss:release` | Milestone, release PR, merge on green, tag, one watched run, npm + GitHub release verified; bootstraps trusted publishing on a first release |
+
 ## MCP Servers
 
 `bond-bonliva` ships an MCP server template in `plugins/bond-bonliva/.mcp.json`. Run `/bond-bonliva:setup-plugin` to
@@ -472,6 +494,7 @@ bond/
 │   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 ├── plugins/bond-cockpit/   # prompt-cache status line + pane mod (function hooks)
+├── plugins/bond-oss/       # open-source library create/audit/demo/release (enable globally)
 │   ├── .claude-plugin/plugin.json  # depends on bond
 │   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card

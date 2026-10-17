@@ -1,0 +1,41 @@
+{
+  "name": "{{NAME}}",
+  "type": "module",
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.23.0",
+  "description": "{{DESCRIPTION}}",
+  "author": "{{LICENSE_HOLDER}}",
+  "license": "MIT",
+  "homepage": "https://github.com/{{OWNER}}/{{NAME}}#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/{{OWNER}}/{{NAME}}.git"
+  },
+  "bugs": {
+    "url": "https://github.com/{{OWNER}}/{{NAME}}/issues"
+  },
+  "keywords": [],
+  "sideEffects": false,
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "CHANGELOG.md",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
+  }
+}

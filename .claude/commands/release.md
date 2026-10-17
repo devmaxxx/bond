@@ -4,7 +4,7 @@ description: Release the bond plugin — bump the version in plugin.json + marke
 
 # /release
 
-Cut a new release of the **bond**, **bond-bonliva**, **bond-cockpit** and **bond-beauty-crm** plugins, which ship together from this marketplace. This bumps the version in every manifest, commits any pending changes together with the bump, creates an annotated `vX.Y.Z` tag, and pushes `main` + the tag. After the tag lands, users pick up the new version via `/plugin` update.
+Cut a new release of the **bond**, **bond-bonliva**, **bond-cockpit**, **bond-beauty-crm** and **bond-oss** plugins, which ship together from this marketplace. This bumps the version in every manifest, commits any pending changes together with the bump, creates an annotated `vX.Y.Z` tag, and pushes `main` + the tag. After the tag lands, users pick up the new version via `/plugin` update.
 
 Every manifest **must always carry the same version**:
 
@@ -12,6 +12,7 @@ Every manifest **must always carry the same version**:
 - `plugins/bond-bonliva/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-cockpit/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-beauty-crm/.claude-plugin/plugin.json` → `version`
+- `plugins/bond-oss/.claude-plugin/plugin.json` → `version`
 - `.claude-plugin/marketplace.json` → every `plugins[].version`
 
 ## Arguments
@@ -53,6 +54,7 @@ Write the new version into **every** manifest, preserving all other keys and for
 - `plugins/bond-bonliva/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-cockpit/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-beauty-crm/.claude-plugin/plugin.json` → `version`
+- `plugins/bond-oss/.claude-plugin/plugin.json` → `version`
 - `.claude-plugin/marketplace.json` → every `plugins[].version`
 
 If new commands were added since the last release, also refresh the command list in `plugin.json`'s `description` and the `/commands` table in `README.md` so they stay in sync. (Don't invent entries — only reflect commands that actually exist under `commands/`.)
@@ -103,12 +105,13 @@ Print:
   /plugin update bond-bonliva@devmaxxx
   /plugin update bond-cockpit@devmaxxx
   /plugin update bond-beauty-crm@devmaxxx
+  /plugin update bond-oss@devmaxxx
   ```
   then **restart Claude Code** so the new command versions and any MCP template changes load. (The cached copy under `~/.claude/plugins/cache/devmaxxx/bond/<version>/` only refreshes after this.)
 
 ## Do NOT
 
-- Do not bump only some manifests — all three `plugin.json` files and every `marketplace.json` entry must match exactly.
+- Do not bump only some manifests — every `plugin.json` file and every `marketplace.json` entry must match exactly.
 - Do not release from a branch other than `main`, or with `main` behind its remote.
 - Do not hand-edit `~/.claude/plugins/cache/...` to fake a release — the cache is updated by `/plugin update`, not by this command.
 - Do not reuse or move an existing tag — every release gets a new, strictly-greater version.
