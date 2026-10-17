@@ -10,10 +10,10 @@ Usage: `/bond-oss:release [patch|minor|major|X.Y.Z|X.Y.Z-rc.N] [--no-publish] [-
 
 Questions this command can need — all in the one ask: the **version** (offer
 the bump the commits since the last tag imply, `feat` ⇒ minor, `fix`/docs ⇒
-patch, `!` ⇒ major, 0.x rules in `oss-release-flow`), and the **consents**,
-each its own option: merge the release PR on green · push the tag (CI
-publishes). `--no-publish` stops after the merge; `--dry-run` only dispatches
-`release.yml` on the branch.
+patch, `!` ⇒ major, 0.x rules in `oss-release-flow`), and the two **consents**,
+each its own option: merge the release PR on green · push the tag, which *is*
+the publish (CI publishes on the tag). `--no-publish` stops after the merge and
+prints the tag command; `--dry-run` only dispatches `release.yml` on the branch.
 
 ## Steps
 
@@ -28,9 +28,10 @@ and shaped like the template (else run `/bond-oss:audit --only ci` first).
 
 `npm view <name> versions --json --prefer-online`. E404 ⇒ run
 `npm-publishing` references/bootstrap.md now: print the placeholder command for
-the user to run with `!` and their OTP, poll until it lists, then
-`npm trust github … --allow-publish` and show `npm trust list`. Do not tag
-until trust lists publish permission.
+the user to run with `!` and their OTP, poll until it lists, then print the
+`npm trust github … --allow-publish` line for the user to run with `!` too (its
+first request asks for 2FA), and read `npm trust list` back. Do not tag until
+trust lists publish permission.
 
 ### 3. Scope and gate
 
@@ -44,19 +45,26 @@ Branch `chore/release-X.Y.Z`: bump every version source, CHANGELOG
 `## [Unreleased]` → `## [X.Y.Z] — <today>` + compare link, docs status lines.
 `/bond:open-pr`; hand CI to `bond:pr-watch`.
 
-### 5. Merge (consent) and tag (consent)
+### 5. Merge (consent), then tag = publish (consent)
 
-Squash with a written subject/body (`chore(release): X.Y.Z (#N)`), check the
-merge commit for skip markers, then `git tag -a vX.Y.Z -m "<name> X.Y.Z" <merge-sha>`
-and push the tag. `--no-publish` ends here with the tag command printed.
+Squash with a written subject/body (`chore(release): X.Y.Z (#N)`) and check the
+merge commit for skip markers. **Stop here** under `--no-publish` or without the
+tag consent: print `git tag -a vX.Y.Z -m "<name> X.Y.Z" <merge-sha> && git push
+origin vX.Y.Z` and end. Otherwise run exactly that.
 
 ### 6. Watch one run
 
 A background agent polls `gh run list --workflow release.yml --event push -L 1`
 for the tag's run (up to 5 min to appear; then `gh workflow run release.yml
 --ref vX.Y.Z` once), watches it to the end, and returns the verdict and the
-failing step's log tail. Red ⇒ match `npm-publishing` references/traps.md,
-fix the cause, `gh run rerun <id> --failed` — never a new version for a re-run.
+failing step's log tail. Red ⇒ match `npm-publishing` references/traps.md
+first, then `npm view <name>@X.Y.Z version`:
+
+- cause **outside the repo** (trust entry, registry lag, runner infra) ⇒ fix it,
+  `gh run rerun <id> --failed` — the re-run uses the same commit, which is fine;
+- cause **in the repo** (code, `release.yml`, a version source) ⇒ a re-run fails
+  the same way. Fix it in a PR and release the next patch; the tag stays and the
+  failed version is noted in the CHANGELOG. Never move the tag.
 
 ### 7. Verify and close
 

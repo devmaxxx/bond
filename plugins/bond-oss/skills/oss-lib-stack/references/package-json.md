@@ -27,6 +27,6 @@ broke a past lib.
 
 ```sh
 npm pack --dry-run 2>&1 | tee /dev/stderr | grep -A4 "errors corrected"   # empty = good
-pnpm dlx @arethetypeswrong/cli --pack .                                    # types resolve per condition
+pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only               # types resolve; no profile for a dual build
 pnpm dlx publint                                                           # tsdown runs it on build too
 ```

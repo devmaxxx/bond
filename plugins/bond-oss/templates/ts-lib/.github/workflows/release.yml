@@ -67,9 +67,8 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      # Trusted publishing needs npm 11.5.1+, and a dist-tag under OIDC 11.21.0+;
-      # the npm bundled with Node may be older.
-      - run: npm install -g npm@^11.21.0
+      # Trusted publishing needs npm 11.5.1+; the npm bundled with Node may be older.
+      - run: npm install -g npm@^11.5.1
       - uses: actions/download-artifact@v4
         with:
           name: package

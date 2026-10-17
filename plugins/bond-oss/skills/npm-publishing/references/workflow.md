@@ -7,7 +7,7 @@ Template: `templates/ts-lib/.github/workflows/release.yml`.
 ```
 on: push tags v*  |  workflow_dispatch (branch ⇒ dry run, publishes nothing)
 pack     (contents: read)           tag == package.json · install · lint · typecheck · build · test · pnpm pack → artifact
-publish  (needs pack, tags only;    npm ≥ 11.21 · download tarball · npm view guard · npm publish <tgz> --tag latest|next
+publish  (needs pack, tags only;    npm ≥ 11.5.1 · download tarball · npm view guard · npm publish <tgz> --tag latest|next
           id-token + contents:write) · gh release from the CHANGELOG section
 ```
 
@@ -31,7 +31,7 @@ version  tag == Cargo.toml version
 build    matrix (macos-14 arm64, ubuntu x64, windows x64); Windows smoke `--version`;
          tags: upload archives to the GitHub release (contents: write); dispatch: run artifacts
 verify   (id-token, attestations: write) download assets · SHA256SUMS · attest archives + extracted binaries
-npm      (needs build+verify, id-token) npm ≥ 11.21 · pack from release assets · npm view guard · publish
+npm      (needs build+verify, id-token) npm ≥ 11.5.1 · pack from release assets · npm view guard · publish
 ```
 
 - `build` never holds `id-token` (it runs `build.rs` of every dependency).

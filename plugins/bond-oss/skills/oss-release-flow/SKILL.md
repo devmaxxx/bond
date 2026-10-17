@@ -7,10 +7,10 @@ description: Use when planning, cutting or finishing a release of an open-source
 
 ## Contract
 
-Three separate consents: **merge**, **tag**, **publish**. "Bump and merge, dont
-publish" stops before the tag; "merge and release when green" grants all three;
-a bare "release" grants the tag (CI publishes). Never infer a later consent from
-an earlier one. One version per release: fold late fixes into the untagged
+Two separate consents: **merge**, and **tag** — which is the publish, since CI
+publishes on the tag. "Bump and merge, dont publish" stops before the tag;
+"merge and release when green" grants both; a bare "release" grants the tag.
+Never infer the tag from the merge. One version per release: fold late fixes into the untagged
 version rather than cutting two ("one release").
 
 ## Order
@@ -35,7 +35,9 @@ version rather than cutting two ("one release").
    or reuse a tag.
 7. **Watch exactly one run** — hand it to a background agent (`bond:pr-watch`
    style poll on `gh run list --workflow release.yml`); a red publish goes to
-   the `npm-publishing` traps table before any re-run.
+   the `npm-publishing` traps table first. A re-run reuses the commit, so it
+   only helps a cause outside the repo; a cause in the repo ships as the next
+   patch.
 8. **Verify** — `npm-publishing` "After every publish"; GitHub release exists
    with the notes; close the milestone.
 

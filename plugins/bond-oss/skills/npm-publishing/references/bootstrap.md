@@ -35,7 +35,10 @@ Alternative without an OTP: `npm stage publish` on a missing name creates a publ
 `npm view <name> versions --prefer-online` — poll every 15 s; a new name can
 take minutes and may show only `0.0.0-stage` meanwhile.
 
-## 3. Trust the release workflow
+## 3. Trust the release workflow (the human runs it)
+
+The first `npm trust` request asks for 2FA, so the agent prints these for the
+user to run with `!`, then reads `npm trust list` back:
 
 ```sh
 npx npm@latest trust github <name> --repo <OWNER>/<name> --file release.yml --allow-publish -y

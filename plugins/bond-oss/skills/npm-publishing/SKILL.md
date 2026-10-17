@@ -15,8 +15,8 @@ nothing publishes until build, tests and pack have passed.
 
 ## Facts (checked against docs.npmjs.com, 2026)
 
-- npm CLI ≥ 11.5.1 for OIDC, ≥ 11.21.0 for a dist-tag under OIDC; Node's bundled
-  npm may be older ⇒ `npm install -g npm@^11.21.0` in the publish job.
+- npm CLI ≥ 11.5.1 for OIDC (11.21.0+ also lets `npm dist-tag` use it); Node's bundled
+  npm may be older ⇒ `npm install -g npm@^11.5.1` in the publish job.
 - `permissions: id-token: write` on the publish job only. `--provenance` and
   `publishConfig.provenance` are redundant.
 - A trust config needs the package to **exist**, and its first OIDC publish must

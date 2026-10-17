@@ -27,7 +27,7 @@ finding. Identity comes from `${CLAUDE_PLUGIN_ROOT}/shared/oss-profile.md`.
 
 `pnpm lint && pnpm typecheck && pnpm build && pnpm test`, then
 `npm pack --dry-run` (read the file list and any "errors corrected" warning) and
-`pnpm dlx @arethetypeswrong/cli --pack .`. A gate the lib lacks is added, not skipped.
+`pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only` (drop the profile for a dual build). A gate the lib lacks is added, not skipped.
 
 ## Audit order
 

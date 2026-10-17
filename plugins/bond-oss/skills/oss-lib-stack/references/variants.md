@@ -30,7 +30,7 @@ plus a small JS launcher (`bin/<name>.js` maps `process.platform-arch` to
 - pack from the GitHub release assets, never rebuild in the publish job, so npm
   carries the bytes that were checksummed and attested;
 - `SHA256SUMS` + `actions/attest-build-provenance` over the archives *and* the
-  extracted binaries; the attest job is the only one with `id-token`, and npm
+  extracted binaries; only the attest and npm jobs hold `id-token` (never the build), and npm
   `needs` it;
 - the pack script copies the root README with links pinned to the tag, and
   restores any tracked file it mutated (`git checkout -- npm/`).

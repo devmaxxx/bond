@@ -28,8 +28,9 @@ In `~/Documents/projects/<name>` (abort if it exists and is not empty):
 
 - `node` / `react`: copy `${CLAUDE_PLUGIN_ROOT}/templates/ts-lib/` (dotfiles
   included), fill `{{NAME}}`, `{{DESCRIPTION}}`, `{{OWNER}}`, `{{LICENSE_HOLDER}}`,
-  `{{YEAR}}`; `react` adds React ≥ 18 as a peer dependency and the
-  `example/` workspace from the `oss-demos` skill.
+  `{{YEAR}}`; `react` adds React ≥ 18 as a peer dependency, `"lib": ["ES2022", "DOM"]` and
+  `"jsx": "react-jsx"` to `tsconfig.json`, and the `example/` workspace from the
+  `oss-demos` skill.
 - `rn`: `npx create-react-native-library@latest` (bob), then align metadata,
   LICENSE, CHANGELOG and workflows with the templates.
 - `binary`: follow `oss-lib-stack` references/variants.md (native binary) and
@@ -49,7 +50,7 @@ in the shape of `oss-lib-stack` references/readme.md (use
 ### 4. Gate
 
 `pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm examples`, then
-`npm pack --dry-run` and `pnpm dlx @arethetypeswrong/cli --pack .` — all green
+`npm pack --dry-run` and `pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only` (drop the profile for a dual build) — all green
 before any commit.
 
 ### 5. Repo and first PR
@@ -60,7 +61,8 @@ gh repo create <OWNER>/<name> --public --description "<description>" --source . 
 gh repo edit <OWNER>/<name> --add-topic <t1>,<t2>,… --enable-wiki=false
 ```
 
-Check the active `gh` account first (`bond:authorship-conventions`). Further work
+`--private` ⇒ `gh repo create … --private` instead, and stop before any npm step
+(a public package from a private repo gets no provenance). Check the active `gh` account first (`bond:authorship-conventions`). Further work
 goes on `feat/<desc>` branches as PRs ready for review; confirm CI starts on the
 first PR (`oss-lib-stack` references/tooling.md, "Actions never starts").
 
