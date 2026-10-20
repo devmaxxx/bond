@@ -110,9 +110,12 @@ as is a review that found nothing.
 
 ## A new PR is audited in a fresh context — always on
 
-Once implementation opens a PR — through `/bond:implement`, a batch,
-`/bond:open-pr` or a bare `gh pr create` — hand it to a background
-`bond:pr-audit` agent. A context that did not write the change runs
+Once implementation opens a PR — through `/bond:implement`, a batch, or by
+hand with `/bond:open-pr` or a bare `gh pr create` — hand it to a background
+`bond:pr-audit` agent. A command that opens a PR and carries on with it —
+`/bond:ship-pr`, `/bond:fix-ci`, a bond-oss command that hands CI to
+`bond:pr-watch` — keeps it: two writers in one checkout reject each other's
+pushes. A context that did not write the change runs
 `/bond:ship-pr --no-ready` on it: the review pair, the real findings fixed and
 pushed, the change walked in the browser when it has a runtime surface, the
 PR page opened when its rendered state matters, the test plan ticked. Give it
