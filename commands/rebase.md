@@ -125,4 +125,3 @@ base-red failures, local commits that rode along.
 - Do not amend or squash the branch's commits while rebasing; the history the
   author wrote stays.
 - Do not push with a red typecheck or a failing test this branch caused.
-- Do not use `[skip ci]`.

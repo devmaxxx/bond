@@ -138,9 +138,9 @@ itself runs no wait loop: not a foreground `sleep`, not a `run_in_background`
 cadence, the deadline and the account rule, and reports the end state in a
 few lines; the next step is the session's, on that report.
 
-A PR's CI is waited on through `bond:pr-watch`, which does not only poll: when
-a run settles red it sorts each failure, fixes and pushes what the branch's own
-code broke, and loops on the re-run until green, until only pre-existing,
+A PR's CI is waited on through `bond:pr-watch`, which does not only poll: it
+sorts each check the moment it fails, prepares the fix for what the branch's
+own code broke while the rest still run, pushes once the run settles, and loops on the re-run until green, until only pre-existing,
 infra or human-owned causes are left, or until its rounds run out. Give it the
 PR's worktree to fix in; without one it watches and reports.
 

@@ -149,7 +149,7 @@ is gone after the rebase — re-run its failing command before fixing it.
    A step that cannot run locally (needs secrets or a deploy target) ⇒ say so in
    the report; the re-run is the proof.
 4. Commit per `bond:authorship-conventions` — `fix(<scope>): …` or `ci: …`, one
-   commit per cause, never `[skip ci]`. Push: `git push`
+   commit per cause. Push: `git push`
    (`git push -u origin <branch>` for a new `fix/` branch, which has no upstream
    yet), or `git push --force-with-lease=<branch>:<sha of origin/<branch> before
    the rebase>` after `--rebase` — never `--force`. Push
@@ -207,7 +207,7 @@ restarts awaiting a yes, and every stop reason.
   for one of those goes through a `fix/` branch and a PR.
 - Do not rerun more than once per pipeline, or restart a deploy without a yes.
 - Do not skip, delete or loosen a test, a lint rule or a CI step to go green.
-- Do not `--force`, `[skip ci]`, merge, approve, or post CI-status comments.
+- Do not `--force`, merge, approve, or post CI-status comments.
 - Do not print, commit or paste a token or secret value — not even one the
   user pasted into the prompt.
 - Do not poll in the foreground or echo whole CI logs.

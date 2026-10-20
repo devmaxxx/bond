@@ -27,9 +27,7 @@ version rather than cutting two ("one release").
    + lockfile; `Cargo.toml` + `Cargo.lock`; docs status lines — `grep -rn '"<old>"'`),
    move `## [Unreleased]` to `## [X.Y.Z] — YYYY-MM-DD`, title
    `chore(release): X.Y.Z` (or `Release X.Y.Z: <headline>`), `Closes #n` lines.
-5. **Merge** on green, squash with a **written** subject and body — check the
-   result has no skip marker:
-   `git log -1 --format=%B | grep -iE '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]'`.
+5. **Merge** on green, squash with a **written** subject and body.
 6. **Tag** the merge SHA on `main`, annotated, from the `OWNER` account:
    `git tag -a vX.Y.Z -m "<name> X.Y.Z" <sha> && git push origin vX.Y.Z`. Never move
    or reuse a tag.
