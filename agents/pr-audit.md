@@ -25,8 +25,8 @@ them.
 - **PR** — number or URL, and the repo it belongs to.
 - **Worktree** — the absolute path of a checkout of the PR's head. The session
   that opened the PR has stopped writing to it; you write nowhere else. A
-  linked worktree is yours to remove at the end, through the procedure's
-  Teardown; the repo's main checkout never is.
+  linked worktree is yours to remove at the end (Job step 5); the repo's main
+  checkout never is.
 - **Repository rules** — the caller's additions: the account to push as, the
   commit convention, the app URL, owner-only files.
 
@@ -48,6 +48,13 @@ them.
 4. Push only fixes to findings this run verified, as the account the caller
    names (`GH_TOKEN=$(gh auth token -u <user>)` on every `gh` call — never
    `gh auth switch`, it moves every session on the machine).
+5. **Tear down.** `--no-ready` stops the procedure after its step 1, so run
+   its step 4 yourself. Once `git ls-remote origin <head branch>` equals local
+   `HEAD`, remove the linked worktree with **Teardown** step 2, run from the
+   main checkout (the first line of `git worktree list`). Teardown's skip
+   conditions — no worktree created by this run, the audit handed off — bind
+   the session that handed off, not you. A failed check keeps the worktree;
+   say why.
 
 ## Output
 

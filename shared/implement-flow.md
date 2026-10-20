@@ -358,7 +358,7 @@ reads off the diff, `--fix` on, launched from the session and waited for. In
 `(escalation not asked)`. It reviews the working-tree diff and applies its
 findings in place.
 
-This runs in **both** modes — only Ship + PR and Teardown are auto-only — and it
+This runs in **both** modes — only Ship + PR, Hand off the audit and Teardown are auto-only — and it
 runs **after Test, before Report completion**, never later: `--fix` writes to
 the working tree, so its changes must be inside the diff that Ship + PR commits,
 and Teardown refuses a dirty worktree.
@@ -386,8 +386,9 @@ Tell the user:
 - Tickets handled: `<ID>: <summary>` for each.
 - Plan file: `PLAN_FILE`.
 - Files changed: brief list.
-- Next step: in `auto` mode the Ship + PR and Teardown procedures run
-  automatically; in `no-auto` mode, tell the user to run `/bonliva-dev:ship` to
+- Next step: in `auto` mode Ship + PR, Hand off the audit and Teardown run
+  automatically — once the audit is handed off, its agent removes the
+  worktree; in `no-auto` mode, tell the user to run `/bonliva-dev:ship` to
   validate, commit, and push.
 
 ## Procedure: Ship + PR  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
@@ -462,7 +463,7 @@ rules as the In Progress hop: one hop at a time along the chain, skip a ticket
 already at or beyond In Review, report per ticket, and surface a failed
 transition without aborting — the code has shipped either way.
 
-## Procedure: Teardown  *(auto mode only — skip when `MODE` is `no-auto`, `WORKTREE` is `none`, or the audit was handed off)*
+## Procedure: Teardown  *(auto mode only — skip when `MODE` is `no-auto`, `WORKTREE` is `none`, or the audit was handed off: the `bond:pr-audit` agent removes the worktree then)*
 
 **Inputs:** `WORKTREE` (recorded worktree path + original repo directory).
 
