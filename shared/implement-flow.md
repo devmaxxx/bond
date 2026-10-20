@@ -433,7 +433,9 @@ newly opened PR goes to **Hand off the audit**.
 
 ## Procedure: Hand off the audit  *(auto mode only — runs when Ship + PR opened a new PR)*
 
-**Inputs:** `PR_REF`; `WORKTREE`, or the current checkout when it is `none`.
+**Inputs:** `PR_REF`; `WORKTREE`, or the current checkout when it is `none` —
+the agent then opens its own worktree, since the user keeps working in the
+main checkout.
 
 The context that wrote the change does not audit its own PR. Spawn one
 `bond:pr-audit` agent in the background with `PR_REF`, the absolute path of
@@ -441,7 +443,8 @@ the checkout holding the PR head, the push account `bond:authorship-conventions`
 names for this repo, and the app URL when one is known. It runs
 `/bond:ship-pr --no-ready` — the review pair, fixes pushed, the browser
 run-through, the test plan ticked — and owns **Teardown** from here: this
-session writes nothing more in that checkout and does not remove it.
+session writes nothing more in a worktree it handed over and does not remove
+it.
 
 - A run that is itself a subagent has no `Agent` tool: skip the spawn, keep the
   worktree and return its path — the session that spawned the run hands off

@@ -25,8 +25,13 @@ them.
 - **PR** — number or URL, and the repo it belongs to.
 - **Worktree** — the absolute path of a checkout of the PR's head. The session
   that opened the PR has stopped writing to it; you write nowhere else. A
-  linked worktree is yours to remove at the end (Job step 5); the repo's main
-  checkout never is.
+  linked worktree is yours to remove at the end (Job step 5). The repo's main
+  checkout never is, and is not yours to write in either: the user keeps
+  working there, and a branch switch under you lands your commits on the
+  wrong branch (`/bond:ship-pr` step 0.5). Handed the main checkout
+  (`git rev-parse --git-dir` equals `--git-common-dir`), open your own from it
+  — `git worktree add --detach ../worktrees/<repo>-<slug>-audit origin/<head branch>`
+  — and work in that one.
 - **Repository rules** — the caller's additions: the account to push as, the
   commit convention, the app URL, owner-only files.
 
@@ -45,9 +50,10 @@ them.
    tab) when the API reads leave a question open: the rendered description or
    test plan, a bot's review, a check's page that `gh` or the MCP will not
    show. Read the page as text; a screenshot only for layout.
-4. Push only fixes to findings this run verified, as the account the caller
-   names (`GH_TOKEN=$(gh auth token -u <user>)` on every `gh` call — never
-   `gh auth switch`, it moves every session on the machine).
+4. Push only fixes to findings this run verified, with an explicit refspec —
+   `git push origin HEAD:<head branch>`, never a bare `git push` — as the
+   account the caller names (`GH_TOKEN=$(gh auth token -u <user>)` on every
+   `gh` call — never `gh auth switch`, it moves every session on the machine).
 5. **Tear down.** `--no-ready` stops the procedure after its step 1, so run
    its step 4 yourself. Once `git ls-remote origin <head branch>` equals local
    `HEAD`, remove the linked worktree with **Teardown** step 2, run from the

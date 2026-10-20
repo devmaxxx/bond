@@ -116,8 +116,10 @@ Once implementation opens a PR — through `/bond:implement`, a batch,
 `/bond:ship-pr --no-ready` on it: the review pair, the real findings fixed and
 pushed, the change walked in the browser when it has a runtime surface, the
 PR page opened when its rendered state matters, the test plan ticked. Give it
-the PR's worktree and the push account; from then on the session writes
-nothing there and leaves the worktree's removal to the agent.
+the PR's checkout and the push account. A linked worktree is the agent's from
+then on — the session writes nothing there and leaves its removal to the
+agent; a main checkout stays the user's, and the agent opens its own worktree
+from it.
 
 The opening session does not review its own PR again and runs no wait loop:
 it says the audit is running and relays the agent's report when it returns.
