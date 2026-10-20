@@ -108,6 +108,21 @@ A task reported done with the review unrun is not done. The router's card names
 the skips — a docs-only or comment-only diff, or a small low-risk one — and a skip is said in words,
 as is a review that found nothing.
 
+## A new PR is audited in a fresh context — always on
+
+Once implementation opens a PR — through `/bond:implement`, a batch,
+`/bond:open-pr` or a bare `gh pr create` — hand it to a background
+`bond:pr-audit` agent. A context that did not write the change runs
+`/bond:ship-pr --no-ready` on it: the review pair, the real findings fixed and
+pushed, the change walked in the browser when it has a runtime surface, the
+PR page opened when its rendered state matters, the test plan ticked. Give it
+the PR's worktree and the push account; from then on the session writes
+nothing there and leaves the worktree's removal to the agent.
+
+The opening session does not review its own PR again and runs no wait loop:
+it says the audit is running and relays the agent's report when it returns.
+A push to a PR that was already open is not a new PR.
+
 ## Waiting goes to an agent — always on
 
 Waiting on something outside the session — a PR's CI, a review, another PR

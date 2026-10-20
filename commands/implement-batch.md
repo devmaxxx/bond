@@ -212,7 +212,10 @@ model per `bond:routing-model-and-effort` — `opus` to build). Do **not** pass
 On each result: update the ledger. Compare `files=` with the predictions of
 every `pending` item — a new overlap ⇒ chain that item onto this one (step 4.2)
 before it starts. `failed` / `blocked` ⇒ its chained successors become
-`skipped` (their base never landed). Then fill the freed slot.
+`skipped` (their base never landed). `pr-open` ⇒ hand its PR to a background
+`bond:pr-audit` agent with `pr=` and the `worktree=` the run kept (shared
+flow, **Hand off the audit**), plus the no-fixed-port rule — other audits and
+runs share the machine. Then fill the freed slot.
 
 ### 6. Report
 
