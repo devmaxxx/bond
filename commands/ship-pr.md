@@ -307,8 +307,6 @@ enough to fix it (the **Diagnose CI failure** procedure in
 - One commit per concern — review fixes, CI fixes, and anything unrelated the
   user asked for go in separate commits. Comment-hygiene deletions ride only in
   code the round already touches.
-- Never `[skip ci]` — on GitHub it suppresses every later run on the PR,
-  `ready_for_review` included, until another commit lands.
 - Never `--force`; `--force-with-lease` only after a rebase (see **Resolve
   merge conflicts**).
 - A fix that touches UI ⇒ re-run step 1 for the affected items and update the
@@ -367,8 +365,7 @@ goes with the worktree. Then print:
 - Do not resolve a thread you did not fix; do not reply to or resolve a human
   reviewer's thread.
 - Do not push local commits that were not already on the PR when it started.
-- Do not force-push a branch this run did not rebase, and do not use
-  `[skip ci]`.
+- Do not force-push a branch this run did not rebase.
 - Do not take `--ours`/`--theirs` wholesale on code, hand-merge generated files,
   or renumber the base's migrations.
 - Do not open a BankID link, guess credentials, or test against production.

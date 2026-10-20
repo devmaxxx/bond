@@ -115,5 +115,5 @@ origin` works).
   ⇒ someone pushed meanwhile: stop, do not re-fetch and retry over them. Then
   re-check the PR's draft state.
 
-Never `[skip ci]`. A second conflict on the same base head means the resolution
+A second conflict on the same base head means the resolution
 was wrong — stop.

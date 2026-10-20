@@ -55,8 +55,7 @@ Poll. Check. Fix. Loop. Report. Stop.
    reproduce the failing command locally, fix the root cause — no skipped
    test, raised timeout, `|| true`, disabled rule or loosened assertion — run
    the cheap slice of the touched packages and commit per the repository's
-   convention (message from a file, `fix(<scope>): …`, no trailers, never
-   `[skip ci]`). Do not push yet: a push now cancels or orphans the checks
+   convention (message from a file, `fix(<scope>): …`, no trailers). Do not push yet: a push now cancels or orphans the checks
    still running and hides their failures. Back to 1.
 5. **Push** once every check of the run has settled and its failures are
    sorted: one `git push` — never `--force` — carrying every prepared fix,

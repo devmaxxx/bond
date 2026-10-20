@@ -194,8 +194,7 @@ refused merges with the reason, comments to address, dirty worktrees left.
   in code.
 - Do not fix a code CI failure, a review finding or a review comment here — that is
   `/bond:fix-ci` and `/bond:ship-pr`.
-- Do not force-push a branch another author committed to, `--force` anything,
-  or use `[skip ci]`.
+- Do not force-push a branch another author committed to, or `--force` anything.
 - Do not delete a branch another open PR targets, a branch with commits that
   were not on the merged PR, or a dirty worktree.
 - Do not write anything under `--dry-run`.
