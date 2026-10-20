@@ -9,31 +9,31 @@
       "name": "bond",
       "source": "./",
       "description": "Project-flexible dev workflow: implement, open/fix PRs, review routing, authorship and PR hooks",
-      "version": "0.44.0"
+      "version": "0.45.0"
     },
     {
       "name": "bond-bonliva",
       "source": "./plugins/bond-bonliva",
       "description": "Bonliva-only commands and MCP setup (time logs, Teams, Bitbucket reviewers); enable per Bonliva repo",
-      "version": "0.44.0"
+      "version": "0.45.0"
     },
     {
       "name": "bond-cockpit",
       "source": "./plugins/bond-cockpit",
       "description": "Status line and docked pane: the current job and its agents, prompt-cache hit rate, time to expiry and an expiry toast",
-      "version": "0.44.0"
+      "version": "0.45.0"
     },
     {
       "name": "bond-beauty-crm",
       "source": "./plugins/bond-beauty-crm",
       "description": "beauty-crm-only batch command: several milestone tasks that share files closed in one PR via pnpm tasks; enable in the beauty-crm clone",
-      "version": "0.44.0"
+      "version": "0.45.0"
     },
     {
       "name": "bond-oss",
       "source": "./plugins/bond-oss",
       "description": "Open-source npm libraries: create, audit, demo and release on one stack with npm trusted publishing",
-      "version": "0.44.0"
+      "version": "0.45.0"
     }
   ]
 }
