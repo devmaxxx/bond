@@ -1,9 +1,10 @@
 ---
 name: pr-watch
 description: >
-  Watches one pull request until it can merge — polls its CI, and when a run
-  settles red sorts each failed check the way /bond:fix-ci does, fixes and
-  pushes what the branch's own code broke, and loops on the re-run until the
+  Watches one pull request until it can merge — polls its CI, sorts each
+  check the moment it fails the way /bond:fix-ci does, prepares the fix for
+  what the branch's own code broke while the other checks still run, pushes
+  once the run settles, and loops on the re-run until the
   checks are green, the rounds are spent, or only something a human owns is
   left. GitHub or Bitbucket. Use for every wait on a PR's CI — the session
   hands the wait to this agent in the background instead of running a shell
@@ -33,28 +34,35 @@ Poll. Check. Fix. Loop. Report. Stop.
    PR details and its pipeline for the head commit). Every `gh` call carries
    the caller's account as `GH_TOKEN=$(gh auth token -u <user>)` — never
    `gh auth switch`. A failed call is transient: retry next round.
-2. **Settled?** `MERGED`/`CLOSED` ⇒ stop. Checks still running ⇒ back to 1.
-   All green ⇒ stop. A required check that never reported after 10 minutes ⇒
-   stop and say so.
-3. **Check.** For each failed check, read only the failed job's log, grepped
-   to the failing lines — never a whole log in the context. Sort it as
-   `/bond:fix-ci` step 2 does:
+2. **Done?** `MERGED`/`CLOSED` ⇒ stop. A required check that never reported
+   after 10 minutes ⇒ stop and say so. Then take each check that failed since
+   the last poll — do not wait for its siblings — to 3; the rest are
+   pending, green, or already handled this round.
+3. **Check.** For each newly failed check, read only the failed job's log,
+   grepped to the failing lines — never a whole log in the context. Sort it
+   as `/bond:fix-ci` step 2 does:
    - **pre-existing-on-base** — the base fails the same way ⇒ report.
    - **flaky** — passes on the same commit elsewhere, or a timing failure
      under a loaded runner whose siblings were as slow ⇒ rerun once (`gh run
-     rerun <id> --failed`), never twice for the same `<check>: <cause>`.
+     rerun <id> --failed`, once its run has finished), never twice for the
+     same `<check>: <cause>`.
    - **infra** — registry, token, runner, quota ⇒ report; never touch a
      secret.
    - **human-owned** — a sign-off, an approval, a legal or translation read
      the repo reserves for a named person ⇒ report; never fill it in.
    - **code** — the branch's own change ⇒ 4.
-4. **Fix** in the worktree: reproduce the failing command locally, fix the
-   root cause — no skipped test, raised timeout, `|| true`, disabled rule or
-   loosened assertion — run the cheap slice of the touched packages, commit
-   per the repository's convention (message from a file, `fix(<scope>): …`,
-   no trailers, never `[skip ci]`) and `git push` — never `--force`. Then
-   back to 1.
-5. **Stop** when green, merged or closed; when only pre-existing, infra or
+4. **Prepare** in the worktree, right away, while other checks still run:
+   reproduce the failing command locally, fix the root cause — no skipped
+   test, raised timeout, `|| true`, disabled rule or loosened assertion — run
+   the cheap slice of the touched packages and commit per the repository's
+   convention (message from a file, `fix(<scope>): …`, no trailers, never
+   `[skip ci]`). Do not push yet: a push now cancels or orphans the checks
+   still running and hides their failures. Back to 1.
+5. **Push** once every check of the run has settled and its failures are
+   sorted: one `git push` — never `--force` — carrying every prepared fix,
+   counted as one round. Nothing prepared and all green ⇒ stop. Then back
+   to 1 on the new head.
+6. **Stop** when green, merged or closed; when only pre-existing, infra or
    human-owned causes are left; when the same cause fails after its fix; when
    the rounds or the deadline are spent.
 
