@@ -358,7 +358,7 @@ reads off the diff, `--fix` on, launched from the session and waited for. In
 `(escalation not asked)`. It reviews the working-tree diff and applies its
 findings in place.
 
-This runs in **both** modes — only Ship + PR and Teardown are auto-only — and it
+This runs in **both** modes — only Ship + PR, Hand off the audit and Teardown are auto-only — and it
 runs **after Test, before Report completion**, never later: `--fix` writes to
 the working tree, so its changes must be inside the diff that Ship + PR commits,
 and Teardown refuses a dirty worktree.
@@ -386,8 +386,9 @@ Tell the user:
 - Tickets handled: `<ID>: <summary>` for each.
 - Plan file: `PLAN_FILE`.
 - Files changed: brief list.
-- Next step: in `auto` mode the Ship + PR and Teardown procedures run
-  automatically; in `no-auto` mode, tell the user to run `/bonliva-dev:ship` to
+- Next step: in `auto` mode Ship + PR, Hand off the audit and Teardown run
+  automatically — once the audit is handed off, its agent removes the
+  worktree; in `no-auto` mode, tell the user to run `/bonliva-dev:ship` to
   validate, commit, and push.
 
 ## Procedure: Ship + PR  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
@@ -426,7 +427,34 @@ If either step fails, surface the error and stop — do not retry blindly, and d
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
 resume).
 
-Record the PR number or URL as `PR_REF` for the completion report. CI is not watched here; a red pipeline is `/bond:ship-pr <PR_REF>`, run by hand.
+Record the PR number or URL as `PR_REF` for the completion report, and note
+whether this step opened it (`create`, or `update` that found none) — only a
+newly opened PR goes to **Hand off the audit**.
+
+## Procedure: Hand off the audit  *(auto mode only — runs when Ship + PR opened a new PR)*
+
+**Inputs:** `PR_REF`; `WORKTREE`, or the current checkout when it is `none` —
+the agent then opens its own worktree, since the user keeps working in the
+main checkout.
+
+The context that wrote the change does not audit its own PR. Spawn one
+`bond:pr-audit` agent in the background with `PR_REF`, the absolute path of
+the checkout holding the PR head, the push account `bond:authorship-conventions`
+names for this repo, and the app URL when one is known. It runs
+`/bond:ship-pr --no-ready` — the review pair, fixes pushed, the browser
+run-through, the test plan ticked — and owns **Teardown** from here: this
+session writes nothing more in a worktree it handed over and does not remove
+it.
+
+- A run that is itself a subagent does not spawn the audit, whether or not it
+  has an `Agent` tool: skip the spawn and **Teardown**, keep the worktree and
+  return its path — the session that spawned the run hands off the audit
+  (`/bond:implement-batch` does, per PR). Two spawns would put two audits in
+  one worktree.
+- Do not wait in a loop. Say the audit is running; when its report arrives,
+  relay it — the fixes it pushed, the test plan verdict, its **Needs you**.
+- A push to a PR that was already open is not handed off: it was audited when
+  it was opened.
 
 ## Procedure: Transition to In Review  *(`TRACKER=jira` only)*
 
@@ -440,7 +468,7 @@ rules as the In Progress hop: one hop at a time along the chain, skip a ticket
 already at or beyond In Review, report per ticket, and surface a failed
 transition without aborting — the code has shipped either way.
 
-## Procedure: Teardown  *(auto mode only — skip when `MODE` is `no-auto` or `WORKTREE` is `none`)*
+## Procedure: Teardown  *(auto mode only — skip when `MODE` is `no-auto`, `WORKTREE` is `none`, or the audit was handed off or left to the spawning session: the `bond:pr-audit` agent removes the worktree then)*
 
 **Inputs:** `WORKTREE` (recorded worktree path + original repo directory).
 

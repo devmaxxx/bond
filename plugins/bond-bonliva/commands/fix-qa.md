@@ -139,7 +139,7 @@ Run these shared procedures in order:
 
 3. **Implement** then **Test** — `SCOPE` = **only the new `## QA fix round` section**, not the whole plan.
 4. **Review and fix** — `/code-review` over the fix round at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update`, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to move), then **Teardown**.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=update`, then **Hand off the audit** (only when Ship + PR found no open PR and opened one), then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to move), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `WORKTREE` = the `-qa` path + original repo dir recorded in step 6, or `none` under `--no-worktree`.
 

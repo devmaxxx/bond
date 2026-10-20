@@ -88,7 +88,9 @@ there is not started again.
    with whatever account is active, so a wrong one here is wrong N times.
 2. Ledger exists ⇒ load it. Per `running` item: its agent still alive ⇒ leave
    it; otherwise read the remote (`git ls-remote --heads origin | grep -iE '(^|[^0-9A-Za-z])<KEY>([^0-9]|$)'`,
-   the host's PR list for that branch). PR open ⇒ `pr-open`. Worktree kept with
+   the host's PR list for that branch). PR open ⇒ `pr-open`; its worktree still
+   on disk means no audit finished (the audit removes it) ⇒ hand it off as
+   step 5's `pr-open` rule does. Worktree kept with
    commits ⇒ `pending`, resumed in that worktree (step 5). Neither ⇒ `pending`.
    Jump to step 5.
 
@@ -162,7 +164,8 @@ missed one costs a merge conflict.
    retargeted PR goes `DIRTY` even when nothing truly conflicts: rebase it with
    `git rebase --onto origin/<base> <predecessor's last head sha>`, re-run the
    cheap slice and push `--force-with-lease`. Record that sha in the ledger
-   when the predecessor opens, since its branch is deleted on merge.
+   when the predecessor's audit returns — the audit pushes fixes after the PR
+   opens — since its branch is deleted on merge.
    When most selected issues conflict through one shared kind (a contract
    version, a generated client, migrations), chaining yields a stack as deep
    as the batch: offer `--group` instead, in step 4.4.
@@ -207,12 +210,15 @@ model per `bond:routing-model-and-effort` — `opus` to build). Do **not** pass
   ⇒ wait a few seconds and retry once; a blocker ⇒ stop and report it, never
   `AskUserQuestion`;
 - the return contract, one line:
-  `RESULT <keys> status=pr-open|blocked|failed branch=<b> pr=<url> worktree=<path|removed> files=<changed files> note=<why, if not pr-open>`.
+  `RESULT <keys> status=pr-open|blocked|failed branch=<b> pr=<url> worktree=<path|none> files=<changed files> note=<why, if not pr-open>`.
 
 On each result: update the ledger. Compare `files=` with the predictions of
 every `pending` item — a new overlap ⇒ chain that item onto this one (step 4.2)
 before it starts. `failed` / `blocked` ⇒ its chained successors become
-`skipped` (their base never landed). Then fill the freed slot.
+`skipped` (their base never landed). `pr-open` ⇒ hand its PR to a background
+`bond:pr-audit` agent with `pr=` and the `worktree=` the run kept (shared
+flow, **Hand off the audit**), plus the no-fixed-port rule — other audits and
+runs share the machine. Then fill the freed slot.
 
 ### 6. Report
 
