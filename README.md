@@ -349,6 +349,8 @@ Every command reads that profile rather than assuming a host or a tracker:
 - `UserPromptSubmit`, and `PreToolUse` on `Bash` / `Write` / `Edit` / `MultiEdit` / `NotebookEdit` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls, run `hooks/secrets-guard.mjs`: a prompt carrying a live-looking secret — GitHub, Atlassian (API and Bitbucket access tokens), Figma, Slack (tokens and webhook URLs), OpenAI/Anthropic, AWS (key IDs and secret keys), PEM and PGP private keys, Telegram bot tokens, database URIs with an inline password (Postgres, MySQL, MongoDB, Redis, AMQP), JWTs — is blocked before it is stored in the session, naming the kind and never the value and without echoing the prompt back (`suppressOriginalPrompt`); `#allow-secret` sends it anyway. A tool call that would write a literal secret into a file git tracks, a commit, a `gh` body (inline, or in the `--body-file` / `-F` file it sends), a pull request title or description or a `curl` line is blocked, unless the file already held that secret; a gitignored file, a lone `echo` / `printf` / `cat` into a gitignored `.env*`, `claude mcp add` outside project scope, a `$VAR` reference, a placeholder and a localhost dev URI pass. Unit-tested in `tests/secrets-guard.test.mjs`.
 
 - `SessionStart`, `PreCompact` and `SessionEnd` run `hooks/session-memory.mjs`: `save` (PreCompact, SessionEnd) reads the transcript and keeps the last five prompts, each cut to one line, the files the session edited and its branch in `~/.claude/bond/sessions/<repo>-<path>.json`; `restore` (SessionStart) prints that note to the next session in the same directory — on startup or resume only, never after a compaction or a clear (the summary already carries it), never to the session that wrote it, and not once it is a week old. Small on purpose, because whatever SessionStart prints is re-read on every turn: five prompts of at most 160 characters, and a file list cut, with a "+N more" tail, so it never takes the note past 1 KB. An empty session does not overwrite a real one's note. The rules are `digest` and `render`, unit-tested in `tests/session-memory.test.mjs`. Adapted from everything-claude-code's memory-persistence hooks.
+- `SessionStart` (on a resume) and `UserPromptSubmit` run `hooks/resume-work.mjs`: when the last turn was cut off by a usage limit, an API failure (lost connection, sleep, expired login) or a full disk (`No space left on device` / `ENOSPC` in the turn's last tool output), one line names the cause and tells the model to continue the task where it stopped — re-check state, skip finished steps, do not re-ask. A turn stopped with Esc is not resumed, and a disk still under the floor asks for space first. Each pause is announced once per session. The rules are `findPause` and `advise`, unit-tested in `tests/resume-work.test.mjs`.
+- `SessionStart` and `UserPromptSubmit` run `hooks/disk-guard.mjs` async: under 5 GiB free on the home volume (`BOND_DISK_MIN_FREE_GB`), it runs `scripts/disk-analyze.sh clean` on the caches that rebuild themselves — pnpm, npm, yarn, uv, pip, go, gradle, Xcode DerivedData; never the Trash or the Chrome debug profile — at most once an hour across sessions, and reports what it freed on the next turn. Still low after that, it points at `/bond:disk-analyze`. The rule is `report`, unit-tested in `tests/disk-guard.test.mjs`.
 - `PreToolUse` on every tool runs `hooks/suggest-compact.mjs`: context only. At the 50th call since the last compaction, and every 25th after, one line suggests `/compact` if a phase just ended — auto-compaction fires wherever the window fills, a chosen one keeps what the next phase needs. `PreCompact` resets the count in `<tmp>/bond/<session_id>.tool-calls`. The rule is `judge`, unit-tested in `tests/suggest-compact.test.mjs`. Adapted from everything-claude-code's strategic-compact hook.
 
 ## Tests
@@ -359,7 +361,7 @@ whether a command really runs `git commit` or `gh pr`, and whether a call really
 opens a pull request — along with the AI-signature patterns they share with
 `check-doc.mjs`; the ticket-key rule; the standing-rules rendering; and the four
 context hooks through their decision functions, `decide` (branch-guard), `judge`
-(bash-budget, suggest-compact), `digest`/`render` (session-memory), `route` (recon-router) and `check` (node-guard), each with its
+(bash-budget, suggest-compact), `digest`/`render` (session-memory), `route` (recon-router), `check` (node-guard), `findPause`/`advise` (resume-work) and `report` (disk-guard), each with its
 wrapper driven over stdin as well. `context-audit.py` is run against the
 hand-sized transcript under `tests/fixtures/projects/`, every `SKILL.md` is held
 to its size limit and to the `references/` files it links, and `check-commit.mjs`
@@ -478,6 +480,8 @@ bond/
 │   ├── bash-budget.mjs     # PreToolUse: a row of one-command calls, output with no bound
 │   ├── recon-router.mjs    # PreToolUse: who answers a "where is X" prompt cheaply
 │   ├── node-guard.mjs      # SessionStart: the shell node is not the version .nvmrc pins
+│   ├── resume-work.mjs     # SessionStart (resume) + UserPromptSubmit: continue a turn a limit, API error or full disk cut off
+│   ├── disk-guard.mjs      # SessionStart + UserPromptSubmit (async): under 5 GiB free, clean rebuildable caches
 │   ├── session-memory.mjs  # PreCompact/SessionEnd save, SessionStart restore: last session's note
 │   ├── suggest-compact.mjs # PreToolUse: a /compact reminder at 50 calls and every 25 after
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
@@ -492,6 +496,8 @@ bond/
 │   ├── bash-budget.test.mjs
 │   ├── recon-router.test.mjs
 │   ├── node-guard.test.mjs
+│   ├── resume-work.test.mjs
+│   ├── disk-guard.test.mjs
 │   ├── context-audit.test.mjs
 │   ├── skill-size.test.mjs
 │   ├── shell.test.mjs
