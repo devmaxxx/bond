@@ -25,6 +25,16 @@ describe("what the disk guard reports", () => {
     assert.match(line, /\/bond:disk-analyze/);
   });
 
+  it("reports a failed clean rather than hiding it", () => {
+    const line = report({
+      before: 1 * GIB,
+      after: 1 * GIB,
+      cleaned: ["CLEAN pip cache (1G) — pip cache purge", "FAILED — run it by hand to see the error: pip cache purge"],
+      platform: "darwin",
+    });
+    assert.match(line, /FAILED — run it by hand/);
+  });
+
   it("does not claim a clean it skipped for the hour", () => {
     const line = report({ before: 1 * GIB, after: 1 * GIB, cleaned: null, platform: "darwin" });
     assert.match(line, /within the last hour/);

@@ -7,10 +7,10 @@ import { MIN_FREE_BYTES } from "../hooks/disk-guard.mjs";
 const prompt = (text, uuid = "p") => ({ type: "user", uuid, message: { role: "user", content: text } });
 const said = (text, uuid = "a") => ({ type: "assistant", uuid, message: { content: [{ type: "text", text }] } });
 const toolUse = (uuid = "t") => ({ type: "assistant", uuid, message: { content: [{ type: "tool_use", name: "Bash", input: {} }] } });
-const toolResult = (text, uuid = "r") => ({
+const toolResult = (text, uuid = "r", isError = false) => ({
   type: "user",
   uuid,
-  message: { content: [{ type: "tool_result", content: text }] },
+  message: { content: [{ type: "tool_result", content: text, is_error: isError }] },
 });
 const limitHit = (resetsAt) => ({
   type: "assistant",
@@ -35,21 +35,35 @@ describe("which endings count as a pause", () => {
     assert.deepEqual(pause, { kind: "limit", id: "limit", message: "You've hit your weekly limit · resets 12pm" });
   });
 
+  it("leaves alone an API error a retry would hit again", () => {
+    const rejected = { ...apiError, uuid: "bad", error: "invalid_request" };
+    assert.equal(findPause(lines(prompt("build it"), toolUse(), rejected)), null);
+  });
+
   it("finds an API failure", () => {
     assert.equal(findPause(lines(prompt("build it"), toolUse(), apiError)).kind, "api");
   });
 
   it("finds a full disk in the turn's last tool output", () => {
-    const pause = findPause(lines(prompt("build it"), toolUse(), toolResult("write: No space left on device", "r1"), said("Disk is full.")));
+    const pause = findPause(lines(prompt("build it"), toolUse(), toolResult("write: No space left on device", "r1", true), said("Disk is full.")));
     assert.equal(pause.kind, "disk");
     assert.equal(pause.id, "r1");
   });
 
   it("ignores a full disk the turn got past", () => {
     assert.equal(
-      findPause(lines(prompt("build it"), toolUse(), toolResult("ENOSPC"), toolUse("t2"), toolResult("ok", "r2"), said("Done."))),
+      findPause(lines(prompt("build it"), toolUse(), toolResult("ENOSPC", "r0", true), toolUse("t2"), toolResult("ok", "r2"), said("Done."))),
       null,
     );
+  });
+
+  it("ignores ENOSPC in the output of a call that did not fail", () => {
+    assert.equal(findPause(lines(prompt("build it"), toolUse(), toolResult("src/io.js: ENOSPC handled"), said("Done."))), null);
+  });
+
+  it("finds a pause in a turn whose prompt fell outside the tail", () => {
+    assert.equal(findPause(lines(toolUse(), toolResult("ok"), apiError)).kind, "api");
+    assert.equal(findPause(lines(toolUse(), apiError, prompt("continue", "p2"))).kind, "api");
   });
 
   it("does not resume a turn the user stopped with Esc", () => {
@@ -77,6 +91,12 @@ describe("which endings count as a pause", () => {
 describe("what a pause turns into now", () => {
   it("continues after a usage limit", () => {
     assert.match(advise({ kind: "limit", message: "limit" }, {}), /The limit has lifted\. Continue/);
+  });
+
+  it("does not promise a lifted limit on a bare resume", () => {
+    const line = advise({ kind: "limit", message: "limit" }, { event: "SessionStart" });
+    assert.match(line, /Once the limit has lifted/);
+    assert.doesNotMatch(line, /The limit has lifted\./);
   });
 
   it("continues after a transient API failure", () => {

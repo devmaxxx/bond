@@ -11,18 +11,21 @@
  * leaves the rest — runaway logs, deleted-but-open files — to
  * /bond:disk-analyze, which needs a human to read its findings.
  *
- * The cleaning goes through scripts/disk-analyze.sh, which refuses a cache a
- * running process holds. The Trash and the Chrome debug profile are never in
- * the list: one holds what the user moved there to keep recoverable, the other
- * holds sign-ins.
+ * The cleaning goes through scripts/disk-analyze.sh, which refuses the uv, npm,
+ * Gradle and Xcode caches when it sees them in use; it does not probe the
+ * rest, so a cache whose package manager is running right now — another
+ * session mid-install — is left out here. The Trash and the Chrome debug
+ * profile are never in the list: one holds what the user moved there to keep
+ * recoverable, the other holds sign-ins.
  *
  * Once a clean has run, the next one waits an hour — across every session,
- * since they share one disk. Any failure exits 0 with nothing printed.
+ * since they share one disk — and a session hears "still low" at most once an
+ * hour. Any failure exits 0 with nothing printed.
  */
 
 import { spawnSync } from "node:child_process";
-import { closeSync, mkdirSync, openSync, readFileSync, statSync, statfsSync, utimesSync } from "node:fs";
-import { homedir } from "node:os";
+import { closeSync, mkdirSync, openSync, readFileSync, statSync, statfsSync, utimesSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,6 +34,7 @@ export const MIN_FREE_BYTES = Number(process.env.BOND_DISK_MIN_FREE_GB || 5) * G
 const CLEAN_EVERY_MS = 60 * 60 * 1000;
 const CLEAN_TIMEOUT_MS = 10 * 60 * 1000;
 export const AUTO_CLEAN_KEYS = ["pnpm", "npm", "yarn", "uv", "pip", "go", "gradle", "xcode-di"];
+const MANAGERS = { pnpm: ["pnpm"], npm: ["npm"], yarn: ["yarn"], uv: ["uv"], pip: ["pip", "pip3"], go: ["go"] };
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "..", "scripts", "disk-analyze.sh");
 const STAMP = join(homedir(), ".claude", "bond", "disk-guard.stamp");
@@ -57,10 +61,8 @@ export function report({ before, after, cleaned, platform }) {
   if (cleaned === null) {
     lines.push("Caches were auto-cleaned within the last hour; what is left is not cache.");
   } else {
-    const done = cleaned.filter((line) => /^(CLEAN|SKIP)/.test(line));
-    lines.push(
-      `Auto-cleaned caches (${done.length > 0 ? done.join("; ") : "nothing to clean"}). Now ${gib(after)} free.`,
-    );
+    const done = cleaned.filter((line) => /^(CLEAN|SKIP|FAILED|\?)/.test(line));
+    lines.push(`Cache clean ran (${done.length > 0 ? done.join("; ") : "nothing to clean"}). Now ${gib(after)} free.`);
   }
   if (after < MIN_FREE_BYTES) {
     lines.push(
@@ -86,11 +88,38 @@ function claimClean(now) {
   }
 }
 
+function running(names) {
+  return names.some((name) => spawnSync("pgrep", ["-x", name]).status === 0);
+}
+
+// A disk that stays low would otherwise put the same note on every turn.
+function noteDue(session, now) {
+  if (!session) {
+    return true;
+  }
+  const path = join(tmpdir(), "bond", `${session}.disk-noted`);
+  try {
+    if (now - statSync(path).mtimeMs < CLEAN_EVERY_MS) {
+      return false;
+    }
+  } catch {
+    mkdirSync(dirname(path), { recursive: true });
+  }
+  writeFileSync(path, "");
+  return true;
+}
+
 function clean() {
-  const run = spawnSync(SCRIPT, ["clean", ...AUTO_CLEAN_KEYS], {
+  const keys = AUTO_CLEAN_KEYS.filter((key) => !running(MANAGERS[key] ?? []));
+  const run = spawnSync(SCRIPT, ["clean", ...keys], {
     encoding: "utf8",
     timeout: CLEAN_TIMEOUT_MS,
   });
+  // A script that could not start says nothing, which would read as "nothing to
+  // clean"; fail loudly into main's catch instead.
+  if (run.error) {
+    throw run.error;
+  }
   // The script exits 1 when it skipped a busy or absent cache; its lines still
   // say what it did.
   return (run.stdout ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
@@ -103,7 +132,11 @@ function main() {
     return;
   }
   const platform = process.platform;
-  const cleaned = platform === "darwin" && claimClean(Date.now()) ? clean() : null;
+  const now = Date.now();
+  const cleaned = platform === "darwin" && claimClean(now) ? clean() : null;
+  if (cleaned === null && !noteDue(payload?.session_id, now)) {
+    return;
+  }
   const message = report({ before, after: freeBytes(), cleaned, platform });
   process.stdout.write(
     `${JSON.stringify({

@@ -32,6 +32,9 @@ const TAIL_BYTES = 512 * 1024;
 const HARNESS_WRAPPED = /^\s*<[a-z]+(?:-[a-z]+)+[\s>]/;
 const INTERRUPT_MARKER = /^\[Request interrupted by user/;
 const DISK_FULL = /No space left on device|ENOSPC/;
+// API errors that a retry walks straight back into: the request itself, the
+// model or the account is what failed, not the connection.
+const WILL_NOT_CLEAR = new Set(["invalid_request", "model_not_found", "billing_error", "account_on_hold", "oauth_org_not_allowed"]);
 
 function texts(content) {
   if (typeof content === "string") {
@@ -49,6 +52,11 @@ function texts(content) {
     }
     return [];
   });
+}
+
+function failedOutput(entry) {
+  const blocks = Array.isArray(entry.message?.content) ? entry.message.content : [];
+  return blocks.filter((block) => block?.type === "tool_result" && block.is_error === true).flatMap((block) => texts(block.content));
 }
 
 function isToolResult(entry) {
@@ -73,14 +81,13 @@ function isInterrupt(entry) {
  */
 function lastTurn(entries) {
   const prompts = entries.flatMap((entry, at) => (isPrompt(entry) ? [at] : []));
-  if (prompts.length === 0) {
-    return [];
-  }
-  let start = prompts.at(-1);
+  // No prompt in view means the tail starts inside one long turn: that turn is
+  // the whole tail.
+  let start = prompts.at(-1) ?? -1;
   let end = entries.length;
-  if (start === entries.length - 1 && prompts.length > 1) {
+  if (start >= 0 && start === entries.length - 1) {
     end = start;
-    start = prompts.at(-2);
+    start = prompts.at(-2) ?? -1;
   }
   return entries.slice(start + 1, end);
 }
@@ -112,10 +119,15 @@ export function findPause(lines) {
     if (last.error === "rate_limit") {
       return { kind: "limit", id: last.uuid, message };
     }
+    if (WILL_NOT_CLEAR.has(last.error)) {
+      return null;
+    }
     return { kind: "api", id: last.uuid, message };
   }
+  // Only a failed tool call counts: a grep or a log that merely mentions ENOSPC
+  // is not a full disk.
   const lastResult = turn.findLast(isToolResult);
-  const output = lastResult ? texts(lastResult.message.content).join("\n") : "";
+  const output = lastResult ? failedOutput(lastResult).join("\n") : "";
   if (DISK_FULL.test(output)) {
     return { kind: "disk", id: lastResult.uuid, message: output.match(/.*(?:No space left on device|ENOSPC).*/)[0].trim() };
   }
@@ -123,13 +135,17 @@ export function findPause(lines) {
 }
 
 /** The line to inject for a pause, given the world as it is now. */
-export function advise(pause, { free }) {
+export function advise(pause, { free, event }) {
   const stopped = `Your previous turn was cut off before the task was done — ${pause.message || pause.kind}.`;
   const resume =
     "Continue the unfinished task from where it stopped, without waiting to be told: re-check the state first (git status, the todo list, the last tool output) rather than redoing finished steps, and do not re-ask questions already answered. A new instruction from the user in this prompt takes precedence.";
   if (pause.kind === "limit") {
     // The window's reset time is not the last word: extra usage or another
-    // account lifts a limit early, and a turn that is running proves it lifted.
+    // account lifts a limit early, and a prompt that is running proves it
+    // lifted. A resume alone proves nothing.
+    if (event === "SessionStart") {
+      return `${stopped} Once the limit has lifted, on the user's next message: ${resume}`;
+    }
     return `${stopped} The limit has lifted. ${resume}`;
   }
   if (pause.kind === "disk") {
@@ -175,12 +191,13 @@ function main() {
     return;
   }
   const pause = findPause(tail(transcript));
-  if (pause === null || alreadyAnnounced(session, pause.id)) {
+  const key = pause?.id ?? pause?.message ?? "";
+  if (pause === null || alreadyAnnounced(session, key)) {
     return;
   }
-  const message = advise(pause, { free: pause.kind === "disk" ? freeBytes() : Infinity });
+  const message = advise(pause, { free: pause.kind === "disk" ? freeBytes() : Infinity, event });
   mkdirSync(dirname(announcedPath(session)), { recursive: true });
-  writeFileSync(announcedPath(session), pause.id ?? "");
+  writeFileSync(announcedPath(session), key);
   process.stdout.write(
     `${JSON.stringify({
       hookSpecificOutput: { hookEventName: event, additionalContext: message },
