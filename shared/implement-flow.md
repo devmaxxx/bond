@@ -446,9 +446,11 @@ run-through, the test plan ticked — and owns **Teardown** from here: this
 session writes nothing more in a worktree it handed over and does not remove
 it.
 
-- A run that is itself a subagent has no `Agent` tool: skip the spawn, keep the
-  worktree and return its path — the session that spawned the run hands off
-  the audit (`/bond:implement-batch` does, per PR).
+- A run that is itself a subagent does not spawn the audit, whether or not it
+  has an `Agent` tool: skip the spawn and **Teardown**, keep the worktree and
+  return its path — the session that spawned the run hands off the audit
+  (`/bond:implement-batch` does, per PR). Two spawns would put two audits in
+  one worktree.
 - Do not wait in a loop. Say the audit is running; when its report arrives,
   relay it — the fixes it pushed, the test plan verdict, its **Needs you**.
 - A push to a PR that was already open is not handed off: it was audited when
@@ -466,7 +468,7 @@ rules as the In Progress hop: one hop at a time along the chain, skip a ticket
 already at or beyond In Review, report per ticket, and surface a failed
 transition without aborting — the code has shipped either way.
 
-## Procedure: Teardown  *(auto mode only — skip when `MODE` is `no-auto`, `WORKTREE` is `none`, or the audit was handed off: the `bond:pr-audit` agent removes the worktree then)*
+## Procedure: Teardown  *(auto mode only — skip when `MODE` is `no-auto`, `WORKTREE` is `none`, or the audit was handed off or left to the spawning session: the `bond:pr-audit` agent removes the worktree then)*
 
 **Inputs:** `WORKTREE` (recorded worktree path + original repo directory).
 

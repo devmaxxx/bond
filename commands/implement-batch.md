@@ -162,7 +162,8 @@ missed one costs a merge conflict.
    retargeted PR goes `DIRTY` even when nothing truly conflicts: rebase it with
    `git rebase --onto origin/<base> <predecessor's last head sha>`, re-run the
    cheap slice and push `--force-with-lease`. Record that sha in the ledger
-   when the predecessor opens, since its branch is deleted on merge.
+   when the predecessor's audit returns — the audit pushes fixes after the PR
+   opens — since its branch is deleted on merge.
    When most selected issues conflict through one shared kind (a contract
    version, a generated client, migrations), chaining yields a stack as deep
    as the batch: offer `--group` instead, in step 4.4.
@@ -207,7 +208,7 @@ model per `bond:routing-model-and-effort` — `opus` to build). Do **not** pass
   ⇒ wait a few seconds and retry once; a blocker ⇒ stop and report it, never
   `AskUserQuestion`;
 - the return contract, one line:
-  `RESULT <keys> status=pr-open|blocked|failed branch=<b> pr=<url> worktree=<path|removed> files=<changed files> note=<why, if not pr-open>`.
+  `RESULT <keys> status=pr-open|blocked|failed branch=<b> pr=<url> worktree=<path|none> files=<changed files> note=<why, if not pr-open>`.
 
 On each result: update the ledger. Compare `files=` with the predictions of
 every `pending` item — a new overlap ⇒ chain that item onto this one (step 4.2)
