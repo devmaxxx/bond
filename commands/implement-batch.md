@@ -88,7 +88,9 @@ there is not started again.
    with whatever account is active, so a wrong one here is wrong N times.
 2. Ledger exists ⇒ load it. Per `running` item: its agent still alive ⇒ leave
    it; otherwise read the remote (`git ls-remote --heads origin | grep -iE '(^|[^0-9A-Za-z])<KEY>([^0-9]|$)'`,
-   the host's PR list for that branch). PR open ⇒ `pr-open`. Worktree kept with
+   the host's PR list for that branch). PR open ⇒ `pr-open`; its worktree still
+   on disk means no audit finished (the audit removes it) ⇒ hand it off as
+   step 5's `pr-open` rule does. Worktree kept with
    commits ⇒ `pending`, resumed in that worktree (step 5). Neither ⇒ `pending`.
    Jump to step 5.
 
