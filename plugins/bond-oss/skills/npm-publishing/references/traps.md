@@ -13,7 +13,6 @@ Error (quoted as seen) → cause → fix. Match here before any retry.
 | `403 … Package name triggered spam detection` | npm refuses the name itself (seen on `<name>-win32-x64`) | rename, or collapse per-platform packages into one |
 | `npm warn publish "bin[x]" script name ./bin/x.js was invalid and removed` | npm 11 strips `bin` paths it rejects | `"bin/x.js"` without `./`; check `npm publish --dry-run`; ship a patch |
 | job green, `npm view` 404 | published to another registry (GitHub Packages via `.npmrc` / `publishConfig.registry`) | `registry-url: https://registry.npmjs.org` in setup-node; drop the override |
-| tag pushed, no run at all | `[skip ci]` / `[ci skip]` rode into the squash commit body | `gh workflow run release.yml --ref vX.Y.Z`; squash with a written body |
 | two runs for one tag | tag moved/re-pushed, or dispatch + tag | `concurrency` on the workflow; cancel the extra; one publishing run per version |
 | unattested version published | publish job did not `needs` the attest/verify job | `needs: [build, verify]`; the version cannot be republished |
 | npmjs.com shows the old README | the page renders the last published version | patch release; pin README links to the tag |
