@@ -428,6 +428,14 @@ describe("PreToolUse on a pull request opened through Bitbucket", () => {
   it("lets a clean pull request through", () => {
     assert.equal(open("create_pull_request", { title: "feat: x", description: "## Summary" }), null);
   });
+
+  it("blocks a secret in a comment", () => {
+    assert.match(open("add_pull_request_comment", { content: `token ${fake.github()}` }), /GitHub token/);
+  });
+
+  it("lets a clean comment through", () => {
+    assert.equal(open("add_pull_request_comment", { content: "## Review" }), null);
+  });
 });
 
 describe("PreToolUse on Bash", () => {
@@ -734,6 +742,7 @@ describe("the registration in hooks.json", () => {
     "NotebookEdit",
     "mcp__bond-bitbucket__create_pull_request",
     "mcp__bond-bitbucket__create_draft_pull_request",
+    "mcp__bond-bitbucket__add_pull_request_comment",
   ]) {
     it(`sends ${tool} to the guard`, () => {
       assert.match(tool, new RegExp(`^(?:${guarded.matcher})$`));
