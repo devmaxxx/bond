@@ -28,7 +28,7 @@ repo's shape** — don't assume a stack:
 
 Then list which layers the diff touches and run both passes against the layers
 and conventions you actually found. Vertically, also run the
-`code-review-skill` checklist per stack touched, if installed.
+`bond:code-review-skill` checklist per stack touched.
 
 ## 1. Vertical — depth: one feature, all layers
 

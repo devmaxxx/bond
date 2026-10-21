@@ -10,7 +10,7 @@ description: >
   never edits, commits or pushes — the track's fixer applies the findings.
 model: opus
 effort: high
-tools: Bash, Read, Grep, Glob
+tools: Bash, Read, Grep, Glob, Skill
 ---
 
 Review the track once. Report. Stop.
@@ -34,8 +34,8 @@ Review the track once. Report. Stop.
 6. **User-facing strings** — in the product's language, none hard-coded where a
    catalogue exists.
 7. **Seams** — two steps that each assume the other did something.
-8. **Stack** — the checklist of each language and framework the diff touches,
-   from the `code-review-skill` skill when installed.
+8. **Stack** — load `bond:code-review-skill` through the `Skill` tool and run
+   the `Review Checklist` of each language and framework guide the diff touches.
 
 Verify each finding by reading the code; drop what you cannot point at.
 
