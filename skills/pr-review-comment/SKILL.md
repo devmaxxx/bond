@@ -16,7 +16,7 @@ The vertical-horizontal-review skill is the core: run both passes. This skill
 adds the evidence and the write-up a human merges on.
 
 1. **Fresh merge.** In a worktree, merge the current base into the PR head
-   without committing or pushing; review that tree and say so in line 1. A
+   without committing or pushing; review that tree and say so in the method line. A
    conflict is the first finding.
 2. **Discover the risk lenses** the diff touches: volume against a limit,
    queued or scheduled work, a new side effect on writes, config or schedule

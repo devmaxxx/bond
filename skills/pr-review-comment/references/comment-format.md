@@ -16,7 +16,7 @@ Reviewed after merging current `<base>` (`<short sha>`) into the branch.
 **Verdict: <mergeable as is | mergeable after N should-fix | needs rework> —
 <the one finding that decides it, in one clause>.**
 
-### <Lens> — <OK | should-fix | minor>
+### <Lens> — <OK, or its most severe finding: blocker | should-fix | minor | nit>
 - <the fact or the finding, with numbers and their unit>
 
 ### <next lens> — …
@@ -34,8 +34,9 @@ Open questions:
 
 ## Rules
 
-- **Verdict first.** Line 3 says whether it can merge and which should-fix
-  blocks it. Details follow.
+- **Verdict first.** Right after the method and data-source lines, the
+  verdict says whether it can merge and which finding decides it. Details
+  follow.
 - **One section per lens** run (volume, idempotency, concurrency, write paths,
   rollback, migrations…), headed with its outcome. OK sections stay one or two
   bullets.
@@ -62,8 +63,8 @@ Reviewed after merging current `main` (`a1b2c3d`) into the branch. Volume
 figures come from a read-only query against prod (`audit_log` on `orders`,
 last 7 days).
 
-**Verdict: close — one should-fix before merge (the per-order sync can drop an
-update for up to 24 h), plus a rollback note for the release.**
+**Verdict: mergeable after 1 should-fix — the per-order sync can drop an
+update for up to 24 h; plus a rollback note for the release.**
 
 ### Volume / rate limit — OK
 - Prod, last 7 days: 1,740 writes (~250/day); peak hour 115, peak minute 12.
