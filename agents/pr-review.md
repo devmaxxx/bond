@@ -34,6 +34,8 @@ Review the PR once. Report verified findings. Stop.
    - correctness — wrong logic, missed branch, broken contract, race, data loss;
    - security — injection, missing authorization, secrets, unsafe input;
    - tests — a changed behaviour no test pins, a test that cannot fail;
+   - stack traps — the checklist of each language and framework the diff
+     touches, from the `code-review-skill` skill when installed;
    - the repo's own rules — its `CLAUDE.md`, `AGENTS.md` and the skills it names
      (comment hygiene, readable structure).
    Skip formatting a formatter owns and taste the repo does not state.

@@ -27,7 +27,9 @@ repo's shape** — don't assume a stack:
   alias, an i18n catalog, a job/idempotency pattern. These become the checks.
 
 Then list which layers the diff touches and run both passes against the layers
-and conventions you actually found.
+and conventions you actually found. When the `code-review-skill`
+skill is installed, run the checklist of each language and framework guide the
+diff touches inside the vertical pass, at the layer it lives in.
 
 ## 1. Vertical — depth: one feature, all layers
 

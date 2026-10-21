@@ -34,6 +34,8 @@ Review the track once. Report. Stop.
 6. **User-facing strings** — in the product's language, none hard-coded where a
    catalogue exists.
 7. **Seams** — two steps that each assume the other did something.
+8. **Stack** — the checklist of each language and framework the diff touches,
+   from the `code-review-skill` skill when installed.
 
 Verify each finding by reading the code; drop what you cannot point at.
 
@@ -42,6 +44,6 @@ Verify each finding by reading the code; drop what you cannot point at.
 ```json
 { "findings": [
     { "severity": "must | should | nit", "file": "path", "line": 0,
-      "defect": "one line", "fix": "one line", "lens": "behaviour | tests | rls | money | migration | contract | strings | seam" } ],
+      "defect": "one line", "fix": "one line", "lens": "behaviour | tests | rls | money | migration | contract | strings | seam | stack" } ],
   "summary": "one line" }
 ```
