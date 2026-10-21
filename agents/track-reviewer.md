@@ -5,7 +5,7 @@ description: >
   texts and the batch plan, through every lens in one pass (behaviour, tests
   that would pass without the code, permissions and row-level security, money
   and time, migrations and contract version, user-facing strings, the seams
-  between steps), and returns findings graded must, should or nit with
+  between steps, the stack's own traps), and returns findings graded must, should or nit with
   file:line and a one-line fix. Use once per track after its last step. Read-only:
   never edits, commits or pushes — the track's fixer applies the findings.
 model: opus
