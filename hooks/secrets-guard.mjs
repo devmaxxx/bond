@@ -378,7 +378,9 @@ const pullRequestText = (input) => [input.title, input.description];
 const PUBLISHED_TEXT = {
   "mcp__bond-bitbucket__create_pull_request": pullRequestText,
   "mcp__bond-bitbucket__create_draft_pull_request": pullRequestText,
+  "mcp__bond-bitbucket__update_pull_request": pullRequestText,
   "mcp__bond-bitbucket__add_pull_request_comment": (input) => [input.content],
+  "mcp__bond-bitbucket__update_pull_request_comment": (input) => [input.content],
 };
 
 /**

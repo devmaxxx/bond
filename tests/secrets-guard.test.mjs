@@ -433,6 +433,14 @@ describe("PreToolUse on a pull request opened through Bitbucket", () => {
     assert.match(open("add_pull_request_comment", { content: `token ${fake.github()}` }), /GitHub token/);
   });
 
+  it("blocks a secret written into an existing comment", () => {
+    assert.match(open("update_pull_request_comment", { content: `token ${fake.github()}` }), /GitHub token/);
+  });
+
+  it("blocks a secret written into an existing pull request's description", () => {
+    assert.match(open("update_pull_request", { title: "feat: x", description: fake.github() }), /GitHub token/);
+  });
+
   it("lets a clean comment through", () => {
     assert.equal(open("add_pull_request_comment", { content: "## Review" }), null);
   });
@@ -743,6 +751,8 @@ describe("the registration in hooks.json", () => {
     "mcp__bond-bitbucket__create_pull_request",
     "mcp__bond-bitbucket__create_draft_pull_request",
     "mcp__bond-bitbucket__add_pull_request_comment",
+    "mcp__bond-bitbucket__update_pull_request_comment",
+    "mcp__bond-bitbucket__update_pull_request",
   ]) {
     it(`sends ${tool} to the guard`, () => {
       assert.match(tool, new RegExp(`^(?:${guarded.matcher})$`));
