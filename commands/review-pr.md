@@ -28,7 +28,7 @@ Examples: `/bond:review-pr 685`, `/bond:review-pr https://github.com/o/r/pull/68
 
 | Flag | Effect |
 | --- | --- |
-| `--post` | Post the finished review as a single PR comment. Without it the comment is printed only. |
+| `--post` | Post the finished review as a single PR comment. Without it, the ask-first question settles whether to post or only print. |
 | `--data <env>` | Environment whose data may be queried, read-only, for volume and description checks (`prod`, `staging`, …). |
 | `--no-data` | Query nothing; every operational figure is "not measured" and goes to open questions. |
 
@@ -43,8 +43,10 @@ Examples: `/bond:review-pr 685`, `/bond:review-pr https://github.com/o/r/pull/68
 
 ### 2. Merge the base, in a worktree
 
-1. `git fetch origin`, then a throwaway worktree on the PR head (under the
-   repo's usual worktree directory); never touch the user's checkout.
+1. `git fetch origin`, plus `git fetch origin pull/<n>/head` on GitHub — a
+   fork's head is not on origin. Then a throwaway worktree on the PR head
+   (under the repo's usual worktree directory); never touch the user's
+   checkout.
 2. `git merge --no-commit --no-ff origin/<base>`. A conflict is the first
    finding: list the files and review the head alone, saying so.
 3. Note the base's short sha for the comment's method line.

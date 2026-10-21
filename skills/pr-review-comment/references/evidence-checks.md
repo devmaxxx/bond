@@ -6,7 +6,8 @@ read; a lens skipped because the diff does not touch it is simply left out.
 
 ## Fresh merge of the base
 
-- Work in a throwaway worktree on the PR head:
+- Work in a throwaway worktree on the PR head (on GitHub fetch
+  `pull/<n>/head` — a fork's head is not on origin):
   `git fetch origin && git merge --no-commit --no-ff origin/<base>`.
 - Review the merged tree, not the PR head alone: a sibling that landed on the
   base since the branch was cut can break the change or already fix it.
