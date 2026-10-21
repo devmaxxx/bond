@@ -41,7 +41,9 @@ adds the evidence and the write-up a human merges on.
    AI signature.
 7. **Post once**, only when asked to: a single PR comment (`gh pr comment
    <id> --body-file <file>` on GitHub, `add_pull_request_comment` on
-   Bitbucket). Otherwise print it. Then remove the merge worktree.
+   Bitbucket). Otherwise print it. A public repo (`gh repo view --json
+   visibility`; Bitbucket `is_private`) gets measured figures only on a yes,
+   else "measured, within limit". Then remove the merge worktree.
 
 Open questions hold what only a human can decide — a staging run before
 release, an alert for a failure mode the change makes silent, an owner call.
