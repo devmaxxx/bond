@@ -66,3 +66,4 @@ rest left stale. Name the siblings you checked.
 
 Report only real findings. No praise, no restating what the diff obviously does.
 If a pass surfaces nothing, say so explicitly ("Horizontal: no sibling drift").
+Posting it as a PR comment, or backing it with prod data: pr-review-comment.

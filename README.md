@@ -26,6 +26,7 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
 | `/sweep-pr`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
+| `/review-pr`      | Senior-reviewer PR review as one comment: fresh base merge, vertical + horizontal, claims checked against read-only prod data |
 | `/rebase`         | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
 | `/ship-pr`        | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/worktree`       | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
@@ -384,6 +385,7 @@ claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-c
 - **comment-hygiene** — comments the *why*, deletes comments that restate the code, strips ticket IDs, and handles tool directives / TODOs / dead code / license headers. Triggers on writing or reviewing comments and on clean-up/"remove comments" requests. Bundled under `skills/comment-hygiene/`.
 - **testing-behavior** — writes tests that pin the caller's contract, not the current implementation; refuses change-detector tests and tautologies, and stops to ask before enshrining suspicious behaviour. Triggers when adding, editing, or reviewing tests. Bundled under `skills/testing-behavior/`.
 - **vertical-horizontal-review** — enforces a two-pass code review: vertical (trace one feature through every layer) + horizontal (sweep every sibling of the kinds the change touches for drift). Project-agnostic. Triggers on "review this change/diff/branch/PR". Bundled under `skills/vertical-horizontal-review/`.
+- **pr-review-comment** — the vertical-horizontal review written up as one PR comment a human merges on: a fresh merge of the base, a one-line verdict first, operational claims backed by read-only prod or staging numbers (peak rates against the code's limits, source and window named), checks for queued work (idempotency, concurrency strategy, retries, what covered the gap), write-path completeness, rollback, stale description claims, a severity per finding, and open questions. Used by `/review-pr`. Bundled under `skills/pr-review-comment/`.
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
 - **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
 - **photo-jpeg-exiftool** — converts a photo to JPEG, resizes it or matches its colour profile with `sips`, and reads, copies or strips its metadata with `exiftool`, all on this machine, never through a website. It copies tags only from the source file of the same shot and never invents a camera, a date or GPS. Triggers on "save as JPEG", "EXIF", "metadata", "exiftool". Bundled under `skills/photo-jpeg-exiftool/`.
@@ -439,6 +441,7 @@ bond/
 │   ├── comment-hygiene/    # comment the why, delete the what
 │   ├── testing-behavior/   # test the contract, not the implementation
 │   ├── vertical-horizontal-review/  # two-pass review: depth + sibling sweep
+│   ├── pr-review-comment/   # that review as one PR comment, backed by prod data
 │   ├── pr-template/         # one shared PR title + description + reviewers
 │   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
 │   ├── photo-jpeg-exiftool/  # JPEG via sips, metadata via exiftool, local only
