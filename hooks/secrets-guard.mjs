@@ -373,11 +373,14 @@ const FILE_CHANGES = {
   ],
 };
 
-/** Texts a tool call publishes, by tool: Bonliva opens its PRs through Bitbucket. */
+/** Texts a tool call publishes, by tool: Bonliva opens and comments on its PRs through Bitbucket. */
 const pullRequestText = (input) => [input.title, input.description];
 const PUBLISHED_TEXT = {
   "mcp__bond-bitbucket__create_pull_request": pullRequestText,
   "mcp__bond-bitbucket__create_draft_pull_request": pullRequestText,
+  "mcp__bond-bitbucket__update_pull_request": pullRequestText,
+  "mcp__bond-bitbucket__add_pull_request_comment": (input) => [input.content],
+  "mcp__bond-bitbucket__update_pull_request_comment": (input) => [input.content],
 };
 
 /**
@@ -401,7 +404,7 @@ export function checkTool(
     const secrets = PUBLISHED_TEXT[tool](input).flatMap(findSecrets);
     return secrets.length === 0
       ? null
-      : `secrets-guard: this pull request's title or description carries a literal ${kindsOf(secrets)}, and it would be published. Reference it as a variable instead${envHint(secrets) || " ($NAME)"}.`;
+      : `secrets-guard: this pull request text carries a literal ${kindsOf(secrets)}, and it would be published. Reference it as a variable instead${envHint(secrets) || " ($NAME)"}.`;
   }
   if (!Object.hasOwn(FILE_CHANGES, tool)) {
     return null;
