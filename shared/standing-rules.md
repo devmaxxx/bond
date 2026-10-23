@@ -140,9 +140,20 @@ few lines; the next step is the session's, on that report.
 
 A PR's CI is waited on through `bond:pr-watch`, which does not only poll: it
 sorts each check the moment it fails, prepares the fix for what the branch's
-own code broke while the rest still run, pushes once the run settles, and loops on the re-run until green, until only pre-existing,
-infra or human-owned causes are left, or until its rounds run out. Give it the
+own code broke while the rest still run, pushes once the run settles, and watches the re-run until green or until only pre-existing,
+infra or human-owned causes are left. Give it the
 PR's worktree to fix in; without one it watches and reports.
+
+## One push, at the end — always on
+
+Fixing a PR — CI failures, review findings, an audit's — ends in **one** push:
+let the run settle, sort every failure, fix everything the branch owns
+locally, verify, commit, then push once. Not a push per finding, per check or
+per review round, and no `gh run rerun` beside it — the push re-runs every
+check anyway. A re-run still red on the branch's own code is prepared and
+committed but not pushed: report it, and push again only on the user's word.
+`bond:pr-watch`, `/bond:fix-ci` and `/bond:ship-pr` default to one round for
+this reason; a caller raises it only when the user asked for more.
 
 ## Lessons go into bond, not memory — always on
 
