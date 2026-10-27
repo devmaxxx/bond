@@ -398,8 +398,14 @@ describe("a call the guard cannot read", () => {
   });
 
   it("lets a tool it does not guard through without checking it", () => {
-    const result = raw(JSON.stringify({ tool_name: "Read", tool_input: { file_path: 42 } }));
-    assert.equal(result.status, 0, result.stderr);
+    // The same input that a Write is blocked for passes under Bash, which the
+    // kit knows but the guard does not ask for.
+    const input = { file_path: join(tempDir(), "migrations", "no-prefix.ts") };
+    const write = raw(JSON.stringify({ tool_name: "Write", tool_input: input }));
+    assert.equal(write.status, 2);
+    assert.match(write.stderr, /migration-guard blocked creating no-prefix\.ts/);
+    const bash = raw(JSON.stringify({ tool_name: "Bash", tool_input: input }));
+    assert.equal(bash.status, 0, bash.stderr);
   });
 });
 
