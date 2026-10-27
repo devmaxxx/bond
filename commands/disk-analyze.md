@@ -84,7 +84,7 @@ probes — the common blockers, and why forcing them is a bad trade:
 | -------------- | -------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `uv`           | `~/.cache/uv/.lock` held by long-lived `uv tool uvx` MCP servers | `--force` yanks the cache from running servers — including Claude's own MCP tools. Needs Claude Code quit first. |
 | `npm`          | root-owned files from a stray `sudo npm`                        | Needs `sudo chown` — a password Claude cannot type. Relay the command. |
-| `chrome-debug` | Chrome running on that `--user-data-dir`                        | Deleting a live profile corrupts it and kills the user's logged-in session (see `/bond:chrome-debug`). |
+| `chrome-debug` | Chrome running on that `--user-data-dir`                        | Deleting a live profile corrupts it and kills the user's logged-in session.        |
 | `gradle`       | Gradle daemon running                                           | Corrupts in-flight builds.                                           |
 
 When a cache is blocked, **hand the user the exact command** to run themselves

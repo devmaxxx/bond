@@ -81,14 +81,17 @@ arguments:
 | They write | Run |
 |---|---|
 | "prepare pr", "open pr", "push and open pr" | `/bond:open-pr` (after committing and pushing) |
-| "ship pr", "ship it" | `/bond:ship-pr` |
+| "ship pr" | `/bond:ship-pr` |
 | "merge", "merge if green", "push and merge" | `/bond:merge-pr` |
 | "fix ci", "ci is red" | `/bond:fix-ci` |
 | "implement <ticket or task>" | `/bond:implement` |
 | "implement next batch" (beauty-crm) | `/bond-beauty-crm:batch` |
 
-A command plugin that is not installed in this repo is no match — do the work by
-hand. The command's own upfront question still applies.
+The words trigger a command only when they are the whole request — "merge" said
+while discussing a branch is talk, not a command. A command plugin that is not
+installed in this repo is no match — do the work by hand. Triggering is not
+confirming: the command's own upfront question still applies to every outward
+step the words did not name.
 
 ## Do what was asked, no more — always on
 
