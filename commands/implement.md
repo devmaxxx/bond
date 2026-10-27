@@ -25,7 +25,7 @@ Examples:
 
 ### Flags
 
-By **default** `/implement` runs in **worktree mode** and **auto mode**: it creates an isolated git worktree, skips the plan confirmation prompt, runs ship + open-pr after implementation, then hands the new PR to a background `bond:pr-audit` agent — a fresh context that reviews it, fixes what it finds, verifies it in the browser and removes the worktree when it is done.
+By **default** `/implement` runs in **worktree mode** and **auto mode**: it creates an isolated git worktree, skips the plan confirmation prompt, runs `/code-review --fix` over the work, then ship + open-pr, and removes the worktree once the PR is open.
 
 - `--no-worktree` — switch branches in the current working tree instead of a worktree (requires a clean tree).
 - `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR and Teardown procedures are skipped; the worktree is left in place).
@@ -84,7 +84,7 @@ Run these shared procedures in order:
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
 3. **Implement** then **Test** — `SCOPE` = the whole plan — when the plan names three or more files, build through `superpowers:subagent-driven-development` (available when the superpowers plugin is installed; otherwise in-thread): the main thread keeps the plan and the verdicts, test output stays in the subagent. With two or more tickets, each ticket is instead a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — and that file's review (every lens, `must`/`should`/`nit`) and single fix pass come before item 4.
 4. **Review and fix** — `/code-review` over the work at the level `bond:routing-code-review` reads off the diff, `--fix` on, then re-run the tests.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Hand off the audit**, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 
