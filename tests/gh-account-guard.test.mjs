@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { decide, parseAccounts } from "../hooks/gh-account-guard.mjs";
+import { decide, lex, parseAccounts } from "../hooks/gh-account-guard.mjs";
 
 const accounts = parseAccounts("acme=work, me=me");
 const base = {
@@ -12,7 +12,11 @@ const base = {
   currentBranch: "fix/thing",
 };
 const origin = (url) => ({ remotes: new Map([["origin", url]]) });
-const run = (cmd, over = {}) => decide({ ...base, cmd, ...over });
+const run = (cmd, over = {}) => {
+  const opts = { ...base, ...over };
+  return decide({ ...opts, cmd, repoAt: () => ({ remotes: opts.remotes, currentBranch: opts.currentBranch }) });
+};
+const https = { ...origin("https://github.com/me/tool.git"), httpsUsesGh: () => true };
 
 describe("gh writes under the wrong active account", () => {
   it("blocks a PR create in a repo owned by the other account", () => {
@@ -109,5 +113,75 @@ describe("pushes over an SSH key that belongs to the other account", () => {
 
   it("ignores the words when they are only data", () => {
     assert.equal(run("echo 'run git push later'"), null);
+  });
+});
+
+describe("reading the command the way the shell does", () => {
+  it("keeps braces and ${} inside one word", () => {
+    assert.match(run("gh api repos/me/tool/issues/${N}/comments -f body=x"), /active gh account is work/);
+    assert.match(run("gh api repos/{owner}/{repo}/pulls -f title=x"), /active gh account is work/);
+  });
+
+  it("sees through shell keywords and wrappers", () => {
+    for (const cmd of [
+      "if ! git diff --quiet; then git push origin x; fi",
+      "timeout 30 git push origin x",
+      "sudo git push origin x",
+      "env -u FOO git push origin x",
+    ]) {
+      assert.match(run(cmd), /SSH remote authenticates as work/, cmd);
+    }
+  });
+
+  it("reads the script handed to bash -c, eval and a substitution", () => {
+    assert.match(run("bash -c 'git push origin x'"), /SSH remote/);
+    assert.match(run('echo "$(gh pr create --fill)"'), /active gh account is work/);
+  });
+
+  it("does not let an apostrophe in a comment swallow the commands after it", () => {
+    assert.match(run("# don't touch\ngit push origin x\n# it's done"), /SSH remote/);
+  });
+
+  it("drops heredoc bodies and keeps the command after them", () => {
+    assert.deepEqual(lex("cat <<'EOF'\ngit push\nEOF\nls"), [["cat"], ["ls"]]);
+  });
+});
+
+describe("HTTPS pushes through gh's credential helper", () => {
+  it("blocks when the active account is the wrong one", () => {
+    assert.match(run("git push origin x", https), /would push as the active account, work/);
+  });
+
+  it("allows it with a GH_TOKEN prefix, or when gh is not the helper", () => {
+    assert.equal(run("GH_TOKEN=$(gh auth token -u me) git push origin x", https), null);
+    assert.equal(run("git push origin x", { ...https, httpsUsesGh: () => false }), null);
+  });
+});
+
+describe("gh api reads and writes", () => {
+  it("treats an explicit GET as a read and -XPOST as a write", () => {
+    assert.equal(run("gh api -X GET repos/me/tool/issues -f state=open"), null);
+    assert.match(run("gh api -XPOST repos/me/tool/issues -f title=x"), /active gh account is work/);
+  });
+
+  it("has no opinion on a call that names no repo", () => {
+    assert.equal(run("gh api graphql -f query=x"), null);
+  });
+});
+
+describe("the suggested push", () => {
+  it("adds no refspec to --all and quotes a value with a space", () => {
+    const msg = run("git push --all -o 'a b' origin");
+    assert.match(msg, /push --all -o 'a b' https:\/\/github\.com\/me\/tool\.git && git fetch origin\n/);
+  });
+
+  it("judges the repo a cd or -C points at", () => {
+    const seen = [];
+    const repoAt = (dir) => {
+      seen.push(dir);
+      return { remotes: new Map([["origin", "git@github.com:acme/app.git"]]), currentBranch: "x" };
+    };
+    assert.equal(decide({ ...base, cwd: "/w", cmd: "cd ../other && git -C sub push", repoAt }), null);
+    assert.deepEqual(seen, ["/other/sub"]);
   });
 });
