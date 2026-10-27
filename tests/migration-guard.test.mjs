@@ -20,6 +20,7 @@ import { decide } from "../plugins/bond-bonliva/hooks/migration-guard.mjs";
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), "..", "plugins", "bond-bonliva");
 const HOOK = join(PLUGIN, "hooks", "migration-guard.mjs");
 const HOOKS_JSON = join(PLUGIN, "hooks", "hooks.json");
+const VENDORED_KIT = join(PLUGIN, "hooks", "vendor", "agent-base-kit.mjs");
 const NOW = 1790000000000;
 const TS_DIR = "/repo/packages/db/src/migrations";
 const TS_EXISTING = [
@@ -250,7 +251,9 @@ describe("the hook against a real repository", () => {
     const repo = makeRepo();
     repo.put("1781800003000-staged.ts");
     repo.git("add", "-A");
-    assert.equal(repo.run("1781800004000-other.ts").status, 2);
+    const result = repo.run("1781800004000-other.ts");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /1781800003000-staged\.ts — update that migration/);
   });
 });
 
@@ -291,7 +294,9 @@ describe("what git lists as this branch's migrations", () => {
     const repo = makeRepo(join("my db é", "migrations"));
     repo.put("1781800001000-first.ts");
     repo.commit("feat: first");
-    assert.equal(repo.run("1781800002000-second.ts").status, 2);
+    const result = repo.run("1781800002000-second.ts");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /1781800001000-first\.ts — update that migration/);
   });
 
   it("does not count one the base has since taken in by a squash merge", () => {
@@ -323,7 +328,9 @@ describe("what git lists as this branch's migrations", () => {
 
 describe("the tools the guard is registered for", () => {
   it("checks an Edit that creates a migration, as it does a Write", () => {
-    assert.equal(makeRepo().run("add-index.ts", "Edit").status, 2);
+    const result = makeRepo().run("add-index.ts", "Edit");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /migration-guard blocked creating add-index\.ts/);
   });
 
   it("lets an Edit of a migration that exists through", () => {
@@ -359,8 +366,46 @@ describe("git being slow or absent", () => {
   it("still judges the name when git fails", () => {
     const { env } = brokenGit();
     const repo = makeRepo();
-    assert.equal(repo.run("add-index.ts", "Write", env).status, 2);
+    const result = repo.run("add-index.ts", "Write", env);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /"add-index\.ts" must start with a 13-digit timestamp prefix/);
     assert.equal(repo.run("1781800001000-add-index.ts", "Write", env).status, 0);
+  });
+});
+
+describe("a call the guard cannot read", () => {
+  const raw = (input, env = {}) =>
+    spawnSync(process.execPath, [HOOK], {
+      input,
+      encoding: "utf8",
+      env: { ...ISOLATED, BOND_MIGRATION_GUARD: "", ...env },
+    });
+
+  it("blocks a payload that is not JSON instead of letting the write through", () => {
+    const result = raw("not json");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /Blocked by migration-guard, it could not check the call/);
+  });
+
+  it("blocks a file_path of the wrong shape", () => {
+    const result = raw(JSON.stringify({ tool_name: "Write", tool_input: { file_path: ["migrations/x.ts"] } }));
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /file_path is not a string/);
+  });
+
+  it("stays off under BOND_MIGRATION_GUARD=off, whatever the payload", () => {
+    assert.equal(raw("not json", { BOND_MIGRATION_GUARD: "off" }).status, 0);
+  });
+
+  it("lets a tool it does not guard through without checking it", () => {
+    // The same input that a Write is blocked for passes under Bash, which the
+    // kit knows but the guard does not ask for.
+    const input = { file_path: join(tempDir(), "migrations", "no-prefix.ts") };
+    const write = raw(JSON.stringify({ tool_name: "Write", tool_input: input }));
+    assert.equal(write.status, 2);
+    assert.match(write.stderr, /migration-guard blocked creating no-prefix\.ts/);
+    const bash = raw(JSON.stringify({ tool_name: "Bash", tool_input: input }));
+    assert.equal(bash.status, 0, bash.stderr);
   });
 });
 
@@ -368,18 +413,22 @@ describe("the hook run from the path a plugin cache gives it", () => {
   // import.meta.url is percent-encoded and symlink-resolved, argv[1] is
   // neither; comparing them as strings leaves the hook running nothing when
   // the cache path has a space, a non-ASCII letter or a symlink in it.
+  // The cache holds the vendored kit as a real file, not the repo's symlink.
   const install = (dir) => {
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(dir, "vendor"), { recursive: true });
     copyFileSync(HOOK, join(dir, "migration-guard.mjs"));
+    copyFileSync(VENDORED_KIT, join(dir, "vendor", "agent-base-kit.mjs"));
     return join(dir, "migration-guard.mjs");
   };
   const blocks = (hook) => {
     const cwd = tempDir();
     const result = runHook(hook, {
       cwd,
+      tool_name: "Write",
       tool_input: { file_path: join(cwd, "migrations", "no-prefix.ts") },
     });
     assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, /migration-guard blocked creating no-prefix\.ts/);
   };
 
   it("blocks from a directory whose name has a space and a non-ASCII letter", () => {

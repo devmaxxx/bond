@@ -3,54 +3,38 @@
  * PreToolUse hook on Bash — enforces skills/authorship-conventions on `git commit` and
  * `gh pr …` commands before they run: no AI signature anywhere in the message
  * (inline, heredoc or -F/--body-file), and a Conventional Commits subject
- * when the subject can be read out of the command. Exit 2 blocks the call and
- * hands the reasons back to the agent; anything unparseable exits 0 so a hook
- * bug never blocks unrelated shell work.
+ * when the subject can be read out of the command. A block hands the reasons
+ * back to the agent.
+ *
+ * Runs on agent-base-kit, which fails closed: a payload it cannot read or a
+ * check that throws blocks the call, since any exit but 2 lets it run unchecked.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { findAiBreadcrumbs } from "./ai-breadcrumbs.mjs";
 import { runsCommand, scrubShell } from "./shell.mjs";
+import { defineHook, readStdin, runHook } from "./vendor/agent-base-kit.mjs";
 
 const TYPES = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert";
 const SUBJECT = new RegExp(`^(${TYPES})(\\([a-z0-9][a-z0-9._/-]*\\))?!?: \\S`);
 const PASSTHROUGH = /^(Merge |fixup! |squash! |Revert ")/;
 
-let payload;
-try {
-  payload = JSON.parse(readFileSync(0, "utf8"));
-} catch {
-  process.exit(0);
-}
-const cmd = payload?.tool_input?.command ?? "";
-// Detection reads the scrubbed command, so the words spelled inside a heredoc
-// body, a quoted string or a comment are data, not an invocation. Message
-// extraction below still reads the raw command — that is where the body lives.
-const scrubbed = scrubShell(cmd);
-// `-C <path>` / `-c <name=value>` take a value, so a bare `-\S+` repetition
-// would stop at the path and miss `git -C /repo commit` entirely.
-const isCommit = runsCommand(
-  scrubbed,
-  "git(?:\\s+(?:-[Cc]\\s+\\S+|--?\\S+))*\\s+commit",
-);
-const isPr = runsCommand(
-  scrubbed,
-  "gh\\s+pr\\s+(?:create|edit|comment|review|merge)",
-);
-if (!isCommit && !isPr) {
-  process.exit(0);
-}
-
-const fileArgs = [
-  ...cmd.matchAll(/(?:^|\s)(?:-F|--file|--body-file)[=\s]+["']?([^\s"']+)/g),
-].map((m) => m[1]);
-const fileTexts = fileArgs
-  .filter((f) => existsSync(f))
-  .map((f) => readFileSync(f, "utf8"));
-
 const firstLine = (text) =>
   text.split("\n").find((l) => l.trim() !== "" && !l.startsWith("#")) ?? null;
-function extractSubject() {
+
+// The flag pattern also catches other tools in the same command line, such as
+// `ls -F hooks` or `grep -F src`, whose "file" is a directory or nothing at
+// all: the hook would fail closed on every such call. Only a readable file can
+// hold a message.
+function readMessageFile(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function extractSubject(cmd, fileTexts) {
   if (fileTexts.length > 0) {
     return firstLine(fileTexts[0]);
   }
@@ -77,25 +61,58 @@ function extractSubject() {
   return null;
 }
 
-const errors = findAiBreadcrumbs([cmd, ...fileTexts].join("\n")).map(
-  ({ text }) => `AI breadcrumb: "${text}"`,
-);
-if (isCommit) {
-  const subject = extractSubject();
-  if (
-    subject !== null &&
-    !PASSTHROUGH.test(subject) &&
-    !SUBJECT.test(subject)
-  ) {
-    errors.push(
-      `subject "${subject}" must be "<type>(<scope>)!: <description>" with type in {${TYPES}}`,
+const checkCommit = defineHook({
+  name: "check-commit",
+  kinds: ["shell"],
+  check({ command: cmd }) {
+    // Detection reads the scrubbed command, so the words spelled inside a heredoc
+    // body, a quoted string or a comment are data, not an invocation. Message
+    // extraction below still reads the raw command — that is where the body lives.
+    const scrubbed = scrubShell(cmd);
+    // `-C <path>` / `-c <name=value>` take a value, so a bare `-\S+` repetition
+    // would stop at the path and miss `git -C /repo commit` entirely.
+    const isCommit = runsCommand(
+      scrubbed,
+      "git(?:\\s+(?:-[Cc]\\s+\\S+|--?\\S+))*\\s+commit",
     );
-  }
-}
+    const isPr = runsCommand(
+      scrubbed,
+      "gh\\s+pr\\s+(?:create|edit|comment|review|merge)",
+    );
+    if (!isCommit && !isPr) {
+      return { block: false };
+    }
 
-if (errors.length > 0) {
-  process.stderr.write(
-    `bond:authorship-conventions rejected this command:\n  - ${errors.join("\n  - ")}\nFix the message (no AI trailers or session links; Conventional Commits subject) and retry.\n`,
-  );
-  process.exit(2);
-}
+    const fileTexts = [
+      ...cmd.matchAll(/(?:^|\s)(?:-F|--file|--body-file)[=\s]+["']?([^\s"']+)/g),
+    ]
+      .map((m) => readMessageFile(m[1]))
+      .filter((text) => text !== null);
+
+    const errors = findAiBreadcrumbs([cmd, ...fileTexts].join("\n")).map(
+      ({ text }) => `AI breadcrumb: "${text}"`,
+    );
+    if (isCommit) {
+      const subject = extractSubject(cmd, fileTexts);
+      if (
+        subject !== null &&
+        !PASSTHROUGH.test(subject) &&
+        !SUBJECT.test(subject)
+      ) {
+        errors.push(
+          `subject "${subject}" must be "<type>(<scope>)!: <description>" with type in {${TYPES}}`,
+        );
+      }
+    }
+
+    if (errors.length === 0) {
+      return { block: false };
+    }
+    return {
+      block: true,
+      reason: `bond:authorship-conventions rejected this command:\n  - ${errors.join("\n  - ")}\nFix the message (no AI trailers or session links; Conventional Commits subject) and retry.\n`,
+    };
+  },
+});
+
+process.exitCode = await runHook(checkCommit, await readStdin());

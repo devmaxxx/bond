@@ -16,14 +16,17 @@
  * TypeORM repos use a 13-digit ms timestamp, the Mongo migrator a YYYYMMDD
  * date. An empty directory gets the 13-digit rule.
  *
- * Anything unreadable — payload, git, the directory — exits 0: a hook bug must
- * never block unrelated writes. `BOND_MIGRATION_GUARD=off` disables it.
+ * Runs on agent-base-kit, which fails closed: a payload it cannot read or a
+ * check that throws blocks the write. git and the directory are optional
+ * evidence, so failing to read them only drops the reasons they would give.
+ * `BOND_MIGRATION_GUARD=off` disables it.
  */
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { defineHook, readStdin, runHook } from "./vendor/agent-base-kit.mjs";
 
 const CODE = /\.(ts|js|mjs|cjs|sql)$/;
 const NOT_A_MIGRATION = /(\.|^)(test|spec|integration|contract|d)\.[a-z]+$|^index\./;
@@ -256,48 +259,45 @@ function readBranch(dir) {
   return { branchAdded, baseNames };
 }
 
-function main() {
-  if (process.env.BOND_MIGRATION_GUARD === "off") {
-    return;
-  }
-  let payload;
-  try {
-    payload = JSON.parse(readFileSync(0, "utf8"));
-  } catch {
-    return;
-  }
-  const raw = payload?.tool_input?.file_path;
-  if (!raw) {
-    return;
-  }
-  const filePath = resolve(payload.cwd ?? process.cwd(), raw);
-  // Replacing a migration that exists is an update, which needs no verdict and no git.
-  if (!isMigrationFile(filePath) || existsSync(filePath)) {
-    return;
-  }
-  const dir = dirname(filePath);
-  let onDisk;
-  try {
-    onDisk = readdirSync(dir);
-  } catch {
-    // A directory that does not exist yet holds no migrations to sort after.
-    onDisk = [];
-  }
-  const { branchAdded, baseNames } =
-    onDisk.length > 0 ? readBranch(dir) : { branchAdded: [], baseNames: [] };
-  const reasons = decide({
-    filePath,
-    existing: [...new Set([...onDisk, ...baseNames])],
-    branchAdded,
-    now: Date.now(),
-  });
-  if (reasons.length > 0) {
-    process.stderr.write(
-      `migration-guard blocked creating ${basename(filePath)}:\n  - ${reasons.join("\n  - ")}\n`,
-    );
-    process.exitCode = 2;
-  }
-}
+const PASS = { block: false };
+
+const migrationGuard = defineHook({
+  name: "migration-guard",
+  kinds: ["write", "edit"],
+  check({ path }, { cwd }) {
+    if (!path) {
+      return PASS;
+    }
+    const filePath = resolve(cwd, path);
+    // Replacing a migration that exists is an update, which needs no verdict and no git.
+    if (!isMigrationFile(filePath) || existsSync(filePath)) {
+      return PASS;
+    }
+    const dir = dirname(filePath);
+    let onDisk;
+    try {
+      onDisk = readdirSync(dir);
+    } catch {
+      // A directory that does not exist yet holds no migrations to sort after.
+      onDisk = [];
+    }
+    const { branchAdded, baseNames } =
+      onDisk.length > 0 ? readBranch(dir) : { branchAdded: [], baseNames: [] };
+    const reasons = decide({
+      filePath,
+      existing: [...new Set([...onDisk, ...baseNames])],
+      branchAdded,
+      now: Date.now(),
+    });
+    if (reasons.length === 0) {
+      return PASS;
+    }
+    return {
+      block: true,
+      reason: `migration-guard blocked creating ${basename(filePath)}:\n  - ${reasons.join("\n  - ")}\n`,
+    };
+  },
+});
 
 /**
  * `import.meta.url` is percent-encoded and symlink-resolved; `argv[1]` is
@@ -312,10 +312,6 @@ function isEntryPoint() {
   }
 }
 
-if (isEntryPoint()) {
-  try {
-    main();
-  } catch {
-    // An unanticipated failure must not block the write; exit 0 is the contract.
-  }
+if (isEntryPoint() && process.env.BOND_MIGRATION_GUARD !== "off") {
+  process.exitCode = await runHook(migrationGuard, await readStdin());
 }

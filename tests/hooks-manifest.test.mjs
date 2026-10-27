@@ -24,3 +24,19 @@ describe("every registered hook command", () => {
     }
   });
 });
+
+describe("the vendored agent-base-kit", () => {
+  const bond = join(ROOT, "hooks/vendor/agent-base-kit.mjs");
+  const bonliva = join(ROOT, "plugins/bond-bonliva/hooks/vendor/agent-base-kit.mjs");
+
+  // bond-bonliva installs into its own cache directory, so it cannot import
+  // across to bond's copy; the two must still be one version.
+  it("is the same file in bond and in bond-bonliva", () => {
+    assert.equal(readFileSync(bonliva, "utf8"), readFileSync(bond, "utf8"));
+  });
+
+  it("names the version and the tarball it was taken from", () => {
+    const [header] = readFileSync(bond, "utf8").split("\n");
+    assert.match(header, /^\/\/ agent-base-kit \d+\.\d+\.\d+, dist\/index\.mjs from npm \(sha512-/);
+  });
+});
