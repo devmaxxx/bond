@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/secrets-guard.mjs\" || exit 2",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/secrets-guard.mjs\" --event PreToolUse --agent claude || exit 2",
             "timeout": 10
           }
         ]
@@ -145,7 +145,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/secrets-guard.mjs\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/secrets-guard.mjs\" --event UserPromptSubmit --agent claude",
             "timeout": 10
           }
         ]

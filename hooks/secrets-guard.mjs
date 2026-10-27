@@ -523,6 +523,16 @@ function isEntryPoint() {
   }
 }
 
+// hooks.json names the event each entry runs for, so a prompt payload cut
+// short still passes instead of blocking as unreadable.
+function flag(name) {
+  const at = process.argv.indexOf(name, 2);
+  return at === -1 ? undefined : process.argv[at + 1];
+}
+
 if (isEntryPoint()) {
-  process.exitCode = await runHook(secretsGuard, await readStdin());
+  process.exitCode = await runHook(secretsGuard, await readStdin(), {
+    event: flag("--event"),
+    agent: flag("--agent"),
+  });
 }

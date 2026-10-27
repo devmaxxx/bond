@@ -863,4 +863,32 @@ describe("the registration in hooks.json", () => {
     const registered = hooks.UserPromptSubmit.flatMap((group) => group.hooks);
     assert.ok(registered.some((hook) => hook.command.includes("secrets-guard.mjs")));
   });
+
+  // The command as Claude Code runs it, from the plugin root.
+  const run = (command, input) =>
+    spawnSync("/bin/sh", ["-c", command.replaceAll("${CLAUDE_PLUGIN_ROOT}", dirname(HOOKS_DIR))], { input, encoding: "utf8" });
+  const promptCommand = () =>
+    hooks.UserPromptSubmit.flatMap((group) => group.hooks).find((hook) => hook.command.includes("secrets-guard.mjs")).command;
+
+  it("lets a prompt payload that arrives cut short or empty pass, saying why", () => {
+    for (const input of [`{"hook_event_name":"UserPromptSubmit","prompt":"token ${fake.github()} and the rest`, ""]) {
+      const out = run(promptCommand(), input);
+      assert.equal(out.status, 0, out.stderr);
+      assert.equal(out.stdout, "");
+      assert.match(out.stderr, /^secrets-guard could not check the prompt, so it let it pass: /);
+    }
+  });
+
+  // The entry names Claude Code, so a payload that looks like Codex's (it
+  // carries turn_id) still gets the field that keeps the prompt unprinted.
+  it("still blocks a whole prompt with a token, hiding it from the reply", () => {
+    const out = run(promptCommand(), JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: `token ${fake.github()}`, turn_id: "t1" }));
+    assert.equal(out.status, 0, out.stderr);
+    assert.deepEqual(JSON.parse(out.stdout).hookSpecificOutput, { hookEventName: "UserPromptSubmit", suppressOriginalPrompt: true });
+  });
+
+  it("blocks a tool call payload that arrives cut short", () => {
+    const out = run(guarded.hooks[0].command, '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_in');
+    assert.equal(out.status, 2);
+  });
 });
