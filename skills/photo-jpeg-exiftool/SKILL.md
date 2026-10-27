@@ -1,5 +1,6 @@
 ---
 name: photo-jpeg-exiftool
+disable-model-invocation: true
 description: >-
   Use when converting a photo to JPEG, changing its quality, size or colour
   profile, or reading, copying or stripping its metadata on macOS — `sips` for
