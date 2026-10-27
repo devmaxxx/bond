@@ -1,7 +1,7 @@
-// agent-base-kit 0.3.0, dist/index.mjs built from devmaxxx/agent-base-kit commit 750e5847079ef95c2ed5722f4b9e730c46dcc8de.
+// agent-base-kit 0.3.0, dist/index.mjs built from devmaxxx/agent-base-kit commit 4bb1de715cd0e00b5e8f78fc00f0468acd9c5d43.
 // UNPUBLISHED: 0.3.0 is not on npm yet. Once it is, refresh with scripts/vendor-agent-base-kit.sh 0.3.0.
 // Vendored, do not edit: refresh with scripts/vendor-agent-base-kit.sh <version>.
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { Buffer } from "node:buffer";
 import { homedir } from "node:os";
@@ -179,6 +179,23 @@ function editList(input) {
 	if (!Array.isArray(edits)) throw new TypeError("edits is not a list");
 	return edits.map((edit) => record(edit, "edit"));
 }
+function toToolCalls(plugin, tool, input) {
+	if (tool !== "MultiEdit") return [toToolCall(plugin, tool, input)];
+	const path = stringField(input, "file_path");
+	const edits = editList(input);
+	if (edits.length === 0) return [{
+		kind: "edit",
+		path,
+		before: "",
+		after: ""
+	}];
+	return edits.map((edit) => ({
+		kind: "edit",
+		path,
+		before: stringField(edit, "old_string"),
+		after: stringField(edit, "new_string")
+	}));
+}
 function toToolCall(plugin, tool, input) {
 	if (plugin.tools.includes(tool)) return {
 		kind: "tool",
@@ -186,7 +203,6 @@ function toToolCall(plugin, tool, input) {
 		input
 	};
 	const text = (key, from = input) => stringField(from, key);
-	const joined = (key) => editList(input).map((edit) => text(key, edit)).join("\n");
 	switch (tool) {
 		case "Bash": return {
 			kind: "shell",
@@ -207,12 +223,6 @@ function toToolCall(plugin, tool, input) {
 			path: text("file_path"),
 			before: text("old_string"),
 			after: text("new_string")
-		};
-		case "MultiEdit": return {
-			kind: "edit",
-			path: text("file_path"),
-			before: joined("old_string"),
-			after: joined("new_string")
 		};
 		case "apply_patch": return {
 			kind: "patch",
@@ -252,7 +262,7 @@ async function runOpenEvent(plugin, event, payload, options) {
 		const cwd = stringField(payload, "cwd") || (options.cwd ?? process.cwd());
 		const verdict = event === "Stop" ? verdictOf(await plugin.events.Stop.check({ reply: stringField(payload, "last_assistant_message") }, { cwd })) : verdictOf(await plugin.events.UserPromptSubmit.check({ prompt: stringField(payload, "prompt") }, { cwd }));
 		if (!verdict.block) return 0;
-		const hidden = event === "UserPromptSubmit" && plugin.events.UserPromptSubmit.hidePrompt;
+		const hidden = event === "UserPromptSubmit" && plugin.events.UserPromptSubmit.hidePrompt && payload.turn_id === void 0;
 		stdout(`${JSON.stringify({
 			decision: "block",
 			reason: verdict.reason,
@@ -275,7 +285,8 @@ async function runOpenEvent(plugin, event, payload, options) {
 * shape, a check that throws or rejects, and a result that is not a verdict
 * all return 2 with the error on stderr, because any other exit lets the call
 * run unchecked. A tool the plugin did not ask for returns 0 without calling
-* the check. A payload with no `hook_event_name` is read as PreToolUse.
+* the check. A MultiEdit calls the check once per edit and blocks on the first
+* edit it blocks. A payload with no `hook_event_name` is read as PreToolUse.
 *
 * Stop and UserPromptSubmit always return 0. A block goes to stdout as
 * `{"decision":"block","reason":…}`, and a fault to stderr, letting the event
@@ -296,9 +307,13 @@ async function runHook(plugin, stdin, options = {}) {
 		if (typeof tool !== "string" || tool === "") throw new TypeError("tool_name is not a tool name");
 		const kind = plugin.tools.includes(tool) ? "tool" : KIND_OF_TOOL.get(tool);
 		if (kind === void 0 || !plugin.kinds.includes(kind)) return 0;
-		const call = toToolCall(plugin, tool, record(payload.tool_input, "tool_input"));
+		const calls = toToolCalls(plugin, tool, record(payload.tool_input, "tool_input"));
 		const cwd = stringField(payload, "cwd") || (options.cwd ?? process.cwd());
-		verdict = verdictOf(await plugin.check(call, { cwd }));
+		verdict = { block: false };
+		for (const call of calls) {
+			verdict = verdictOf(await plugin.check(call, { cwd }));
+			if (verdict.block) break;
+		}
 	} catch (error) {
 		stderr(`Blocked by ${plugin.name}, it could not check the call: ${messageOf(error)}\n`);
 		return 2;
@@ -410,6 +425,22 @@ function linkCurrent(root, id) {
 	}
 	return current;
 }
+function restoreCurrent(root, id) {
+	const current = join(root, "current");
+	const target = () => {
+		try {
+			return readlinkSync(current);
+		} catch {
+			return null;
+		}
+	};
+	const previous = target();
+	return () => {
+		if (target() !== id) return;
+		if (previous === null) rmSync(current, { force: true });
+		else linkCurrent(root, previous);
+	};
+}
 const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function readSettings(file) {
 	if (!existsSync(file)) return {};
@@ -507,10 +538,10 @@ function withExtra(file, place, write, extra) {
 * that times out. The other events' commands do not, so they pass instead.
 * Then the plugin's `onInstall` runs.
 *
-* Throws, and leaves the config as it was, when the config is not a settings
-* object it can extend, when the plugin's kinds leave tools the agent routes
-* to it unchecked, when the build cannot be copied or does not run, or when
-* `onInstall` throws.
+* Throws, and leaves the config and `current` as they were, when the config
+* is not a settings object it can extend, when the plugin's kinds leave tools
+* the agent routes to it unchecked, when the build cannot be copied or does
+* not run, or when `onInstall` throws.
 */
 function install(options) {
 	const { plugin, agent, scope, script } = options;
@@ -518,20 +549,31 @@ function install(options) {
 	const file = configFile(agent, scope, options);
 	const settings = readSettings(file);
 	let target = script;
+	let restore = () => {};
 	if (scope === "user") {
 		const root = join(options.home, `.${plugin.name}`);
 		const id = copyBuild(plugin, script, root);
 		probe(join(root, id, basename(script)), options.execPath);
+		restore = restoreCurrent(root, id);
 		target = join(linkCurrent(root, id), basename(script));
 	}
 	const entries = entriesFor(plugin, agent, hookCommand(plugin, scope, target, options.execPath));
-	const lines = withExtra(file, {
+	const place = {
 		agent,
 		scope,
 		home: options.home,
 		cwd: options.cwd,
 		script
-	}, () => configure(file, settings, ownHook(plugin, basename(script)), entries), plugin.onInstall);
+	};
+	let lines;
+	try {
+		lines = withExtra(file, place, () => configure(file, settings, ownHook(plugin, basename(script)), entries), plugin.onInstall);
+	} catch (error) {
+		try {
+			restore();
+		} catch {}
+		throw error;
+	}
 	const commands = Object.fromEntries(Object.entries(entries).map(([event, entry]) => [event, entry.hooks[0].command]));
 	return {
 		file,
