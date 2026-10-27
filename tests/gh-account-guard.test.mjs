@@ -8,8 +8,10 @@ const base = {
   accounts,
   active: "work",
   sshAccount: "work",
-  originUrl: "git@github.com:me/tool.git",
+  remotes: new Map([["origin", "git@github.com:me/tool.git"]]),
+  currentBranch: "fix/thing",
 };
+const origin = (url) => ({ remotes: new Map([["origin", url]]) });
 const run = (cmd, over = {}) => decide({ ...base, cmd, ...over });
 
 describe("gh writes under the wrong active account", () => {
@@ -38,11 +40,40 @@ describe("gh writes under the wrong active account", () => {
 
   it("has no opinion on reads or on an owner missing from the map", () => {
     assert.equal(run("gh pr view 3 --json state"), null);
-    assert.equal(run("gh pr create", { originUrl: "git@github.com:other/x.git" }), null);
+    assert.equal(run("gh pr create", origin("git@github.com:other/x.git")), null);
   });
 
   it("does nothing when no accounts are configured", () => {
     assert.equal(run("gh pr create", { accounts: parseAccounts("") }), null);
+  });
+
+  it("reads the repo only from argument positions, never from a body or message", () => {
+    assert.match(run("gh pr create --body 'see https://github.com/acme/app/issues/3'"), /me\/tool belongs to me/);
+    assert.match(run("gh pr create --body-file - <<'EOF'\nsee repos/acme/app\nEOF"), /me\/tool belongs to me/);
+  });
+
+  it("trusts GH_TOKEN only as a prefix of the gh it precedes", () => {
+    assert.match(run("gh pr create --body 'set GH_TOKEN=abc first'"), /active gh account is work/);
+    assert.match(run("GH_TOKEN=$(gh auth token -u me) gh pr view 1 && gh pr create"), /active gh account is work/);
+  });
+
+  it("trusts a GH_TOKEN already exported to the session", () => {
+    assert.equal(run("gh pr create", { envToken: true }), null);
+  });
+
+  it("compares logins without case", () => {
+    assert.equal(run("gh pr create", { accounts: parseAccounts("me=Me"), active: "me" }), null);
+  });
+
+  it("treats every gh verb outside the read list as a write", () => {
+    assert.match(run("gh pr lock 3"), /active gh account is work/);
+    assert.match(run("gh pr update-branch 3"), /active gh account is work/);
+    assert.equal(run("gh pr checks 3"), null);
+    assert.equal(run("gh auth status"), null);
+  });
+
+  it("reads the repo from a one-word quoted -R", () => {
+    assert.equal(run('gh pr comment 4 -R "acme/app" --body ok'), null);
   });
 });
 
@@ -50,16 +81,30 @@ describe("pushes over an SSH key that belongs to the other account", () => {
   it("blocks and gives the HTTPS push, with the fetch that refreshes origin", () => {
     const msg = run("git push -u origin fix/thing");
     assert.match(msg, /SSH remote authenticates as work/);
-    assert.match(msg, /push https:\/\/github\.com\/me\/tool\.git fix\/thing && git fetch origin fix\/thing/);
+    assert.match(msg, /push -u https:\/\/github\.com\/me\/tool\.git fix\/thing && git fetch origin fix\/thing/);
   });
 
   it("allows the push when the SSH key's account owns the repo", () => {
-    assert.equal(run("git push", { originUrl: "git@github.com:acme/app.git" }), null);
+    assert.equal(run("git push", origin("git@github.com:acme/app.git")), null);
   });
 
   it("allows an HTTPS remote and an unset SSH account", () => {
-    assert.equal(run("git push", { originUrl: "https://github.com/me/tool.git" }), null);
+    assert.equal(run("git push", origin("https://github.com/me/tool.git")), null);
     assert.equal(run("git push", { sshAccount: null }), null);
+  });
+
+  it("keeps the push's flags and fetches the refspec's destination branch", () => {
+    const msg = run("git push --force-with-lease origin HEAD:refs/heads/fix/a");
+    assert.match(msg, /push --force-with-lease https:\/\/github\.com\/me\/tool\.git HEAD:refs\/heads\/fix\/a && git fetch origin fix\/a/);
+  });
+
+  it("judges the remote actually pushed, not origin", () => {
+    const remotes = new Map([["origin", "git@github.com:me/tool.git"], ["upstream", "git@github.com:acme/app.git"]]);
+    assert.equal(run("git push upstream x", { remotes }), null);
+  });
+
+  it("is not fooled by a repo URL in the commit message before the push", () => {
+    assert.match(run("git commit -m 'see github.com/acme/app/pull/1' && git push"), /SSH remote authenticates as work/);
   });
 
   it("ignores the words when they are only data", () => {
