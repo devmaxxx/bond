@@ -20,6 +20,7 @@ import { decide } from "../plugins/bond-bonliva/hooks/migration-guard.mjs";
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), "..", "plugins", "bond-bonliva");
 const HOOK = join(PLUGIN, "hooks", "migration-guard.mjs");
 const HOOKS_JSON = join(PLUGIN, "hooks", "hooks.json");
+const VENDORED_KIT = join(PLUGIN, "hooks", "vendor", "agent-base-kit.mjs");
 const NOW = 1790000000000;
 const TS_DIR = "/repo/packages/db/src/migrations";
 const TS_EXISTING = [
@@ -364,22 +365,56 @@ describe("git being slow or absent", () => {
   });
 });
 
+describe("a call the guard cannot read", () => {
+  const raw = (input, env = {}) =>
+    spawnSync(process.execPath, [HOOK], {
+      input,
+      encoding: "utf8",
+      env: { ...ISOLATED, BOND_MIGRATION_GUARD: "", ...env },
+    });
+
+  it("blocks a payload that is not JSON instead of letting the write through", () => {
+    const result = raw("not json");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /Blocked by migration-guard, it could not check the call/);
+  });
+
+  it("blocks a file_path of the wrong shape", () => {
+    const result = raw(JSON.stringify({ tool_name: "Write", tool_input: { file_path: ["migrations/x.ts"] } }));
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /file_path is not a string/);
+  });
+
+  it("stays off under BOND_MIGRATION_GUARD=off, whatever the payload", () => {
+    assert.equal(raw("not json", { BOND_MIGRATION_GUARD: "off" }).status, 0);
+  });
+
+  it("lets a tool it does not guard through without checking it", () => {
+    const result = raw(JSON.stringify({ tool_name: "Read", tool_input: { file_path: 42 } }));
+    assert.equal(result.status, 0, result.stderr);
+  });
+});
+
 describe("the hook run from the path a plugin cache gives it", () => {
   // import.meta.url is percent-encoded and symlink-resolved, argv[1] is
   // neither; comparing them as strings leaves the hook running nothing when
   // the cache path has a space, a non-ASCII letter or a symlink in it.
+  // The cache holds the vendored kit as a real file, not the repo's symlink.
   const install = (dir) => {
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(dir, "vendor"), { recursive: true });
     copyFileSync(HOOK, join(dir, "migration-guard.mjs"));
+    copyFileSync(VENDORED_KIT, join(dir, "vendor", "agent-base-kit.mjs"));
     return join(dir, "migration-guard.mjs");
   };
   const blocks = (hook) => {
     const cwd = tempDir();
     const result = runHook(hook, {
       cwd,
+      tool_name: "Write",
       tool_input: { file_path: join(cwd, "migrations", "no-prefix.ts") },
     });
     assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, /migration-guard blocked creating no-prefix\.ts/);
   };
 
   it("blocks from a directory whose name has a space and a non-ASCII letter", () => {

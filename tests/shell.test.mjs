@@ -19,10 +19,11 @@ const runs = (cmd, words = GIT_COMMIT) => runsCommand(scrubShell(cmd), words);
 
 /** Drives the real hook the way Claude Code does: payload on stdin. */
 function checkCommit(command) {
-  const result = spawnSync("node", [HOOK], {
-    input: JSON.stringify({ tool_name: "Bash", tool_input: { command } }),
-    encoding: "utf8",
-  });
+  return checkCommitRaw(JSON.stringify({ tool_name: "Bash", tool_input: { command } }));
+}
+
+function checkCommitRaw(input) {
+  const result = spawnSync("node", [HOOK], { input, encoding: "utf8" });
   return { status: result.status, stderr: result.stderr };
 }
 
@@ -129,5 +130,26 @@ describe("check-commit.mjs end to end", () => {
 
   it("ignores a command that runs neither git commit nor gh pr", () => {
     assert.equal(checkCommit("ls -la && cat README.md").status, 0);
+  });
+
+  it("blocks a payload it cannot read instead of letting the command run", () => {
+    const { status, stderr } = checkCommitRaw("not json");
+    assert.equal(status, 2);
+    assert.match(stderr, /Blocked by check-commit, it could not check the call/);
+  });
+
+  it("blocks a command of the wrong shape", () => {
+    const { status, stderr } = checkCommitRaw(
+      JSON.stringify({ tool_name: "Bash", tool_input: { command: ["git", "commit"] } }),
+    );
+    assert.equal(status, 2);
+    assert.match(stderr, /command is not a string/);
+  });
+
+  it("does not block when another tool's -F names a directory", () => {
+    // The -F/--file pattern also matches `ls -F <dir>`; reading a directory
+    // throws, and the kit would turn that throw into a block.
+    const { status, stderr } = checkCommit(`git commit -m "fix(api): tidy" && ls -F ${dirname(HOOK)}`);
+    assert.equal(status, 0, stderr);
   });
 });
