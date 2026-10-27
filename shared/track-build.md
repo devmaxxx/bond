@@ -64,6 +64,7 @@ async function track(name, worktree, steps) {
     built.push(r)
     if (!r || r.status === 'blocked') break // a block stops the track, not the batch
   }
+  if (!TRACK_REVIEW) return { name, built }  // the caller reviews once, at the end
   const review = await agent(reviewPrompt(name, worktree, built),
     { phase: 'Review', model: 'opus', effort: 'high', schema: REVIEW })
   const actionable = review.findings.filter(f => f.severity !== 'nit')
@@ -112,6 +113,10 @@ code.
 `owner_items`, `note`.
 
 ### The review
+
+Off (`TRACK_REVIEW = false`) for `/bond:implement` and `/bond:implement-batch`:
+their run reviews once, at the end, in the audit — a track review before it
+would be a second pass. On for a caller that has no review after the build.
 
 One reviewer per track, read-only, `effort: high`, over the track's whole diff,
 every lens at once:

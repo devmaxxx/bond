@@ -6,6 +6,12 @@
 #
 #   settled checks=<n> failed=<names|-> new=<n> age=<s>s
 #
+# Past POLL_DEADLINE seconds (default 1200) it stops unsettled instead, prints
+#
+#   timeout checks=<n> pending=<n> failed=<names|-> new=<n> age=<s>s
+#
+# and exits 66, so no wait outlives the 20 minutes a polling agent is given.
+#
 # Usage: ship-pr-poll.sh [--once] <pr> <owner/repo> <ledger.json> <review-timeout-min> <skip-review 0|1>
 #   --once  poll a single time; exit 0 if settled, 1 if not. For tests.
 #
@@ -39,6 +45,7 @@ fi
 pr=$1 repo=$2 ledger=$3 review_timeout=$(($4 * 60)) skip_review=$5
 interval=${POLL_INTERVAL:-5}
 no_ci_after=${NO_CI_AFTER:-300}
+deadline=${POLL_DEADLINE:-1200}
 max_fail_streak=${MAX_FAIL_STREAK:-60}
 gh=${GH:-gh}
 
@@ -67,6 +74,7 @@ summarize() {
 
 started=$(date +%s)
 fail_streak=0
+total=0 pending=0 failed=- new=0
 while :; do
   if "$gh" pr view "$pr" --repo "$repo" \
       --json author,statusCheckRollup,reviews,comments >"$poll" 2>/dev/null \
@@ -98,6 +106,11 @@ while :; do
     fi
   fi
 
+  age=$(($(date +%s) - started))
+  if [ "$age" -ge "$deadline" ]; then
+    echo "timeout checks=$total pending=$pending failed=$failed new=$new age=${age}s"
+    exit 66
+  fi
   [ "$once" -eq 1 ] && exit 1
   sleep "$interval"
 done

@@ -352,16 +352,25 @@ one command per call — so only the failures come back.
 
 **Inputs:** `SCOPE` (as above); `MODE`.
 
-Run `/code-review` from the worktree at the level `bond:routing-code-review`
-reads off the diff, `--fix` on, launched from the session and waited for. In
-`auto` mode the router cannot ask, so a max predicate runs at `high` and says
-`(escalation not asked)`. It reviews the working-tree diff and applies its
-findings in place.
+A run gets **one** review pair — the code review and the security review,
+once each, over the finished change. No review runs during the build (a track
+build skips its own, `track-build.md` **The review**) and none runs again
+after the fixes.
 
-This runs in **both** modes — only Ship + PR, Hand off the audit and Teardown are auto-only — and it
-runs **after Test, before Report completion**, never later: `--fix` writes to
-the working tree, so its changes must be inside the diff that Ship + PR commits,
-and Teardown refuses a dirty worktree.
+- **`MODE` is `auto` and `PR_HANDLING` is `create`** ⇒ skip this step: the pair
+  runs in **Hand off the audit**, over the PR, in a context that did not write
+  it. Say "review: handed to the audit".
+- **Otherwise** (`no-auto`, or a fix round on an open PR) ⇒ run the pair here,
+  in one message: `/code-review` from the worktree at the level
+  `bond:routing-code-review` reads off the diff, `--fix` on, and a background
+  `bond:security-review` over the same working-tree diff. In `auto` mode the
+  router cannot ask, so a max predicate runs at `high` and says
+  `(escalation not asked)`. Wait for both; apply the security findings you
+  verify in place.
+
+It runs **after Test, before Report completion**, never later: its fixes
+write to the working tree, so they must be inside the diff that Ship + PR
+commits, and Teardown refuses a dirty worktree.
 
 - **Re-run the test commands from Test afterwards**, through
   `bond:test-runner`. A review fix can break a test, and an unverified fix is
@@ -427,11 +436,11 @@ If either step fails, surface the error and stop — do not retry blindly, and d
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
 resume).
 
-Record the PR number or URL as `PR_REF` for the completion report, and note
-whether this step opened it (`create`, or `update` that found none) — only a
-newly opened PR goes to **Hand off the audit**.
+Record the PR number or URL as `PR_REF` for the completion report. Only a PR
+opened by a `create` run goes to **Hand off the audit**; an `update` run that
+found none and opened one has already had its review pair.
 
-## Procedure: Hand off the audit  *(auto mode only — runs when Ship + PR opened a new PR)*
+## Procedure: Hand off the audit  *(auto mode only — runs when a `create` run opened the PR)*
 
 **Inputs:** `PR_REF`; `WORKTREE`, or the current checkout when it is `none` —
 the agent then opens its own worktree, since the user keeps working in the
@@ -440,9 +449,9 @@ main checkout.
 The context that wrote the change does not audit its own PR. Spawn one
 `bond:pr-audit` agent in the background with `PR_REF`, the absolute path of
 the checkout holding the PR head, the push account `bond:authorship-conventions`
-names for this repo, and the app URL when one is known. It runs
-`/bond:ship-pr --no-ready` — the review pair, fixes pushed, the browser
-run-through, the test plan ticked — and owns **Teardown** from here: this
+names for this repo. It runs the code and security review pair once, fixes
+and pushes the verified findings — no second round, no browser run, no
+test-plan ticking — and owns **Teardown** from here: this
 session writes nothing more in a worktree it handed over and does not remove
 it.
 
@@ -453,8 +462,8 @@ it.
   one worktree.
 - Do not wait in a loop. Say the audit is running; when its report arrives,
   relay it — the fixes it pushed, the test plan verdict, its **Needs you**.
-- A push to a PR that was already open is not handed off: it was audited when
-  it was opened.
+- A push to a PR that was already open is not handed off: **Review and fix**
+  ran the pair over that round.
 
 ## Procedure: Transition to In Review  *(`TRACKER=jira` only)*
 
@@ -485,8 +494,10 @@ surface it, never force.
 
 - Do not commit anything yourself in `no-auto` mode. In `auto` mode, committing
   is delegated to `/bonliva-dev:ship`.
-- Do not commit before **Review and fix** has run — the review's fixes belong in
-  the same commit as the work they correct, not in a follow-up.
+- Do not commit before **Review and fix** has run, where it runs — the review's
+  fixes belong in the same commit as the work they correct, not in a follow-up.
+- Do not review twice: no review during the build, none in the session when
+  the audit takes the PR, no re-review after the fixes.
 - Do not push the branch yourself in `no-auto` mode — tell the user to run
   `/bonliva-dev:ship`.
 - Do not move a ticket to In Review on a red or still-running pipeline, and do

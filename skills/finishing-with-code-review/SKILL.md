@@ -23,7 +23,8 @@ exempt: the session runs the review over the branch, not the builder over its ow
 touches documentation only (`*.md`, or comment-only edits) — or a small, low-risk diff
 (`lines ≤ 20`, `files ≤ 2`, `risk=none`, its test moved). The router emits
 `review-route: level=skip`, the recap says why ("docs-only" / "12-line diff"), and the task stops
-there. A diff up to 100 lines with `risk=none` runs one `low` pass, never split.
+there. An `/implement` or `/fix-qa` run is reviewed once by its own flow (in-session pair or
+`bond:pr-audit`) — no second pass here. A diff up to 100 lines with `risk=none` runs one `low` pass, never split.
 
 ## Procedure
 

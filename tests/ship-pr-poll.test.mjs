@@ -37,6 +37,24 @@ function pollOnce(pr, { ledger = { handledCommentIds: [] }, skipReview = 0, env 
 }
 
 describe("ship-pr-poll", () => {
+  it("gives up unsettled once its deadline has passed", () => {
+    const { status, out } = pollOnce(
+      { statusCheckRollup: [checkRun("test", "IN_PROGRESS")] },
+      { env: { POLL_DEADLINE: "0" } },
+    );
+    assert.equal(status, 66);
+    assert.match(out, /^timeout checks=1 pending=1 failed=- new=0 /);
+  });
+
+  it("still settles on the poll that reaches the deadline", () => {
+    const { status, out } = pollOnce(
+      { statusCheckRollup: [checkRun("test", "COMPLETED", "SUCCESS")] },
+      { skipReview: 1, env: { POLL_DEADLINE: "0" } },
+    );
+    assert.equal(status, 0);
+    assert.match(out, /^settled /);
+  });
+
   it("settles once checks finish and a new review arrives", () => {
     const { status, out } = pollOnce({
       statusCheckRollup: [checkRun("test", "COMPLETED", "SUCCESS")],
