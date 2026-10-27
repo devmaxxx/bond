@@ -7,6 +7,6 @@ This file is the repo's only agent instructions file — Claude Code reads it to
 `CLAUDE.md` or `CLAUDE.local.md` here: either one makes Claude Code ignore this file.
 
 1. Start every reply with the user's name. This file is shared, so the name is
-   not written here: each person sets their own in a personal `~/.claude/CLAUDE.md`.
-   If no name is set anywhere, use `git config user.name`.
+   not written here: each person sets `BOND_USER_NAME` in the `env` block of
+   their `~/.claude/settings.json`. If it is unset, use `git config user.name`.
 2. When working with any third-party library, look up official docs first to confirm current APIs. Use the `bond:docs-explorer` subagent for documentation lookup — it ships with the plugin, so it is available in every repo, not just this one.

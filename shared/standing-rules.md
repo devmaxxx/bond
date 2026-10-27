@@ -108,6 +108,28 @@ A task reported done with the review unrun is not done. The router's card names
 the skips — a docs-only or comment-only diff, or a small low-risk one — and a skip is said in words,
 as is a review that found nothing.
 
+## Pushed worktrees are removed without asking — always on
+
+A git worktree whose work is all on the remote is removed with no question, in
+every repo — at the end of a task, after a merge, and whenever a worktree list
+shows one.
+
+"All on the remote" means every one of these holds:
+
+- the worktree is on a branch, not a detached HEAD;
+- `git status --porcelain` is empty;
+- its tip is on the remote: `git branch -r --contains HEAD` names a branch, or
+  the branch's PR (`gh pr list --head <branch> --state all`) is merged and the
+  local tip equals, or is an ancestor of, the PR's head.
+
+Removal is `mv <path> ~/.Trash/<basename>-<yyyymmddHHMMSS>`, then
+`git worktree prune` and `git branch -D <branch>` in the main clone — the Trash
+keeps the ignored env files and dependencies recoverable. Never `rm`, never
+`git worktree remove --force`. Then run `/bond:worktree close` step 6 (shared
+hooks) for the removed path. A worktree that fails any check stays; report it
+in one line with the reason. Worktrees that belong to other sessions or
+projects — scratchpads, benches, detached checkouts — are never touched.
+
 ## Waiting goes to an agent — always on
 
 Waiting on something outside the session — a PR's CI, a review, another PR
