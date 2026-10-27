@@ -122,6 +122,11 @@ describe("check-commit.mjs end to end", () => {
     assert.equal(checkCommit('git commit -m "fix(api): tidy the export"').status, 0);
   });
 
+  it("reads the subject from a bundled -am, not from the body's -m after it", () => {
+    const cmd = 'git commit -am "chore: drop the rule" -m "The line is paused for now."';
+    assert.equal(checkCommit(cmd).status, 0);
+  });
+
   it("ignores a command that runs neither git commit nor gh pr", () => {
     assert.equal(checkCommit("ls -la && cat README.md").status, 0);
   });

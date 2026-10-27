@@ -67,8 +67,9 @@ function extractSubject() {
   if (heredocMessage) {
     return firstLine(heredocMessage[2]);
   }
+  // `-am` bundles `-m`; missing it made a later `-m <body>` read as the subject.
   const inline = cmd.match(
-    /(?:^|\s)(?:-m|--message)[=\s]+(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))/,
+    /(?:^|\s)(?:-[A-Za-z]*m|--message)[=\s]+(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))/,
   );
   if (inline) {
     return firstLine(inline[1] ?? inline[2] ?? inline[3] ?? "");
