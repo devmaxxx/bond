@@ -676,6 +676,58 @@ describe("the hook end to end", () => {
     assert.match(blocked.stderr, /Figma token/);
   });
 
+  it("exits 2 for an Edit that adds a token to a tracked file, and 0 for a clean one", () => {
+    const cwd = repo();
+    const edit = (new_string) =>
+      runHook({
+        hook_event_name: "PreToolUse",
+        cwd,
+        tool_name: "Edit",
+        tool_input: { file_path: join(cwd, "src", "config.ts"), old_string: "const ttl = 1;", new_string },
+      });
+    const blocked = edit(`const t = "${fake.github()}";`);
+    assert.equal(blocked.status, 2);
+    assert.match(blocked.stderr, /GitHub token/);
+    assert.equal(edit("const ttl = 2;").status, 0);
+  });
+
+  it("exits 2 for a NotebookEdit whose new source holds a token, and 0 for a clean one", () => {
+    const cwd = repo();
+    const notebookEdit = (new_source) =>
+      runHook({
+        hook_event_name: "PreToolUse",
+        cwd,
+        tool_name: "NotebookEdit",
+        tool_input: { notebook_path: join(cwd, "analysis.ipynb"), cell_id: "c1", new_source },
+      });
+    const blocked = notebookEdit(`key = "${fake.anthropic()}"`);
+    assert.equal(blocked.status, 2);
+    assert.match(blocked.stderr, /Anthropic API key/);
+    assert.equal(notebookEdit("key = os.environ['API_KEY']").status, 0);
+  });
+
+  for (const [tool, field] of [
+    ["create_pull_request", "description"],
+    ["create_draft_pull_request", "description"],
+    ["update_pull_request", "title"],
+    ["add_pull_request_comment", "content"],
+    ["update_pull_request_comment", "content"],
+  ]) {
+    it(`exits 2 for ${tool} with a token in its ${field}, and 0 for a clean one`, () => {
+      const call = (text) =>
+        runHook({
+          hook_event_name: "PreToolUse",
+          cwd: tempDir(),
+          tool_name: `mcp__bond-bitbucket__${tool}`,
+          tool_input: { workspace: "bonliva", repo_slug: "crm", pull_request_id: 7, [field]: text },
+        });
+      const blocked = call(`deploy with ${fake.slack()}`);
+      assert.equal(blocked.status, 2);
+      assert.match(blocked.stderr, /Slack token/);
+      assert.equal(call("deploy with the token from the vault").status, 0);
+    });
+  }
+
   it("exits 2 for a MultiEdit that adds a token another of its edits takes out", () => {
     const cwd = repo();
     const token = fake.github();
