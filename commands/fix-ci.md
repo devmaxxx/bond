@@ -74,8 +74,8 @@ failing the old way, and an id-keyed rerun would repeat forever.
    keep the **failed** ones. Nothing ⇒ say so and stop.
 3. A URL for another repo ⇒ find its checkout under `~/Documents/projects/`
    and work there, or stop and say which repo is missing. A Woodpecker repo id
-   maps to its repo through `woodpecker-cli` (`repo ls`) — load the
-   `bond:woodpecker-cli` skill for any Woodpecker call.
+   maps to its repo through `woodpecker-cli` (`repo ls`); check a
+   subcommand's `--help` before using a flag — v1/v2/v3 differ.
 4. Before any write, apply `bond:authorship-conventions`: the active `gh`
    account must be the one for this repo, and `git ls-remote origin` must succeed.
 

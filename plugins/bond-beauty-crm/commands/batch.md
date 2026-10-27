@@ -13,6 +13,10 @@ this file and a skill differ, the skill wins. It runs under
 `${CLAUDE_PLUGIN_ROOT}/shared/questions-first.md` instead of bond's **Autonomy**
 note.
 
+Every push, PR and merge in a batch goes through
+`${CLAUDE_PLUGIN_ROOT}/shared/ci-slot.md` — the serial CI slot and the sibling
+sessions sharing the forge.
+
 Two bond files carry the generic half; read both before step 1. Find bond next
 to this plugin: `BOND=$(ls -d ${CLAUDE_PLUGIN_ROOT}/../../bond/*/ | sort -V | tail -1)`.
 

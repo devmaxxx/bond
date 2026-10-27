@@ -263,8 +263,7 @@ re-run discovery and overwrite the file. After setup, the list is managed by
 
 ### 6e. Configure the Woodpecker CI CLI
 
-`WOODPECKER_SERVER` and `WOODPECKER_TOKEN` are read by the `woodpecker-cli` binary
-(see the bundled `woodpecker-cli` skill). Like `BOND_TEAMS_WEBHOOK_URL` these are
+`WOODPECKER_SERVER` and `WOODPECKER_TOKEN` are read by the `woodpecker-cli` binary. Like `BOND_TEAMS_WEBHOOK_URL` these are
 **not** MCP server env vars — they are plain environment variables for Bash tool
 calls, so they are stored in the user-scope Claude settings.
 

@@ -29,8 +29,9 @@ Read one pipeline. Classify every failed step. Stop.
 ## Job
 
 1. **Locate.** Woodpecker: the URL host must equal `$WOODPECKER_SERVER`, else
-   `FAIL server mismatch`. Load the `bond:woodpecker-cli` skill; check each
-   subcommand's `--help` before using a flag — v1/v2/v3 differ. Read
+   `FAIL server mismatch`. The binary is `woodpecker-cli` (`woodpecker` on
+   old installs); check each subcommand's `--help` before using a flag —
+   v1/v2/v3 differ. Read
    `pipeline info <repo-id> <n>` for status, event, branch, ref, commit and
    per-step state. A `/<step>` in the URL narrows to that step, but read the
    others' states too: a step skipped because an earlier one failed is not

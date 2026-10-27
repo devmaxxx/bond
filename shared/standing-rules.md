@@ -66,9 +66,36 @@ see `shared/project-profile.md`.
 
 Two accounts are logged into `gh`: Bonliva work pushes as one, everything else
 as the other. Apply the `bond:authorship-conventions` skill before any push or
-`gh` write — check the active account first, and ask when the repo matches
-neither side of the rule. The active account is machine-global, so another
-session may have moved it since you last looked.
+`gh` write, and ask when the repo matches neither side of the rule. Pick the
+account per command — `GH_TOKEN=$(gh auth token -u <account>) gh …` — never
+`gh auth switch`: the active account is machine-global, so a switch moves every
+other session too. `hooks/gh-account-guard.mjs` blocks a push or `gh` write
+that would go out as the wrong account and prints the command that would not.
+
+## Plain words run the command — always on
+
+The user rarely types a slash command; they type the words. Read these as the
+command and run it through the `Skill` tool, with whatever the words add as its
+arguments:
+
+| They write | Run |
+|---|---|
+| "prepare pr", "open pr", "push and open pr" | `/bond:open-pr` (after committing and pushing) |
+| "ship pr", "ship it" | `/bond:ship-pr` |
+| "merge", "merge if green", "push and merge" | `/bond:merge-pr` |
+| "fix ci", "ci is red" | `/bond:fix-ci` |
+| "implement <ticket or task>" | `/bond:implement` |
+| "implement next batch" (beauty-crm) | `/bond-beauty-crm:batch` |
+
+A command plugin that is not installed in this repo is no match — do the work by
+hand. The command's own upfront question still applies.
+
+## Do what was asked, no more — always on
+
+Change only what the request covers. A file the task does not need stays as it
+is, even when it could be tidier; a problem found next to it is reported in one
+line, not fixed. Open no issue, PR or ticket the user did not ask for — say it
+is worth one and stop.
 
 ## Branch names — always on
 

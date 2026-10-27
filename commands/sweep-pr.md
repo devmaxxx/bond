@@ -90,8 +90,7 @@ listed there too. The sweep never fixes them.
 
 **Restartable infrastructure**, not code: a cancelled run, a runner that never
 picked the job up or lost contact, a network timeout fetching dependencies,
-leftover Woodpecker `buildx_buildkit_*`/`wp_*` containers (see
-`bond:woodpecker-cli`). A failing test, type, lint or build error is code.
+leftover Woodpecker `buildx_buildkit_*`/`wp_*` containers on the agent. A failing test, type, lint or build error is code.
 A registry/auth 401/403, a missing or expired secret or a missing cloud
 resource fails the same way again — report it as *needs you*, never restart it,
 as `/bond:fix-ci` does. A deploy pipeline (`deployment` event, or a step that
@@ -122,7 +121,7 @@ Per PR, in list order, at most one attempt per action:
   A hand-back ⇒ report the files under *Needs you*, next PR.
 - **restart CI** — once per PR per sweep. GitHub: `gh run rerun <run-id>
   --failed`, the run id from the failed check's link. Bitbucket:
-  `run_pipeline` on the head branch. Woodpecker: per `bond:woodpecker-cli`.
+  `run_pipeline` on the head branch. Woodpecker: `woodpecker-cli pipeline start <repo-id> <n>`.
   Do not wait for it; the end table says *restarted*.
 
 A rebase or restart starts CI again, so that PR is not green in this sweep:

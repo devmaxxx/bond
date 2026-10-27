@@ -14,8 +14,6 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | Command           | Purpose                                                                                       |
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | `/help`           | List all bond plugin commands with their descriptions                                         |
-| `/checkpoint`     | Save, compare against, list or restore named snapshots of the working tree without committing |
-| `/chrome-debug`   | Fallback browser path: set up/open a debuggable Chrome (LaunchAgent) + install the chrome-devtools MCP pointed at it, when claude-in-chrome can't be used |
 | `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions, Bitbucket), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
 | `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
@@ -25,6 +23,7 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | `/linkedin-draft` | Put an approved post or article into LinkedIn's composer or article editor through Chrome — a draft, never published |
 | `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
 | `/open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                |
+| `/merge-pr`       | Merge one PR (the current branch's or a named one) once green: push first, squash-merge, remove its branch and worktree |
 | `/sweep-pr`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
 | `/review-pr`      | Senior-reviewer PR review as one comment: fresh base merge, vertical + horizontal, claims checked against read-only prod data |
 | `/rebase`         | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
@@ -47,6 +46,7 @@ its commands or MCP tool listings:
 
 | Command                          | Purpose                                                                       |
 | -------------------------------- | ----------------------------------------------------------------------------- |
+| `/bond-bonliva:sync-check`       | Why an ERP taxation and its CRM booking disagree, from the two URLs |
 | `/bond-bonliva:fix-qa`           | Re-run implementation against QA feedback — from a Jira ticket, or free text  |
 | `/bond-bonliva:jira-sync`        | Move tickets of merged PRs to QA (with fixVersion) and open PRs to In Review; `--qa-plan` posts manual test plans |
 | `/bond-bonliva:log-plan`         | Generate a day/week/month time-log plan                                       |
@@ -246,51 +246,8 @@ no profile, LaunchAgent or debug port has to be stood up first. Load the tools
 with `ToolSearch` (`select:mcp__claude-in-chrome__tabs_context_mcp,…`) before
 using them.
 
-Fall back to `/chrome-debug` and the CDP-based `chrome-devtools` MCP only when
-`claude-in-chrome` cannot do the job:
-
-- the extension is not installed, or has not been granted the site
-- the task needs raw CDP — a performance trace, a heap snapshot, a Lighthouse
-  audit, `evaluate_script` against a target
-- it has to run unattended: CI, a hook, headless
-
-If neither is available, skip the step and say so rather than asking the user to
+If it is not available, skip the step and say so rather than asking the user to
 sign in — never enter credentials on their behalf.
-
-## Chrome debug (fallback, for the chrome-devtools MCP)
-
-`/chrome-debug` lets Claude drive a **real, logged-in browser** instead of the
-chrome-devtools MCP's throwaway one. It installs a per-user macOS LaunchAgent that
-keeps a debuggable Chrome alive, and installs/points the MCP at it.
-
-```bash
-/chrome-debug            # setup: LaunchAgent + start + install bond-chrome-devtools MCP
-/chrome-debug open https://localhost:8000   # ensure running, open a URL, focus
-/chrome-debug status     # plist state, port reachability, Chrome version
-/chrome-debug stop       # unload the agent
-```
-
-Why a dedicated profile: Chrome 136+ refuses `--remote-debugging-port` on the
-default profile, so the agent runs Chrome with a separate `--user-data-dir`
-(`~/.chrome-debug`). Your everyday Chrome is untouched and runs alongside it. The
-SSO session persists in that profile, so you only sign in once.
-
-It installs a user-scope MCP server `bond-chrome-devtools` that runs
-`npx chrome-devtools-mcp@latest --browserUrl=http://127.0.0.1:9222`, attaching to
-the debug Chrome rather than launching its own. After setup, reconnect it
-(`/mcp` → `bond-chrome-devtools` → Reconnect) or restart Claude Code.
-
-The underlying `scripts/chrome-debug.sh` is usable standalone (CI, hooks):
-
-```bash
-scripts/chrome-debug.sh setup
-BOND_CHROME_DEBUG_PORT=9333 scripts/chrome-debug.sh open about:blank
-```
-
-Config via env: `BOND_CHROME_DEBUG_PORT` (default `9222`),
-`BOND_CHROME_DEBUG_PROFILE` (default `~/.chrome-debug`), `BOND_CHROME_BIN`,
-`BOND_CHROME_DEBUG_KEEPALIVE` (`1` = relaunch on quit), `BOND_CHROME_MCP_NAME`
-(default `bond-chrome-devtools`). macOS only.
 
 ## Standing rules
 
@@ -347,6 +304,7 @@ Every command reads that profile rather than assuming a host or a tracker:
 - `PreToolUse` on `Bash` and the Bitbucket `create_pull_request` / `create_draft_pull_request` MCP calls runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where one is required (`"draft"` in `.bond/project.json`, else a Bonliva repo: origin under `bonliva/`, a Bitbucket `workspace: bonliva`, or `.bonliva-dev/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose.
 - `PreToolUse` on `Bash` runs `hooks/bash-budget.mjs`: context only, never a decision — the command always runs. Ten calls in a row that each carry a single command get one line naming the three cheaper forms — chain the next ones with `&&` or `;`, issue them in one message, or hand the loop to a subagent; measured over thirty days in one repo, 6481 Bash calls averaging 1.6 KB of output, where the price is not that output but the whole conversation being re-read on every one of them. Four shapes whose output has no bound get one line naming the bounded form — `git log` without `-n`/`--oneline`, `cat` of one whole file, `ls -R` or `find` without `-maxdepth`, a test run without `--reporter`. At most one line per call and the batch nudge wins; the row is counted in `<tmp>/bond/<session_id>.bash-singles`, whose own mtime says whether the previous call came from a turn of its own — a counter written under a second ago means both calls were dispatched in one message, which is already the batching asked for, so that call does not lengthen the row. An unwritable tmp costs the batch nudge, never the call. Separators are read where the shell would run them, so `"a && b"` and a heredoc body carrying `&&` are each one command. The rule is `judge` in that file, unit-tested in `tests/bash-budget.test.mjs`.
 - `PreToolUse` on the subagent dispatch — `Agent`, or `Task` where the harness still names it that — runs `hooks/recon-router.mjs`: context only, never a decision — the agent is dispatched either way. A prompt handed to the unnamed or the general-purpose agent that asks where something lives, what or who calls it, which file holds it or how it is wired gets one line naming who answers it cheaply — `repo-scout` where the working tree has one under `.claude/agents/`, otherwise `Explore` with a breadth, either on `model: "haiku"`. The general-purpose agent pays that search in full and returns everything it read; the other two return the conclusion. A dispatch to a reader (`Explore`, `repo-scout`, `caveman:cavecrew-investigator`) that names no model gets one line asking for `haiku`; one that names a model has made the choice. So has a prompt that builds — one carrying `implement`, `add`, `write`, `refactor`, `fix`, `update`, `create`, `migrate` or `edit` as a word — since the agent that writes the code reads it on the way there. The rule is `route` in that file, unit-tested in `tests/recon-router.test.mjs`.
+- `PreToolUse` on `Bash` runs `hooks/gh-account-guard.mjs`: a `git push` or a `gh` write (PR, issue, release, label, run, `gh api` with a write method) that would go out under the wrong GitHub account is blocked with the command that would not — a per-command `GH_TOKEN=$(gh auth token -u <account>)`, or for an SSH remote whose key belongs to the other account an HTTPS push with that token plus the `git fetch` that refreshes `origin/<branch>`. Never `gh auth switch`: the active account is machine-global. Configured by `BOND_GH_ACCOUNTS` (`owner=account,…`) and `BOND_GH_SSH_ACCOUNT`; with neither set it blocks nothing. Unit-tested in `tests/gh-account-guard.test.mjs`.
 - `UserPromptSubmit`, and `PreToolUse` on `Bash` / `Write` / `Edit` / `MultiEdit` / `NotebookEdit` and the Bitbucket MCP calls that publish PR text (`create_pull_request`, `create_draft_pull_request`, `update_pull_request`, `add_pull_request_comment`, `update_pull_request_comment`), run `hooks/secrets-guard.mjs`: a prompt carrying a live-looking secret — GitHub, Atlassian (API and Bitbucket access tokens), Figma, Slack (tokens and webhook URLs), OpenAI/Anthropic, AWS (key IDs and secret keys), PEM and PGP private keys, Telegram bot tokens, database URIs with an inline password (Postgres, MySQL, MongoDB, Redis, AMQP), JWTs — is blocked before it is stored in the session, naming the kind and never the value and without echoing the prompt back (`suppressOriginalPrompt`); `#allow-secret` sends it anyway. A tool call that would write a literal secret into a file git tracks, a commit, a `gh` body (inline, or in the `--body-file` / `-F` file it sends), a pull request title, description or comment or a `curl` line is blocked, unless the file already held that secret; a gitignored file, a lone `echo` / `printf` / `cat` into a gitignored `.env*`, `claude mcp add` outside project scope, a `$VAR` reference, a placeholder and a localhost dev URI pass. Unit-tested in `tests/secrets-guard.test.mjs`.
 
 - `SessionStart`, `PreCompact` and `SessionEnd` run `hooks/session-memory.mjs`: `save` (PreCompact, SessionEnd) reads the transcript and keeps the last five prompts, each cut to one line, the files the session edited and its branch in `~/.claude/bond/sessions/<repo>-<path>.json`; `restore` (SessionStart) prints that note to the next session in the same directory — on startup or resume only, never after a compaction or a clear (the summary already carries it), never to the session that wrote it, and not once it is a week old. Small on purpose, because whatever SessionStart prints is re-read on every turn: five prompts of at most 160 characters, and a file list cut, with a "+N more" tail, so it never takes the note past 1 KB. An empty session does not overwrite a real one's note. The rules are `digest` and `render`, unit-tested in `tests/session-memory.test.mjs`. Adapted from everything-claude-code's memory-persistence hooks.
@@ -363,8 +321,7 @@ opens a pull request — along with the AI-signature patterns they share with
 `check-doc.mjs`; the ticket-key rule; the standing-rules rendering; and the four
 context hooks through their decision functions, `decide` (branch-guard), `judge`
 (bash-budget, suggest-compact), `digest`/`render` (session-memory), `route` (recon-router), `check` (node-guard), `findPause`/`advise` (resume-work) and `report` (disk-guard), each with its
-wrapper driven over stdin as well. `context-audit.py` is run against the
-hand-sized transcript under `tests/fixtures/projects/`, every `SKILL.md` is held
+wrapper driven over stdin as well. Every `SKILL.md` is held
 to its size limit and to the `references/` files it links, and `check-commit.mjs`
 is driven end to end over stdin:
 
@@ -388,14 +345,10 @@ claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-c
 - **code-review-skill** — per-language and per-framework review guides (TypeScript, React, Vue, Angular, Svelte, NestJS, Python, Django, FastAPI, Go, Rust, Java, Kotlin, Swift, Dart, C#, PHP, Ruby, C/C++, Zig, Qt, CSS) plus cross-cutting ones (N+1, concurrency, error handling, SQL injection, XSS, performance, architecture). The `pr-review` and track reviewer agents and vertical-horizontal-review run the checklist of each stack a diff touches. Vendored unchanged from [awesome-skills/code-review-skill](https://github.com/awesome-skills/code-review-skill) (MIT); refresh it from upstream rather than editing it. Bundled under `skills/code-review-skill/`.
 - **pr-review-comment** — the vertical-horizontal review written up as one PR comment a human merges on: a fresh merge of the base, a one-line verdict first, operational claims backed by read-only prod or staging numbers (peak rates against the code's limits, source and window named), checks for queued work (idempotency, concurrency strategy, retries, what covered the gap), write-path completeness, rollback, stale description claims, a severity per finding, and open questions. Used by `/review-pr`. Bundled under `skills/pr-review-comment/`.
 - **pr-template** — enforces the one shared PR title + description format (Summary / Jira / Test plan) and the default reviewer list on every pull request, sourced from `shared/pr-template.md`. Triggers on "open/create/draft a PR" and manual `create_pull_request` calls. Bundled under `skills/pr-template/`.
-- **woodpecker-cli** — drives a Woodpecker CI server from the terminal: auth (`WOODPECKER_SERVER` / `WOODPECKER_TOKEN`), the command map, step-scoped log reading for failed pipelines, and `lint` / `exec` for `.woodpecker.yaml`. Triggers on "woodpecker", "pipeline logs", "why did the pipeline fail". Bundled under `skills/woodpecker-cli/`.
 - **photo-jpeg-exiftool** — converts a photo to JPEG, resizes it or matches its colour profile with `sips`, and reads, copies or strips its metadata with `exiftool`, all on this machine, never through a website. It copies tags only from the source file of the same shot and never invents a camera, a date or GPS. Disabled for the model (`disable-model-invocation: true`): it never triggers on its own and costs no context; run it by hand with `/bond:photo-jpeg-exiftool`. Bundled under `skills/photo-jpeg-exiftool/`.
 - **authorship-conventions** — naming and attribution for every git artefact: Conventional Branch `<type>/<description>`, Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs — plus the rename trap: renaming a branch after its PR is open closes the PR. Bonliva repos keep the `<prefix>/<KEY>` branch shape bond imposes; everywhere else the spec wins. Backed by the `check-commit` / `check-doc` hooks. Triggers on `checkout -b`, "commit", "amend", "open a PR", "write the ADR/plan/README". Also decides which of the two `gh` accounts pushes — the active one is machine-global, so another session may have moved it since. Bundled under `skills/authorship-conventions/`.
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/medium by default, high for a change over five files, across modules or untested, fable for planning only on the hard predicates, opus for every build unless a model is named, a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session, and recon — search, callers, a docs lookup, one check run — spawned on `haiku`. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
-- **context-cost** — what a screenshot, a whole-file read or an unbounded command costs once the session carries it, and the cheaper form that answers the same question. Measured: cache reads are 65 % of weighted cost, and the 15 largest sessions on one machine carried 42 % of its usage. Bundled under `skills/context-cost/`.
-- **verification-loop** — runs the repo's own build, typecheck, lint and tests (commands read from CI config first, then `package.json`/`Makefile`), scans the added lines for secrets and debug leftovers, and reports one `READY` / `NOT READY` line; a gate the repo lacks is `n/a`, never `PASS`. Sits before finishing-with-code-review. Bundled under `skills/verification-loop/`.
-- **security-checklist** — a checklist over the changed lines only, by section (secrets, input, injection, authn/authz, web, uploads, exposure, abuse), each picked by what the diff touches; findings as `file:line` with the attack and the fix. Bundled under `skills/security-checklist/`.
 - **linkedin-writing** — voice and format for LinkedIn posts and articles: facts from the repo, numbers checked against the vendor's docs, attribution left to the author, plain text for posts, one cover-image prompt with its technical description, and how to fill LinkedIn's editors in Chrome without publishing. Used by `/linkedin` and `/linkedin-draft`. Bundled under `skills/linkedin-writing/`.
 - **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
 
@@ -445,15 +398,10 @@ bond/
 │   ├── code-review-skill/   # vendored per-stack review guides (MIT)
 │   ├── pr-review-comment/   # that review as one PR comment, backed by prod data
 │   ├── pr-template/         # one shared PR title + description + reviewers
-│   ├── woodpecker-cli/      # Woodpecker CI CLI: auth, commands, lint/exec
 │   ├── photo-jpeg-exiftool/  # JPEG via sips, metadata via exiftool, local only
 │   ├── authorship-conventions/  # branch/commit/PR/doc naming, attribution, gh account
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
-│   ├── context-cost/        # what a read/screenshot costs once the session carries it
-│   │   └── scripts/context-audit.py  # per-session tool-result bytes, compactions, results over 40 KB
-│   ├── verification-loop/   # build, types, lint, tests, diff scan → READY / NOT READY
-│   ├── security-checklist/  # per-section security questions over the changed lines
 │   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
 │   ├── docs-explorer.md     # look up official docs before using a third-party API
@@ -473,8 +421,7 @@ bond/
 │   ├── pr-template.md      # single source of truth for PR title + description
 │   └── permissions-readonly.json  # read-only allowlist to copy into a project
 ├── scripts/
-│   ├── disk-analyze.sh     # disk usage report behind /disk-analyze
-│   └── chrome-debug.sh     # fallback: debuggable Chrome LaunchAgent + its MCP
+│   └── disk-analyze.sh     # disk usage report behind /disk-analyze
 ├── hooks/
 │   ├── hooks.json
 │   ├── format-file.sh      # PostToolUse: prettier on the edited file
@@ -491,6 +438,7 @@ bond/
 │   ├── suggest-compact.mjs # PreToolUse: a /compact reminder at 50 calls and every 25 after
 │   ├── ai-breadcrumbs.mjs  # shared AI-signature patterns
 │   ├── check-commit.mjs    # PreToolUse: block git commit / gh pr with a signature
+│   ├── gh-account-guard.mjs  # PreToolUse: block a push or gh write from the wrong account
 │   ├── pr-template.mjs     # the PR rule: command matcher, ticket keys, sections
 │   ├── check-pr.mjs        # PreToolUse: block a PR that breaks the shared template
 │   └── check-doc.mjs       # PostToolUse: flag a written md/txt with a signature
@@ -503,15 +451,13 @@ bond/
 │   ├── node-guard.test.mjs
 │   ├── resume-work.test.mjs
 │   ├── disk-guard.test.mjs
-│   ├── context-audit.test.mjs
 │   ├── skill-size.test.mjs
 │   ├── shell.test.mjs
-│   └── fixtures/projects/    # a transcript sized by hand, read by context-audit.test.mjs
 ├── plugins/bond-bonliva/   # Bonliva-only companion plugin (enable per repo)
 ├── plugins/bond-cockpit/   # prompt-cache status line + pane mod (function hooks)
 ├── plugins/bond-oss/       # open-source library create/audit/demo/release (enable globally)
 │   ├── .claude-plugin/plugin.json  # depends on bond
-│   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, teams-post
+│   ├── commands/           # fix-qa, log-plan, projects, publish-timelog, request-review, set-reviewers, setup-plugin, sync-check, teams-post
 │   ├── data/               # bb-members, teams-users, pr-review-card
 │   ├── scripts/teams-post.sh
 │   ├── shared/             # symlinks into bond: project-profile, implement-flow, jira
