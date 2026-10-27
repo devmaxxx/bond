@@ -13,7 +13,8 @@ bond's Jira/`gh` one, and runs under
 `${CLAUDE_PLUGIN_ROOT}/shared/questions-first.md` instead of bond's
 **Autonomy** note: every question before the first edit, none after. Read that
 file and the repository's `tasks` skill (`.claude/skills/tasks/SKILL.md`) first;
-the skill wins wherever the two differ.
+the skill wins wherever the two differ. Pushing, opening and merging the PR
+follow `${CLAUDE_PLUGIN_ROOT}/shared/ci-slot.md`.
 
 ## Usage
 

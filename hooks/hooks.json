@@ -59,6 +59,16 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/gh-account-guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Bash|mcp__bond-bitbucket__create_pull_request|mcp__bond-bitbucket__create_draft_pull_request",
         "hooks": [
           {

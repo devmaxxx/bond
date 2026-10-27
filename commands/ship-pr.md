@@ -155,7 +155,7 @@ open a BankID link**. Ask the user to sign in in the browser once, or mark the
 items behind it *manual only*.
 
 **e. Drive it.** Load the `anthropic-skills:chrome-browser` skill and use
-`claude-in-chrome` in a new tab; `/bond:chrome-debug` is the fallback. Mechanics
+`claude-in-chrome` in a new tab. Mechanics
 that bit before:
 
 - Open the console and network readers **before** navigating — attached after,
@@ -166,8 +166,8 @@ that bit before:
   wait, retry once. A flash of the empty state while a query is still disabled
   is a loading race, not the result — wait for the real loading indicator to
   clear.
-- Per `bond:context-cost`: read the page as text or accessibility tree; take a
-  screenshot only where the question is visual.
+- Read the page as text or accessibility tree; take a screenshot only where
+  the question is visual — a screenshot costs tens of thousands of tokens.
 - In-app confirm dialogs are fine to click. A native `alert`/`confirm`/
   `beforeunload` wedges the extension — do not trigger one (closing a tab with
   an unsaved form does).
@@ -229,8 +229,8 @@ of its own (standing rule «Waiting goes to an agent») — until **both** settl
 - **CI** — **PR details and CI status** reads **passed** or **failed**. Read the
   check runs themselves: GitHub's `mergeStateStatus: BLOCKED` usually just means
   checks are still running on the new head. No checks at all after 5 minutes ⇒
-  no CI for this branch: say so, treat as passed. On Woodpecker, use the
-  `bond:woodpecker-cli` skill.
+  no CI for this branch: say so, treat as passed. On Woodpecker, read
+  `woodpecker-cli pipeline ls <repo-id>` (`--help` first — v1/v2/v3 differ).
 - **Review** — skipped under `--skip-review`. A review, review thread, or
   conversation comment whose id is not in the ledger, from anyone but the PR
   author — or `--review-timeout` minutes. The bot seen in practice is Qodo /

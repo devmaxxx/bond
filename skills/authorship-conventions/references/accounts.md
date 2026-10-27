@@ -17,12 +17,17 @@ A `gh auth switch` does **not** change `git config user.name/user.email`, and
 setting a git identity does **not** change which token pushes. Read the identity
 with `git config user.name` rather than assuming it matches the account name.
 
-**Check before every write** — a push, a PR creation, any `gh api` write:
+**Pick the account per command** — a push, a PR creation, any `gh api` write —
+with the token of the account the rule below names:
 
 ```bash
-gh auth status --active --hostname github.com
-git remote -v
+GH_TOKEN=$(gh auth token -u devmaxxx) gh pr create …
 ```
+
+`hooks/gh-account-guard.mjs` enforces this where `BOND_GH_ACCOUNTS` maps repo
+owners to accounts (`devmaxxx=devmaxxx,bonliva=maxSynEfisco`): a push or `gh`
+write that would go out as the wrong account is blocked with the command that
+would not.
 
 **The rule.** Bonliva projects use **maxSynEfisco**; everything else uses
 **devmaxxx**. Decide from the repo in front of you, never from memory. First
@@ -38,17 +43,20 @@ match wins:
 Signals disagreeing (a Bonliva manifest in a repo whose GitHub remote is
 `devmaxxx/...`) is rule 1: push with the account that owns the remote.
 
+Do not `gh auth switch`: the active account is **global to this machine**, so a
+switch moves every other session's account too, and another session may move it
+back under you.
+
+An SSH remote (`git@github.com:...`) authenticates with the SSH key, not the
+`gh` token. When the key belongs to the other account (`BOND_GH_SSH_ACCOUNT`),
+push over HTTPS with the right token, then fetch — a push to a URL leaves
+`origin/<branch>` stale:
+
 ```bash
-gh auth switch --hostname github.com --user maxSynEfisco   # or devmaxxx
-gh auth status --hostname github.com                        # confirm
+GH_TOKEN=$(gh auth token -u devmaxxx) git -c credential.helper= \
+  -c 'credential.helper=!gh auth git-credential' \
+  push https://github.com/devmaxxx/<repo>.git <branch> && git fetch origin <branch>
 ```
-
-The switch is **global to this machine**, so it survives into other sessions —
-and another session may have moved it since. Check again rather than assuming.
-
-Note an SSH remote (`git@github.com:...`) authenticates with the SSH key, not
-the `gh` token, so a wrong active account does not by itself mean a wrong push —
-but every `gh` command in the same task still uses it.
 
 Change the git identity only when the commits themselves should carry a
 different name. It is per-repo:
