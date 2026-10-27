@@ -46,7 +46,7 @@ open PR whose head is the current branch; none found ⇒ open it with the
 | `--no-ready` | Stop after step 1: tick the test plan, leave the PR a draft. |
 | `--skip-review` | Step 3 waits for CI only, not for a review. |
 | `--rounds N` | Maximum review/CI fix rounds in step 3 (default `1` — standing rule «One push, at the end»; raise it only on the user's word). |
-| `--review-timeout M` | Minutes to wait for a review before exiting (default `30`). |
+| `--review-timeout M` | Minutes to wait for a review before exiting (default `20`). |
 
 ## The ledger
 
@@ -243,7 +243,9 @@ A review of `APPROVED` with nothing new is a pass for this round.
 
 On GitHub, the subagent runs the poll in its own shell, re-running it when a
 call times out — it checks every **5 seconds** and prints one `settled …` line
-when both have settled, which the subagent returns as the wake-up:
+when both have settled, which the subagent returns as the wake-up. Past
+20 minutes it prints one `timeout …` line and exits 66 instead: report what
+was still pending and stop the loop there — rerun `/bond:ship-pr` to wait again:
 
 ```sh
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/ship-pr-poll.sh" \

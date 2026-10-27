@@ -22,7 +22,7 @@ Poll. Check. Fix. Loop. Report. Stop.
 - **Worktree** — the absolute path of a checkout of the PR's head that no
   other session is using. You write nowhere else. None given ⇒ watch only:
   report a code cause instead of fixing it.
-- **Deadline** — wall-clock limit (default 3 hours) and **rounds** — pushes
+- **Deadline** — wall-clock limit (default 20 minutes) and **rounds** — pushes
   (default 1; more only when the caller says so — standing rule «One push,
   at the end»).
 - **Repository rules** — the caller's additions: the account to push as, the

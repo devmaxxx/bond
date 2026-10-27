@@ -145,10 +145,9 @@ hand with `/bond:open-pr` or a bare `gh pr create` — hand it to a background
 `bond:pr-audit` agent. A command that opens a PR and carries on with it —
 `/bond:ship-pr`, `/bond:fix-ci`, a bond-oss command that hands CI to
 `bond:pr-watch` — keeps it: two writers in one checkout reject each other's
-pushes. A context that did not write the change runs
-`/bond:ship-pr --no-ready` on it: the review pair, the real findings fixed and
-pushed, the change walked in the browser when it has a runtime surface, the
-PR page opened when its rendered state matters, the test plan ticked. Give it
+pushes. A context that did not write the change runs the code and security
+review pair on it **once**, fixes and pushes the real findings, and stops — no
+second round, no browser run, no test-plan ticking. Give it
 the PR's checkout and the push account. A linked worktree is the agent's from
 then on — the session writes nothing there and leaves its removal to the
 agent; a main checkout stays the user's, and the agent opens its own worktree
@@ -156,7 +155,8 @@ from it.
 
 The opening session does not review its own PR again and runs no wait loop:
 it says the audit is running and relays the agent's report when it returns.
-A push to a PR that was already open is not a new PR.
+A push to a PR that was already open is not a new PR, and a `/fix-qa` round
+that opens one is not audited: its flow already ran the review pair once.
 
 ## Pushed worktrees are removed without asking — always on
 
@@ -187,7 +187,8 @@ installed: it owns the lookup order and the fallbacks.
 
 Waiting on something outside the session — a PR's CI, a review, another PR
 freeing a CI slot, a merge, a deploy — is handed to a background subagent that
-polls and returns once the condition settles or a deadline passes. The session
+polls and returns once the condition settles or **20 minutes** pass — the
+deadline of every polling agent unless the user names another. The session
 itself runs no wait loop: not a foreground `sleep`, not a `run_in_background`
 `until` loop, not a Monitor. The agent carries the exact check, the
 cadence, the deadline and the account rule, and reports the end state in a
@@ -195,8 +196,9 @@ few lines; the next step is the session's, on that report.
 
 A PR's CI is waited on through `bond:pr-watch`, which does not only poll: it
 sorts each check the moment it fails, prepares the fix for what the branch's
-own code broke while the rest still run, pushes once the run settles, and watches the re-run until green or until only pre-existing,
-infra or human-owned causes are left. Give it the
+own code broke while the rest still run, pushes once the run settles, and watches the re-run until green, until only pre-existing,
+infra or human-owned causes are left, or until its 20 minutes run out.
+Give it the
 PR's worktree to fix in; without one it watches and reports.
 
 ## One push, at the end — always on

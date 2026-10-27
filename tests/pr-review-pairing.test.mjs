@@ -14,14 +14,21 @@ function markdownUnder(dir) {
 
 /**
  * Code and security review run together, through shared/pr-review-flow.md;
- * a command or skill that names one agent alone has split the pair.
+ * a command or skill that names one agent alone has split the pair. Before a
+ * PR exists the code half is `/code-review` over the working tree, since
+ * pr-review reads an open PR.
  */
 describe("pr-review and security-review stay paired", () => {
   const files = ["commands", "skills", "plugins"].flatMap(markdownUnder);
 
   for (const file of files) {
     const text = readFileSync(join(ROOT, file), "utf8");
-    const named = PAIR.filter((agent) => text.includes(`bond:${agent}`));
+    const workingTreePair =
+      text.includes("bond:security-review") && text.includes("`/code-review`");
+    const named = PAIR.filter(
+      (agent) =>
+        text.includes(`bond:${agent}`) || (agent === "pr-review" && workingTreePair),
+    );
 
     if (named.length === 0) {
       continue;
