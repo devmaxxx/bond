@@ -45,7 +45,7 @@ open PR whose head is the current branch; none found ⇒ open it with the
 | `--skip-browser` | Skip step 1's run-through — for a change with no runtime surface. Recorded in the test plan as *not verified locally*. |
 | `--no-ready` | Stop after step 1: tick the test plan, leave the PR a draft. |
 | `--skip-review` | Step 3 waits for CI only, not for a review. |
-| `--rounds N` | Maximum review/CI fix rounds in step 3 (default `3`). |
+| `--rounds N` | Maximum review/CI fix rounds in step 3 (default `1` — standing rule «One push, at the end»; raise it only on the user's word). |
 | `--review-timeout M` | Minutes to wait for a review before exiting (default `30`). |
 
 ## The ledger
@@ -293,8 +293,9 @@ enough to fix it (the **Diagnose CI failure** procedure in
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Then:
 
 - also red on the base branch ⇒ not this PR's; note it.
-- flaky suspect ⇒ `gh run rerun <id> --failed` once before debugging; green on
-  rerun ⇒ note it, do not "fix" it.
+- flaky suspect ⇒ `gh run rerun <id> --failed` once before debugging, unless
+  this round already pushes a fix — the push re-runs it; green on rerun ⇒
+  note it, do not "fix" it.
 - infrastructure, not code — registry 401 across hosts, leftover Woodpecker
   `buildx_buildkit_*`/`wp_*` containers, a runner that never picked the job up
   ⇒ report under *Needs you*.

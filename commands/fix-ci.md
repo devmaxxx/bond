@@ -46,7 +46,7 @@ confirms the intent; "rebase on fresh main" means `--rebase --base main`.
 | `--mine` | Every open PR of yours in this repo whose CI is **failed**. |
 | `--rebase` | Rebase the branch onto a freshly fetched base before fixing. |
 | `--base <branch>` | The base to rebase on and compare against. Under `--mine`, also limits to PRs targeting it. Default: the PR's base, else the profile's `BASE_BRANCH`. |
-| `--rounds N` | Fix → push → re-run rounds per pipeline (default `2`). |
+| `--rounds N` | Fix → push → re-run rounds per pipeline (default `1` — standing rule «One push, at the end»; raise it only on the user's word). |
 | `--no-wait` | Push the fix and stop; do not wait for the re-run. |
 
 ## The ledger
