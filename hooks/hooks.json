@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/check-commit.mjs\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/check-commit.mjs\" || exit 2",
             "timeout": 10
           }
         ]
