@@ -676,6 +676,45 @@ describe("the hook end to end", () => {
     assert.match(blocked.stderr, /Figma token/);
   });
 
+  it("exits 2 for a MultiEdit that adds a token another of its edits takes out", () => {
+    const cwd = repo();
+    const token = fake.github();
+    const multiEdit = (edits) =>
+      runHook({
+        hook_event_name: "PreToolUse",
+        cwd,
+        tool_name: "MultiEdit",
+        tool_input: { file_path: join(cwd, "src", "config.ts"), edits },
+      });
+    const moved = [
+      { old_string: `const t = "${token}";`, new_string: "const t = process.env.GITHUB_TOKEN;" },
+      { old_string: "const ttl = 1;", new_string: `const ttl = 1;\nconst u = "${token}";` },
+    ];
+    const blocked = multiEdit(moved);
+    assert.equal(blocked.status, 2);
+    assert.match(blocked.stderr, /GitHub token/);
+    assert.equal(multiEdit(moved.slice(0, 1)).status, 0);
+  });
+
+  it("exits 2 for a MultiEdit whose second edit rewrites a token its first edit wrote", () => {
+    const cwd = repo();
+    const token = fake.github();
+    const out = runHook({
+      hook_event_name: "PreToolUse",
+      cwd,
+      tool_name: "MultiEdit",
+      tool_input: {
+        file_path: join(cwd, "config.py"),
+        edits: [
+          { old_string: "A = 1", new_string: `TOKEN = "${token}"` },
+          { old_string: `${token}"\nC = 2`, new_string: `${token}"\nC = 3` },
+        ],
+      },
+    });
+    assert.equal(out.status, 2);
+    assert.match(out.stderr, /GitHub token/);
+  });
+
   it("exits 0 for a secret written outside any repo", () => {
     const cwd = tempDir();
     assert.equal(write(cwd, join(cwd, "notes.txt"), fake.aws()).status, 0);
