@@ -1,4 +1,4 @@
-// agent-base-kit 0.3.0, dist/index.mjs built from devmaxxx/agent-base-kit commit 4bb1de715cd0e00b5e8f78fc00f0468acd9c5d43.
+// agent-base-kit 0.3.0, dist/index.mjs built from devmaxxx/agent-base-kit commit e9de109f83d58201013adce8de39585b2ae5be69.
 // UNPUBLISHED: 0.3.0 is not on npm yet. Once it is, refresh with scripts/vendor-agent-base-kit.sh 0.3.0.
 // Vendored, do not edit: refresh with scripts/vendor-agent-base-kit.sh <version>.
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -286,7 +286,9 @@ async function runOpenEvent(plugin, event, payload, options) {
 * all return 2 with the error on stderr, because any other exit lets the call
 * run unchecked. A tool the plugin did not ask for returns 0 without calling
 * the check. A MultiEdit calls the check once per edit and blocks on the first
-* edit it blocks. A payload with no `hook_event_name` is read as PreToolUse.
+* edit it blocks. A payload with no `hook_event_name` is read as PreToolUse;
+* one naming any event other than PreToolUse, Stop or UserPromptSubmit, or
+* a `hook_event_name` that is not a string, returns 2.
 *
 * Stop and UserPromptSubmit always return 0. A block goes to stdout as
 * `{"decision":"block","reason":…}`, and a fault to stderr, letting the event
@@ -302,7 +304,7 @@ async function runHook(plugin, stdin, options = {}) {
 		const event = payload.hook_event_name;
 		const open = OPEN_EVENTS.find((name) => name === event);
 		if (open) return runOpenEvent(plugin, open, payload, options);
-		if (typeof event === "string" && event !== "PreToolUse") return 0;
+		if (event !== void 0 && event !== "PreToolUse") throw new TypeError(`hook_event_name ${JSON.stringify(event)} is not an event the hook runs`);
 		const tool = payload.tool_name;
 		if (typeof tool !== "string" || tool === "") throw new TypeError("tool_name is not a tool name");
 		const kind = plugin.tools.includes(tool) ? "tool" : KIND_OF_TOOL.get(tool);
@@ -464,9 +466,14 @@ function writeConfig(file, text) {
 	const real = existsSync(file) ? realpathSync(file) : file;
 	mkdirSync(dirname(real), { recursive: true });
 	const temp = `${real}.${process.pid}.tmp`;
+	const mode = existsSync(real) ? statSync(real).mode & 4095 : void 0;
 	try {
-		writeFileSync(temp, text);
-		if (existsSync(real)) chmodSync(temp, statSync(real).mode & 4095);
+		rmSync(temp, { force: true });
+		writeFileSync(temp, text, {
+			mode: mode ?? 438,
+			flag: "wx"
+		});
+		if (mode !== void 0) chmodSync(temp, mode);
 		renameSync(temp, real);
 	} finally {
 		rmSync(temp, { force: true });
