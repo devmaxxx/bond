@@ -698,9 +698,17 @@ describe("the hook end to end", () => {
     assert.equal(commit().status, 0);
   });
 
-  it("exits 0 on unparseable input", () => {
+  it("exits 2 on unparseable input, so a tool call it cannot read does not run unchecked", () => {
     const out = spawnSync(process.execPath, [HOOK], { input: "not json", encoding: "utf8" });
+    assert.equal(out.status, 2);
+    assert.match(out.stderr, /^Blocked by secrets-guard, it could not check the call: /);
+  });
+
+  it("lets a prompt through when it cannot check it", () => {
+    const out = runHook({ hook_event_name: "UserPromptSubmit", prompt: { text: fake.github() } });
     assert.equal(out.status, 0);
+    assert.equal(out.stdout, "");
+    assert.match(out.stderr, /^secrets-guard could not check the prompt, so it let it pass: /);
   });
 });
 
@@ -711,7 +719,8 @@ describe("the hook run from the path a plugin cache gives it", () => {
   // strings would leave the hook running nothing and answering "all clear".
   const install = (dir) => {
     mkdirSync(dir, { recursive: true });
-    for (const file of ["secrets-guard.mjs", "shell.mjs"]) {
+    mkdirSync(join(dir, "vendor"));
+    for (const file of ["secrets-guard.mjs", "shell.mjs", "vendor/agent-base-kit.mjs"]) {
       copyFileSync(join(HOOKS_DIR, file), join(dir, file));
     }
     return join(dir, "secrets-guard.mjs");

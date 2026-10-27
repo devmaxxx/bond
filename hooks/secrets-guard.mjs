@@ -12,7 +12,11 @@
  * unless the value only lands in a file git will never commit (gitignored, or
  * outside any repo), or the file already held it.
  *
- * Unparseable input exits 0: a hook bug must never block unrelated work.
+ * Runs on agent-base-kit. The prompt check fails open: a fault lets the
+ * prompt through, since blocking it would stop the user typing at all. The
+ * tool-call check fails closed like the other block-or-pass guards: a payload
+ * it cannot read or a field of the wrong shape blocks the call rather than
+ * letting a token through unchecked.
  */
 
 import { execFileSync } from "node:child_process";
@@ -21,6 +25,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 import { pathToFileURL } from "node:url";
 
 import { runsCommand, scrubShell } from "./shell.mjs";
+import { defineHook, readStdin, runHook } from "./vendor/agent-base-kit.mjs";
 
 const ESCAPE = "#allow-secret";
 
@@ -473,34 +478,37 @@ function readFrom(cwd) {
   };
 }
 
-function main() {
-  let payload;
-  try {
-    payload = JSON.parse(readFileSync(0, "utf8"));
-  } catch {
-    return;
-  }
-  if (payload?.hook_event_name === "UserPromptSubmit") {
-    const { block, reason } = checkPrompt(payload.prompt);
-    if (block) {
-      // Without suppressOriginalPrompt Claude Code appends `Original prompt:
-      // <text>` to the block message, which would print the secret back.
-      const output = {
-        decision: "block",
-        reason,
-        hookSpecificOutput: { hookEventName: "UserPromptSubmit", suppressOriginalPrompt: true },
+/** The checkTool payload for the call the kit hands over, by kind. */
+function payloadOf(call) {
+  switch (call.kind) {
+    case "shell":
+      return { tool_name: "Bash", tool_input: { command: call.command } };
+    case "write":
+      return { tool_name: "Write", tool_input: { file_path: call.path, content: call.content } };
+    case "edit":
+      return {
+        tool_name: "Edit",
+        tool_input: { file_path: call.path, old_string: call.before, new_string: call.after },
       };
-      process.stdout.write(`${JSON.stringify(output)}\n`);
-    }
-    return;
-  }
-  const cwd = payload?.cwd ?? process.cwd();
-  const reason = checkTool(payload ?? {}, gitCommittable(cwd), readFrom(cwd));
-  if (reason) {
-    process.stderr.write(`${reason}\n`);
-    process.exitCode = 2;
+    default:
+      return { tool_name: call.name, tool_input: call.input };
   }
 }
+
+export const secretsGuard = defineHook({
+  name: "secrets-guard",
+  kinds: ["shell", "write", "edit", "tool"],
+  tools: Object.keys(PUBLISHED_TEXT),
+  check: (call, { cwd }) => {
+    const reason = checkTool(payloadOf(call), gitCommittable(cwd), readFrom(cwd));
+    return reason ? { block: true, reason } : { block: false };
+  },
+  events: {
+    // Without hidePrompt Claude Code appends `Original prompt: <text>` to the
+    // block message, which would print the secret back.
+    UserPromptSubmit: { check: ({ prompt }) => checkPrompt(prompt), hidePrompt: true },
+  },
+});
 
 /**
  * `import.meta.url` is percent-encoded and symlink-resolved; `argv[1]` is
@@ -516,9 +524,5 @@ function isEntryPoint() {
 }
 
 if (isEntryPoint()) {
-  try {
-    main();
-  } catch {
-    // Fail open: an unexpected throw must not turn into a blocked prompt.
-  }
+  process.exitCode = await runHook(secretsGuard, await readStdin());
 }

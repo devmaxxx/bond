@@ -1,4 +1,5 @@
-// agent-base-kit 0.1.0, dist/index.mjs from npm (sha512-sbR9rMTW4ZC+mdjAx4KR8ZyVqG2Ubo+tKR3976TRe5JSI6IM4M27OvvyP/PVf8DfPdyJQIvxapOiyMe2wdi13w==).
+// agent-base-kit 0.3.0, dist/index.mjs built from devmaxxx/agent-base-kit commit 750e5847079ef95c2ed5722f4b9e730c46dcc8de.
+// UNPUBLISHED: 0.3.0 is not on npm yet. Once it is, refresh with scripts/vendor-agent-base-kit.sh 0.3.0.
 // Vendored, do not edit: refresh with scripts/vendor-agent-base-kit.sh <version>.
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -42,7 +43,8 @@ const SELECTED_BY = {
 		"write",
 		"edit",
 		"patch"
-	]
+	],
+	tool: []
 };
 const KIND_OF_TOOL = new Map(Object.values(TOOLS).flatMap((tools) => Object.entries(tools)));
 function selected(agent, kinds) {
@@ -58,15 +60,35 @@ function matcherFor(agent, kinds) {
 }
 function requireMatcher(agent, plugin) {
 	const tools = selected(agent, plugin.kinds);
-	if (tools.length === 0) throw new Error(`${plugin.name} checks ${plugin.kinds.join(", ")} calls, which ${AGENTS[agent].label} does not make`);
+	if (tools.length === 0 && plugin.tools.length === 0) throw new Error(`${plugin.name} checks ${plugin.kinds.join(", ")} calls, which ${AGENTS[agent].label} does not make`);
 	const unseen = tools.filter(([, kind]) => !plugin.kinds.includes(kind)).map(([tool]) => tool);
 	if (unseen.length > 0) throw new Error(`${AGENTS[agent].label} sends file changes as ${unseen.join(", ")}, which ${plugin.name} does not take; add 'patch' to its kinds`);
-	return tools.map(([tool]) => tool).join("|");
+	return [...tools.map(([tool]) => tool), ...plugin.tools].join("|");
 }
 // src/claude-plugin.ts
 const MARKETPLACE_NAME = /^[a-z0-9][\w.-]*$/i;
 const RESERVED = /^(?:claude|anthropics?)(?:-|$)|^cc-plugin-|(?:claude|anthropic)s?-?official|official-?(?:claude|anthropic)/;
 const ENTRY = /^[\w-][\w.-]*(?:\/[\w-][\w.-]*)*\.mjs$/;
+function pluginHooks(plugin, matcher, entry) {
+	const command = `node "\${CLAUDE_PLUGIN_ROOT}/${entry}" hook`;
+	const hooks = { PreToolUse: [{
+		matcher,
+		hooks: [{
+			type: "command",
+			command: `${command} || exit 2`,
+			timeout: plugin.timeout,
+			statusMessage: plugin.statusMessage,
+			onFailure: "block"
+		}]
+	}] };
+	for (const [event, hook] of Object.entries(plugin.events)) hooks[event] = [{ hooks: [{
+		type: "command",
+		command,
+		timeout: hook.timeout,
+		statusMessage: hook.statusMessage
+	}] }];
+	return hooks;
+}
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 function entryOf(entry) {
 	const relative = entry.replace(/^\.\//, "");
@@ -78,10 +100,12 @@ function entryOf(entry) {
 * to the package root: `.claude-plugin/plugin.json`, `hooks/hooks.json`, and
 * with `marketplace`, `.claude-plugin/marketplace.json`.
 *
-* The hook runs `node "${CLAUDE_PLUGIN_ROOT}/<entry>" hook || exit 2` with
-* `onFailure: "block"`, so a plugin that cannot start or times out blocks the
-* call. Claude Code copies the plugin and installs nothing into it, so the
-* entry's directory must hold the whole build. Throws when the plugin checks
+* The PreToolUse hook runs `node "${CLAUDE_PLUGIN_ROOT}/<entry>" hook || exit 2`
+* with `onFailure: "block"`, so a plugin that cannot start or times out blocks
+* the call; each of the plugin's other events runs the same command without
+* either, so it passes instead. Claude Code copies the plugin and installs
+* nothing into it, and the plugin's `onInstall` does not run, so the entry's
+* directory must hold the whole build. Throws when the plugin checks
 * no tool Claude Code has, or a field would make Claude Code refuse the
 * plugin.
 */
@@ -102,16 +126,7 @@ function claudePluginFiles(options) {
 			license,
 			keywords
 		}),
-		"hooks/hooks.json": json({ hooks: { PreToolUse: [{
-			matcher,
-			hooks: [{
-				type: "command",
-				command: `node "\${CLAUDE_PLUGIN_ROOT}/${entry}" hook || exit 2`,
-				timeout: plugin.timeout,
-				statusMessage: plugin.statusMessage,
-				onFailure: "block"
-			}]
-		}] } })
+		"hooks/hooks.json": json({ hooks: pluginHooks(plugin, matcher, entry) })
 	};
 	if (marketplace) {
 		if (!MARKETPLACE_NAME.test(marketplace.name)) throw new TypeError(`marketplace name ${JSON.stringify(marketplace.name)} may hold only letters, digits, '.', '_' and '-', and must start with a letter or digit`);
@@ -146,6 +161,7 @@ function writeClaudePlugin(dir, options) {
 	});
 }
 // src/hook.ts
+const OPEN_EVENTS = ["Stop", "UserPromptSubmit"];
 const isObject$1 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function stringField(input, key) {
 	const value = input[key];
@@ -163,7 +179,12 @@ function editList(input) {
 	if (!Array.isArray(edits)) throw new TypeError("edits is not a list");
 	return edits.map((edit) => record(edit, "edit"));
 }
-function toToolCall(tool, input) {
+function toToolCall(plugin, tool, input) {
+	if (plugin.tools.includes(tool)) return {
+		kind: "tool",
+		name: tool,
+		input
+	};
 	const text = (key, from = input) => stringField(from, key);
 	const joined = (key) => editList(input).map((edit) => text(key, edit)).join("\n");
 	switch (tool) {
@@ -208,15 +229,58 @@ function verdictOf(value) {
 	};
 	throw new TypeError("check returned neither { block: false } nor { block: true, reason }");
 }
+const messageOf = (error) => error instanceof Error ? error.message : String(error);
 /**
-* Runs one PreToolUse call through the plugin and returns the exit code the
-* agent reads: 2 blocks the call, 0 lets it run.
+* The event a hook payload is for when it names one the hook lets pass on a
+* fault, else `undefined`. Read before the Node.js check and the hang guard,
+* which must not block these either.
+*/
+function openEventOf(stdin) {
+	try {
+		const event = JSON.parse(stdin)?.hook_event_name;
+		return OPEN_EVENTS.find((open) => open === event);
+	} catch {
+		return;
+	}
+}
+async function runOpenEvent(plugin, event, payload, options) {
+	if (!plugin.events[event]) return 0;
+	const stderr = options.stderr ?? ((text) => void process.stderr.write(text));
+	const stdout = options.stdout ?? ((text) => void process.stdout.write(text));
+	try {
+		if (event === "Stop" && payload.stop_hook_active === true) return 0;
+		const cwd = stringField(payload, "cwd") || (options.cwd ?? process.cwd());
+		const verdict = event === "Stop" ? verdictOf(await plugin.events.Stop.check({ reply: stringField(payload, "last_assistant_message") }, { cwd })) : verdictOf(await plugin.events.UserPromptSubmit.check({ prompt: stringField(payload, "prompt") }, { cwd }));
+		if (!verdict.block) return 0;
+		const hidden = event === "UserPromptSubmit" && plugin.events.UserPromptSubmit.hidePrompt;
+		stdout(`${JSON.stringify({
+			decision: "block",
+			reason: verdict.reason,
+			...hidden ? { hookSpecificOutput: {
+				hookEventName: "UserPromptSubmit",
+				suppressOriginalPrompt: true
+			} } : {}
+		})}\n`);
+	} catch (error) {
+		stderr(`${plugin.name} could not check the ${event === "Stop" ? "reply" : "prompt"}, so it let it pass: ${messageOf(error)}\n`);
+	}
+	return 0;
+}
+/**
+* Runs one hook payload through the plugin and returns the exit code the
+* agent reads.
 *
-* It fails closed. A payload that is not JSON or names no tool, a field of the
-* wrong shape, a check that throws or rejects, and a result that is not a
-* verdict all return 2 with the error on stderr, because any other exit lets
-* the call run unchecked. A tool the plugin did not ask for returns 0 without
-* calling the check.
+* A PreToolUse call returns 2 to block it and 0 to let it run, and fails
+* closed: a payload that is not JSON or names no tool, a field of the wrong
+* shape, a check that throws or rejects, and a result that is not a verdict
+* all return 2 with the error on stderr, because any other exit lets the call
+* run unchecked. A tool the plugin did not ask for returns 0 without calling
+* the check. A payload with no `hook_event_name` is read as PreToolUse.
+*
+* Stop and UserPromptSubmit always return 0. A block goes to stdout as
+* `{"decision":"block","reason":…}`, and a fault to stderr, letting the event
+* pass. A Stop with `stop_hook_active` set passes unchecked, and so does an
+* event the plugin has no check for.
 */
 async function runHook(plugin, stdin, options = {}) {
 	const stderr = options.stderr ?? ((text) => void process.stderr.write(text));
@@ -224,15 +288,19 @@ async function runHook(plugin, stdin, options = {}) {
 	try {
 		const payload = JSON.parse(stdin);
 		if (!isObject$1(payload)) throw new TypeError("payload is not an object");
+		const event = payload.hook_event_name;
+		const open = OPEN_EVENTS.find((name) => name === event);
+		if (open) return runOpenEvent(plugin, open, payload, options);
+		if (typeof event === "string" && event !== "PreToolUse") return 0;
 		const tool = payload.tool_name;
 		if (typeof tool !== "string" || tool === "") throw new TypeError("tool_name is not a tool name");
-		const kind = KIND_OF_TOOL.get(tool);
+		const kind = plugin.tools.includes(tool) ? "tool" : KIND_OF_TOOL.get(tool);
 		if (kind === void 0 || !plugin.kinds.includes(kind)) return 0;
-		const call = toToolCall(tool, record(payload.tool_input, "tool_input"));
+		const call = toToolCall(plugin, tool, record(payload.tool_input, "tool_input"));
 		const cwd = stringField(payload, "cwd") || (options.cwd ?? process.cwd());
 		verdict = verdictOf(await plugin.check(call, { cwd }));
 	} catch (error) {
-		stderr(`Blocked by ${plugin.name}, it could not check the call: ${error instanceof Error ? error.message : String(error)}\n`);
+		stderr(`Blocked by ${plugin.name}, it could not check the call: ${messageOf(error)}\n`);
 		return 2;
 	}
 	if (!verdict.block) return 0;
@@ -240,6 +308,11 @@ async function runHook(plugin, stdin, options = {}) {
 	return 2;
 }
 // src/install.ts
+const EVENTS$1 = [
+	"PreToolUse",
+	"Stop",
+	"UserPromptSubmit"
+];
 /** The agent config a scope writes: `~/.claude/settings.json`, `<cwd>/.codex/hooks.json` and so on. */
 function configFile(agent, scope, place) {
 	const { dir, file } = AGENTS[agent];
@@ -248,8 +321,28 @@ function configFile(agent, scope, place) {
 const quote = (word) => `'${word.replaceAll("'", `'\\''`)}'`;
 const escape = (text) => text.replace(/[$()*+.?[\\\]^{|}]/g, "\\$&");
 function hookCommand(plugin, scope, script, node) {
-	if (scope === "project") return `npx --no-install ${plugin.packageName} hook || exit 2`;
-	return `n=${quote(node)}; [ -x "$n" ] || n=node; "$n" ${quote(script)} hook || exit 2`;
+	if (scope === "project") return `npx --no-install ${plugin.packageName} hook`;
+	return `n=${quote(node)}; [ -x "$n" ] || n=node; "$n" ${quote(script)} hook`;
+}
+function entriesFor(plugin, agent, command) {
+	const entry = (event, status, timeout) => ({
+		type: "command",
+		command: event === "PreToolUse" ? `${command} || exit 2` : command,
+		timeout,
+		statusMessage: status
+	});
+	const { Stop, UserPromptSubmit } = plugin.events;
+	return {
+		PreToolUse: {
+			matcher: requireMatcher(agent, plugin),
+			hooks: [{
+				...entry("PreToolUse", plugin.statusMessage, plugin.timeout),
+				...agent === "claude" ? { onFailure: "block" } : {}
+			}]
+		},
+		...Stop ? { Stop: { hooks: [entry("Stop", Stop.statusMessage, Stop.timeout)] } } : {},
+		...UserPromptSubmit ? { UserPromptSubmit: { hooks: [entry("UserPromptSubmit", UserPromptSubmit.statusMessage, UserPromptSubmit.timeout)] } } : {}
+	};
 }
 const QUOTED = String.raw`(?:[^']|'\\'')*`;
 function ownHook(plugin, entry) {
@@ -257,7 +350,9 @@ function ownHook(plugin, entry) {
 	const pinned = String.raw`n='${QUOTED}'; \[ -x "\$n" \] \|\| n=node; "\$n" '${QUOTED}/\.${name}/current/[^/']+' hook`;
 	const bare = `node '${QUOTED}/${name}/(?:${QUOTED}/)?${escape(entry)}' hook`;
 	const project = `npx --no-install ${escape(plugin.packageName)} hook`;
-	return new RegExp(`^(?:${pinned}|${bare}|${project})(?: \\|\\| exit 2)?$`);
+	const own = new RegExp(`^(?:${pinned}|${bare}|${project})(?: \\|\\| exit 2)?$`);
+	const earlier = plugin.ownCommands.map((pattern) => new RegExp(`^(?:${pattern.source})$`, pattern.flags));
+	return (command) => own.test(command) || earlier.some((pattern) => pattern.test(command));
 }
 const builtFiles = (dir) => readdirSync(dir).filter((name) => name.endsWith(".mjs")).sort();
 function buildId(dir) {
@@ -325,10 +420,13 @@ function readSettings(file) {
 		throw new Error(`${file} is not valid JSON (${error.message}); it was left unchanged`);
 	}
 	const hooks = isObject(settings) ? settings.hooks : void 0;
-	const preToolUse = isObject(hooks) ? hooks.PreToolUse : void 0;
 	const wrongHooks = hooks !== void 0 && hooks !== null && !isObject(hooks);
-	const wrongPreToolUse = preToolUse !== void 0 && preToolUse !== null && !Array.isArray(preToolUse);
-	if (!isObject(settings) || wrongHooks || wrongPreToolUse) throw new Error(`${file} does not hold a settings object with a hooks object and a PreToolUse list; it was left unchanged`);
+	const wrongList = EVENTS$1.find((event) => {
+		const list = isObject(hooks) ? hooks[event] : void 0;
+		return list !== void 0 && list !== null && !Array.isArray(list);
+	});
+	if (!isObject(settings) || wrongHooks) throw new Error(`${file} does not hold a settings object with a hooks object; it was left unchanged`);
+	if (wrongList) throw new Error(`${file} has a ${wrongList} that is not a list; it was left unchanged`);
 	return settings;
 }
 function writeConfig(file, text) {
@@ -343,46 +441,80 @@ function writeConfig(file, text) {
 		rmSync(temp, { force: true });
 	}
 }
-function configure(file, settings, own, entry) {
-	const hooks = settings.hooks ?? {};
-	const before = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
-	let removed = 0;
-	const kept = before.map((item) => {
-		if (!Array.isArray(item?.hooks)) return item;
-		const rest = item.hooks.filter((hook) => !(typeof hook?.command === "string" && own.test(hook.command)));
-		removed += item.hooks.length - rest.length;
-		return {
-			...item,
-			hooks: rest
-		};
-	}).filter((item) => !Array.isArray(item?.hooks) || item.hooks.length > 0);
-	if (!entry && removed === 0) return;
-	if (entry) kept.push(entry);
-	settings.hooks = {
-		...hooks,
-		PreToolUse: kept
-	};
-	if (kept.length === 0) delete settings.hooks.PreToolUse;
+function configure(file, settings, own, entries) {
+	const hooks = { ...settings.hooks };
+	let changed = false;
+	for (const event of EVENTS$1) {
+		const kept = (Array.isArray(hooks[event]) ? hooks[event] : []).map((item) => {
+			if (!Array.isArray(item?.hooks)) return item;
+			const rest = item.hooks.filter((hook) => !(typeof hook?.command === "string" && own(hook.command)));
+			changed ||= rest.length < item.hooks.length;
+			return {
+				...item,
+				hooks: rest
+			};
+		}).filter((item) => !Array.isArray(item?.hooks) || item.hooks.length > 0);
+		const entry = entries[event];
+		if (entry) {
+			kept.push(entry);
+			changed = true;
+		}
+		if (kept.length > 0) hooks[event] = kept;
+		else if (Array.isArray(hooks[event])) delete hooks[event];
+	}
+	if (!changed) return;
+	settings.hooks = hooks;
 	writeConfig(file, `${JSON.stringify(settings, null, 2)}\n`);
 }
+function linesOf(value, field) {
+	if (value === void 0) return [];
+	if (!Array.isArray(value) || value.some((line) => typeof line !== "string")) throw new TypeError(`${field} is not a list of strings`);
+	return [...value];
+}
+function withExtra(file, place, write, extra) {
+	const before = existsSync(file) ? readFileSync(file, "utf8") : null;
+	write();
+	if (!extra) return {
+		notes: [],
+		warnings: []
+	};
+	try {
+		const result = extra({
+			...place,
+			file
+		});
+		if (result !== void 0 && !isObject(result)) throw new TypeError("an install step returned neither nothing nor { notes, warnings }");
+		return {
+			notes: linesOf(result?.notes, "notes"),
+			warnings: linesOf(result?.warnings, "warnings")
+		};
+	} catch (error) {
+		if (before === null) rmSync(file, { force: true });
+		else if (readFileSync(file, "utf8") !== before) writeConfig(file, before);
+		throw error;
+	}
+}
 /**
-* Adds the plugin's PreToolUse hook to one agent's config, replacing any entry
-* it wrote before and keeping every other one.
+* Adds the plugin's hooks to one agent's config, PreToolUse and each event in
+* its `events`, replacing any entry it wrote before, for any event, and
+* keeping every other one.
 *
 * The user scope copies the bin's directory to `~/.<name>/<build-id>/`, checks
 * the copy runs, points `~/.<name>/current` at it and runs it from there on
 * `execPath`. The project scope runs `npx --no-install <packageName> hook`.
-* Either command ends in `|| exit 2`, so a hook that cannot start blocks the
-* call. The Claude Code entry also sets `onFailure: "block"` for a hook that
-* times out.
+* The PreToolUse command ends in `|| exit 2`, so a hook that cannot start
+* blocks the call, and the Claude Code entry sets `onFailure: "block"` for one
+* that times out. The other events' commands do not, so they pass instead.
+* Then the plugin's `onInstall` runs.
 *
 * Throws, and leaves the config as it was, when the config is not a settings
 * object it can extend, when the plugin's kinds leave tools the agent routes
-* to it unchecked, or when the build cannot be copied or does not run.
+* to it unchecked, when the build cannot be copied or does not run, or when
+* `onInstall` throws.
 */
 function install(options) {
 	const { plugin, agent, scope, script } = options;
-	const matcher = requireMatcher(agent, plugin);
+	requireMatcher(agent, plugin);
 	const file = configFile(agent, scope, options);
 	const settings = readSettings(file);
 	let target = script;
@@ -392,41 +524,53 @@ function install(options) {
 		probe(join(root, id, basename(script)), options.execPath);
 		target = join(linkCurrent(root, id), basename(script));
 	}
-	const command = hookCommand(plugin, scope, target, options.execPath);
-	configure(file, settings, ownHook(plugin, basename(script)), {
-		matcher,
-		hooks: [{
-			type: "command",
-			command,
-			timeout: plugin.timeout,
-			statusMessage: plugin.statusMessage,
-			...agent === "claude" ? { onFailure: "block" } : {}
-		}]
-	});
+	const entries = entriesFor(plugin, agent, hookCommand(plugin, scope, target, options.execPath));
+	const lines = withExtra(file, {
+		agent,
+		scope,
+		home: options.home,
+		cwd: options.cwd,
+		script
+	}, () => configure(file, settings, ownHook(plugin, basename(script)), entries), plugin.onInstall);
+	const commands = Object.fromEntries(Object.entries(entries).map(([event, entry]) => [event, entry.hooks[0].command]));
 	return {
 		file,
-		command
+		command: commands.PreToolUse,
+		commands,
+		...lines
 	};
 }
 /**
-* Removes the plugin's hook from one agent's config, whichever form an earlier
-* install wrote, and keeps every other entry. The stable copy stays: another
-* agent may still run it. Throws, and leaves the file as it was, when it is not
-* a settings object.
+* Removes the plugin's hooks from one agent's config, for every event and
+* whichever form an earlier install wrote, keeps every other entry, and runs
+* the plugin's `onUninstall`. The stable copy stays: another agent may still
+* run it. Throws, and leaves the file as it was, when it is not a settings
+* object or `onUninstall` throws.
 */
 function uninstall(options) {
-	const file = configFile(options.agent, options.scope, options);
-	if (!existsSync(file)) return { file };
-	configure(file, readSettings(file), ownHook(options.plugin, basename(options.script)), null);
-	return { file };
+	const { plugin, agent, scope, script } = options;
+	const file = configFile(agent, scope, options);
+	return {
+		file,
+		...withExtra(file, {
+			agent,
+			scope,
+			home: options.home,
+			cwd: options.cwd,
+			script
+		}, () => {
+			if (existsSync(file)) configure(file, readSettings(file), ownHook(plugin, basename(script)), {});
+		}, plugin.onUninstall)
+	};
 }
 // src/cli.ts
 const isAgent = (word) => word === "claude" || word === "codex";
-function usage(bin) {
+function usage(plugin, bin) {
+	const events = ["PreToolUse", ...Object.keys(plugin.events)];
 	const rows = [
-		["install <claude|codex> [--project]", "add the PreToolUse hook"],
+		["install <claude|codex> [--project]", `add the ${events.join(" and ")} hook${events.length > 1 ? "s" : ""}`],
 		["uninstall <claude|codex> [--project]", "remove it"],
-		["hook", "run as the hook (reads the tool call on stdin)"]
+		["hook", "run as the hook (reads the agent's payload on stdin)"]
 	];
 	const width = Math.max(...rows.map(([command]) => command.length)) + 1;
 	return `Usage:\n${rows.map(([command, what]) => `  ${bin} ${command.padEnd(width)}${what}`).join("\n")}\n`;
@@ -436,10 +580,13 @@ function usage(bin) {
 * [--project]`, and `hook`, which reads the tool call from `io.stdin`.
 *
 * Exit codes: `hook` returns what {@link runHook} returns, 0 or 2. `install`
-* and `uninstall` return 0, or 1 with the reason on stderr. Anything else,
-* including an unknown flag or an extra argument, prints the usage and
-* returns 1. On a Node.js older than 22, `hook` returns 2
-* and `install` 1, each with a message naming the fix; `uninstall` still runs.
+* and `uninstall` return 0, or 1 with the reason on stderr; the notes the
+* plugin's `onInstall` or `onUninstall` returns follow the config file on
+* stdout, its warnings go to stderr. Anything else, including an unknown flag
+* or an extra argument, prints the usage and returns 1. On a Node.js older
+* than 22, `hook` returns 2 for PreToolUse and 0 for Stop and
+* UserPromptSubmit, and `install` 1, each with a message naming the fix;
+* `uninstall` still runs.
 */
 function createCli(plugin, options = {}) {
 	const bin = options.bin ?? plugin.name;
@@ -448,11 +595,13 @@ function createCli(plugin, options = {}) {
 		const major = Number(/^v(\d+)\./.exec(io.node)?.[1] ?? 0);
 		if ((command === "hook" || command === "install") && major < 22) {
 			io.stderr(`${bin} needs Node.js 22 or later, and this one is ${io.node}. Run \`npx ${plugin.packageName} install claude\` (or codex) again with Node.js 22 or later, or put one first on PATH and restart the agent.\n`);
-			return command === "hook" ? 2 : 1;
+			if (command === "install") return 1;
+			return openEventOf(io.stdin()) ? 0 : 2;
 		}
 		if (command === "hook") return runHook(plugin, io.stdin(), {
 			cwd: io.cwd,
-			stderr: io.stderr
+			stderr: io.stderr,
+			stdout: io.stdout
 		});
 		const project = flags.length === 1 && flags[0] === "--project";
 		if ((command === "install" || command === "uninstall") && isAgent(agent) && (flags.length === 0 || project)) {
@@ -464,21 +613,23 @@ function createCli(plugin, options = {}) {
 				home: io.home,
 				cwd: io.cwd
 			};
-			let file;
+			let result;
 			try {
-				file = command === "install" ? install({
+				result = command === "install" ? install({
 					...place,
 					execPath: io.execPath
-				}).file : uninstall(place).file;
+				}) : uninstall(place);
 			} catch (error) {
 				io.stderr(`${bin}: ${error instanceof Error ? error.message : String(error)}\n`);
 				return 1;
 			}
-			io.stdout(`${command === "install" ? "Installed in" : "Removed from"} ${file}\n`);
+			io.stdout(`${command === "install" ? "Installed in" : "Removed from"} ${result.file}\n`);
+			for (const note of result.notes) io.stdout(`${note}\n`);
+			for (const warning of result.warnings) io.stderr(`${bin}: ${warning}\n`);
 			if (command === "install" && agent === "codex") io.stdout("Codex runs a new hook only after you trust it: open /hooks in Codex once.\n");
 			return 0;
 		}
-		io.stderr(usage(bin));
+		io.stderr(usage(plugin, bin));
 		return 1;
 	};
 }
@@ -502,22 +653,28 @@ async function readStdin(stream = process.stdin) {
 * `hook`, and sets `process.exitCode`. Call it without `await`, passing the
 * bin's own `import.meta.url`, which is what install copies and runs.
 *
-* For `hook` the exit code is 2 until a verdict is in. Node.js exits 0 once
-* nothing is left to run, so a check whose promise never settles would
-* otherwise let the call run.
+* For a PreToolUse `hook` the exit code is 2 until a verdict is in. Node.js
+* exits 0 once nothing is left to run, so a check whose promise never settles
+* would otherwise let the call run. A Stop or UserPromptSubmit check that
+* never settles exits 0, as any other fault there does.
 */
 async function runCli(plugin, entryUrl, options = {}) {
 	const argv = process.argv.slice(2);
 	const hook = argv[0] === "hook";
 	let done = false;
+	let open = false;
 	if (hook) {
 		process.exitCode = 2;
 		process.once("beforeExit", () => {
-			if (!done) process.stderr.write(`Blocked by ${plugin.name}, its check never finished\n`);
+			if (!done) process.stderr.write(open ? `${plugin.name} let it pass, its check never finished\n` : `Blocked by ${plugin.name}, its check never finished\n`);
 		});
 	}
 	try {
 		const input = hook ? await readStdin() : "";
+		if (hook && openEventOf(input)) {
+			open = true;
+			process.exitCode = 0;
+		}
 		process.exitCode = await createCli(plugin, options)(argv, {
 			stdin: () => input,
 			script: fileURLToPath(entryUrl),
@@ -532,7 +689,7 @@ async function runCli(plugin, entryUrl, options = {}) {
 	} catch (error) {
 		done = true;
 		process.stderr.write(`${options.bin ?? plugin.name}: ${error instanceof Error ? error.message : String(error)}\n`);
-		process.exitCode = hook ? 2 : 1;
+		process.exitCode = hook ? open ? 0 : 2 : 1;
 	}
 }
 // src/define.ts
@@ -540,8 +697,11 @@ const KINDS = [
 	"shell",
 	"write",
 	"edit",
-	"patch"
+	"patch",
+	"tool"
 ];
+const TOOL_NAME = /^[\w-]+$/;
+const EVENTS = ["Stop", "UserPromptSubmit"];
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PACKAGE = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 /**
@@ -550,20 +710,65 @@ const PACKAGE = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 * broken plugin fails when it is built, not when the hook runs.
 */
 function defineHook(definition) {
-	const { name, kinds, check, packageName = name, statusMessage = `Running ${name}`, timeout = 10 } = definition;
+	const { name, kinds, check, packageName = name, statusMessage = `Running ${name}`, timeout = 10, ownCommands = [], tools = [], events = {}, onInstall, onUninstall } = definition;
 	if (typeof name !== "string" || !NAME.test(name)) throw new TypeError(`name ${JSON.stringify(name)} is not kebab-case (lowercase letters and digits, joined by single hyphens)`);
 	if (typeof packageName !== "string" || !PACKAGE.test(packageName)) throw new TypeError(`packageName ${JSON.stringify(packageName)} is not an npm package name`);
 	if (!Array.isArray(kinds) || kinds.length === 0 || kinds.some((kind) => !KINDS.includes(kind))) throw new TypeError(`kinds must list one or more of ${KINDS.join(", ")}`);
 	if (typeof check !== "function") throw new TypeError("check is not a function");
-	if (typeof statusMessage !== "string" || statusMessage === "") throw new TypeError("statusMessage is not a non-empty string");
-	if (!Number.isInteger(timeout) || timeout < 1) throw new TypeError(`timeout ${JSON.stringify(timeout)} is not a whole number of seconds`);
+	checkStatus(statusMessage, "statusMessage");
+	checkTimeout(timeout, "timeout");
+	const patterns = Array.isArray(ownCommands) ? [...ownCommands] : null;
+	if (patterns === null || patterns.some((pattern) => !(pattern instanceof RegExp) || pattern.global || pattern.multiline || pattern.sticky)) throw new TypeError("ownCommands must list regular expressions without the g, m or y flag");
+	const names = Array.isArray(tools) ? [...tools] : null;
+	if (names === null || names.some((tool) => typeof tool !== "string" || !TOOL_NAME.test(tool))) throw new TypeError("tools must list tool names of letters, digits, _ and -");
+	const builtIn = names.find((tool) => KIND_OF_TOOL.has(tool));
+	if (builtIn !== void 0) throw new TypeError(`${builtIn} is one of the agents' own tools; list its kind instead`);
+	if (kinds.includes("tool") !== names.length > 0) throw new TypeError("kinds lists tool exactly when tools names one or more tools");
+	for (const [key, hook] of [["onInstall", onInstall], ["onUninstall", onUninstall]]) if (hook !== void 0 && typeof hook !== "function") throw new TypeError(`${key} is not a function`);
 	return Object.freeze({
 		name,
 		packageName,
 		kinds: Object.freeze([...new Set(kinds)]),
 		statusMessage,
 		timeout,
+		ownCommands: Object.freeze(patterns),
+		tools: Object.freeze([...new Set(names)]),
+		events: eventHooks(events, statusMessage, timeout),
+		onInstall,
+		onUninstall,
 		check
+	});
+}
+function checkStatus(value, field) {
+	if (typeof value !== "string" || value === "") throw new TypeError(`${field} is not a non-empty string`);
+}
+function checkTimeout(value, field) {
+	if (!Number.isInteger(value) || value < 1) throw new TypeError(`${field} ${JSON.stringify(value)} is not a whole number of seconds`);
+}
+function eventHook(event, definition, statusMessage, timeout) {
+	if (typeof definition !== "object" || definition === null || typeof definition.check !== "function") throw new TypeError(`events.${event}.check is not a function`);
+	const hook = {
+		check: definition.check,
+		statusMessage: definition.statusMessage ?? statusMessage,
+		timeout: definition.timeout ?? timeout
+	};
+	checkStatus(hook.statusMessage, `events.${event}.statusMessage`);
+	checkTimeout(hook.timeout, `events.${event}.timeout`);
+	return hook;
+}
+function eventHooks(events, statusMessage, timeout) {
+	if (typeof events !== "object" || events === null || Array.isArray(events)) throw new TypeError("events is not an object");
+	const unknown = Object.keys(events).find((event) => !EVENTS.includes(event));
+	if (unknown !== void 0) throw new TypeError(`events.${unknown} is not one of ${EVENTS.join(", ")}`);
+	const { Stop, UserPromptSubmit } = events;
+	const hidePrompt = UserPromptSubmit?.hidePrompt ?? false;
+	if (typeof hidePrompt !== "boolean") throw new TypeError("events.UserPromptSubmit.hidePrompt is not a boolean");
+	return Object.freeze({
+		...Stop ? { Stop: Object.freeze(eventHook("Stop", Stop, statusMessage, timeout)) } : {},
+		...UserPromptSubmit ? { UserPromptSubmit: Object.freeze({
+			...eventHook("UserPromptSubmit", UserPromptSubmit, statusMessage, timeout),
+			hidePrompt
+		}) } : {}
 	});
 }
 export { claudePluginFiles, configFile, createCli, defineHook, install, matcherFor, readStdin, runCli, runHook, uninstall, writeClaudePlugin };
