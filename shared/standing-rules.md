@@ -128,6 +128,20 @@ The opening session does not review its own PR again and runs no wait loop:
 it says the audit is running and relays the agent's report when it returns.
 A push to a PR that was already open is not a new PR.
 
+## Pushed worktrees are removed without asking — always on
+
+A linked worktree whose work is all on the remote is removed with no question,
+in every repo — at the end of a task, after a merge, and whenever a worktree
+list shows one. **`/bond:worktree` owns the procedure**: `close` for the one in
+hand, `prune` for the rest — its checks (on a branch, clean, tip on the remote
+or its PR merged, no live session), the move to `~/.Trash` instead of `rm`, the
+branch deletion and the shared-hooks repair. Run it; do not remove from memory
+of this paragraph.
+
+A worktree that fails a check stays, reported in one line with the reason.
+Worktrees of other sessions or projects — scratchpads, benches, detached
+checkouts — are never touched.
+
 ## Waiting goes to an agent — always on
 
 Waiting on something outside the session — a PR's CI, a review, another PR

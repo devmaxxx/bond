@@ -1,7 +1,12 @@
 # How to work in this repo
 
-The rules below are adapted from Andrej Karpathy's AGENTS.md and target the most common LLM coding failure modes.
+The rules below are adapted from Andrej Karpathy's CLAUDE.md and target the most common LLM coding failure modes.
 
-1. Start every reply with my name.
-2. Keep replies extremely concise — key information only, no fluff, no long code snippets.
-3. When working with any third-party library, look up official docs first to confirm current APIs. Use the `bond:docs-explorer` subagent for documentation lookup — it ships with the plugin, so it is available in every repo, not just this one.
+This file is the repo's only agent instructions file — Claude Code reads it too
+(v2.1.277+), because there is no `CLAUDE.md` beside it. Do not add a
+`CLAUDE.md` or `CLAUDE.local.md` here: either one makes Claude Code ignore this file.
+
+1. Start every reply with the user's name. This file is shared, so the name is
+   not written here: each person sets `BOND_USER_NAME` in the `env` block of
+   their `~/.claude/settings.json`. If it is unset, use `git config user.name`.
+2. When working with any third-party library, look up official docs first to confirm current APIs. Use the `bond:docs-explorer` subagent for documentation lookup — it ships with the plugin, so it is available in every repo, not just this one.
