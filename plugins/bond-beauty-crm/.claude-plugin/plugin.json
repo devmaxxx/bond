@@ -1,6 +1,6 @@
 {
   "name": "bond-beauty-crm",
-  "version": "0.45.0",
+  "version": "0.46.0",
   "description": "beauty-crm-only companion to bond. Enable it in the beauty-crm clone (.claude/settings.local.json), not globally. Ships implement (claim a task card, ask every question up front, build, done, pr) and batch (several tasks that share files closed in one pull request), both driving the repository's own `pnpm tasks` flow, and the questions-first rule they run under in place of bond's ask-nothing autonomy.",
   "author": {
     "name": "Max Synenko",
