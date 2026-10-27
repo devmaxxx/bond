@@ -449,12 +449,11 @@ transition without aborting — the code has shipped either way.
 Only runs when a worktree was created **and** Ship + PR succeeded. A failed push
 or PR keeps the worktree so the user can fix and resume.
 
-1. `cd` back to the original repo directory recorded during branch setup.
-2. `git worktree remove <worktree-path>`. If it reports the worktree is dirty or
-   has untracked files, do **not** force-remove — surface the warning and leave
-   the worktree for the user to inspect.
-3. Confirm the worktree was removed. The branch still exists locally and on
-   `origin`.
+Remove it by **close** in `${CLAUDE_PLUGIN_ROOT}/commands/worktree.md`, steps
+2–6: the checks that refuse a dirty, unpushed or busy worktree, the move to
+`~/.Trash`, the local branch deleted once its tip is on `origin`, and the
+shared-hooks repair. A refusal leaves the worktree for the user to inspect —
+surface it, never force.
 
 ## Do NOT
 

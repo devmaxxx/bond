@@ -110,25 +110,17 @@ as is a review that found nothing.
 
 ## Pushed worktrees are removed without asking — always on
 
-A git worktree whose work is all on the remote is removed with no question, in
-every repo — at the end of a task, after a merge, and whenever a worktree list
-shows one.
+A linked worktree whose work is all on the remote is removed with no question,
+in every repo — at the end of a task, after a merge, and whenever a worktree
+list shows one. **`/bond:worktree` owns the procedure**: `close` for the one in
+hand, `prune` for the rest — its checks (on a branch, clean, tip on the remote
+or its PR merged, no live session), the move to `~/.Trash` instead of `rm`, the
+branch deletion and the shared-hooks repair. Run it; do not remove from memory
+of this paragraph.
 
-"All on the remote" means every one of these holds:
-
-- the worktree is on a branch, not a detached HEAD;
-- `git status --porcelain` is empty;
-- its tip is on the remote: `git branch -r --contains HEAD` names a branch, or
-  the branch's PR (`gh pr list --head <branch> --state all`) is merged and the
-  local tip equals, or is an ancestor of, the PR's head.
-
-Removal is `mv <path> ~/.Trash/<basename>-<yyyymmddHHMMSS>`, then
-`git worktree prune` and `git branch -D <branch>` in the main clone — the Trash
-keeps the ignored env files and dependencies recoverable. Never `rm`, never
-`git worktree remove --force`. Then run `/bond:worktree close` step 6 (shared
-hooks) for the removed path. A worktree that fails any check stays; report it
-in one line with the reason. Worktrees that belong to other sessions or
-projects — scratchpads, benches, detached checkouts — are never touched.
+A worktree that fails a check stays, reported in one line with the reason.
+Worktrees of other sessions or projects — scratchpads, benches, detached
+checkouts — are never touched.
 
 ## Waiting goes to an agent — always on
 

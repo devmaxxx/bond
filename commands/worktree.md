@@ -148,13 +148,15 @@ does the rest. Inputs: the original repo dir, the worktree path.
      once the remote branch is deleted, but their content is on the base).
    - **Live-session check** — a hit other than this session ⇒ refuse, name the
      process.
-3. `cd` to the original repo, then `git worktree remove <wt>` — never `--force`;
-   if git still refuses, show why and stop.
-4. **The branch.** Merged ⇒ `git branch -D` the local branch, but only once
-   that is proven: `git merge-base --is-ancestor <branch> origin/<BASE_BRANCH>`
-   holds, or step 2's squash-merge check passed. (`-d` would check a gone
-   upstream or `HEAD`, not the base.) Not merged ⇒ keep
-   it, and say it is kept and why. Never delete the remote branch.
+3. `cd` to the original repo, then `mv <wt> ~/.Trash/<basename>-<yyyymmddHHMMSS>`
+   — the Trash keeps the ignored env files and dependencies recoverable. Never
+   `rm`, never `git worktree remove --force`.
+4. **The branch.** `git branch -D` the local branch once its work is proven to
+   be elsewhere: `git merge-base --is-ancestor <branch> origin/<BASE_BRANCH>`
+   holds, step 2's squash-merge check passed, or `git branch -r --contains
+   <branch>` names a remote branch. (`-d` would check a gone upstream or
+   `HEAD`, not the base.) Otherwise keep it, and say it is kept and why. Never
+   delete the remote branch.
 5. `git worktree prune`. Report: removed path, branch deleted or kept.
 6. **Shared hooks.** Worktrees share one `.git/hooks`, and a hook manager's
    postinstall (lefthook, husky) writes absolute paths into it — so a
@@ -185,7 +187,10 @@ the main checkout's files.
      work about to start, not work finished;
    - `gone` — the upstream is configured but deleted
      (`git for-each-ref --format='%(refname:short) %(upstream:track)'` reads
-     `[gone]`).
+     `[gone]`);
+   - `pushed` — the tip is on the remote: `git -C <wt> branch -r --contains
+     HEAD` names a branch. The work is in progress but nothing in the worktree
+     exists only here, so it goes too; `/bond:worktree open` brings it back.
 
    Detached-HEAD worktrees are listed, never removed.
 4. **Run close's step 2 checks on every candidate.** Dirty, unpushed or busy ⇒
@@ -210,8 +215,9 @@ live-session check — the same table as prune, with an empty action column.
 
 ## Do NOT
 
-- Do not `git worktree remove --force`, `git branch -D` a branch whose work is
-  not provably on the base, or delete a remote branch.
+- Do not `rm` a worktree or `git worktree remove --force` it, `git branch -D` a
+  branch whose work is not provably on the base or the remote, or delete a
+  remote branch.
 - Do not remove a worktree with uncommitted changes, unpushed commits, or a live
   process inside it — refuse and show it, whatever the request said.
 - Do not touch the main checkout: never switch its branch, never remove it.
