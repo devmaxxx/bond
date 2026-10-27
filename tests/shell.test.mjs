@@ -97,12 +97,16 @@ describe("check-commit.mjs end to end", () => {
 
   it("still reads a heredoc fed to git commit -F -", () => {
     const script = ["git commit -F - <<'EOF'", "fixed the thing", "EOF"].join("\n");
-    assert.equal(checkCommit(script).status, 2);
+    const { status, stderr } = checkCommit(script);
+    assert.equal(status, 2);
+    assert.match(stderr, /subject "fixed the thing" must be/);
   });
 
   it("still reads a heredoc inside -m \"$(cat <<EOF)\"", () => {
     const script = ['git commit -m "$(cat <<\'EOF\'', "fixed the thing", "EOF", ')"'].join("\n");
-    assert.equal(checkCommit(script).status, 2);
+    const { status, stderr } = checkCommit(script);
+    assert.equal(status, 2);
+    assert.match(stderr, /subject "fixed the thing" must be/);
   });
 
   it("still blocks a non-conventional subject on a real commit", () => {

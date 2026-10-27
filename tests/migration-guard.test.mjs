@@ -251,7 +251,9 @@ describe("the hook against a real repository", () => {
     const repo = makeRepo();
     repo.put("1781800003000-staged.ts");
     repo.git("add", "-A");
-    assert.equal(repo.run("1781800004000-other.ts").status, 2);
+    const result = repo.run("1781800004000-other.ts");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /1781800003000-staged\.ts — update that migration/);
   });
 });
 
@@ -292,7 +294,9 @@ describe("what git lists as this branch's migrations", () => {
     const repo = makeRepo(join("my db é", "migrations"));
     repo.put("1781800001000-first.ts");
     repo.commit("feat: first");
-    assert.equal(repo.run("1781800002000-second.ts").status, 2);
+    const result = repo.run("1781800002000-second.ts");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /1781800001000-first\.ts — update that migration/);
   });
 
   it("does not count one the base has since taken in by a squash merge", () => {
@@ -324,7 +328,9 @@ describe("what git lists as this branch's migrations", () => {
 
 describe("the tools the guard is registered for", () => {
   it("checks an Edit that creates a migration, as it does a Write", () => {
-    assert.equal(makeRepo().run("add-index.ts", "Edit").status, 2);
+    const result = makeRepo().run("add-index.ts", "Edit");
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /migration-guard blocked creating add-index\.ts/);
   });
 
   it("lets an Edit of a migration that exists through", () => {
@@ -360,7 +366,9 @@ describe("git being slow or absent", () => {
   it("still judges the name when git fails", () => {
     const { env } = brokenGit();
     const repo = makeRepo();
-    assert.equal(repo.run("add-index.ts", "Write", env).status, 2);
+    const result = repo.run("add-index.ts", "Write", env);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /"add-index\.ts" must start with a 13-digit timestamp prefix/);
     assert.equal(repo.run("1781800001000-add-index.ts", "Write", env).status, 0);
   });
 });
