@@ -9,7 +9,7 @@ description: >
   comments on the PR or resolves threads — the caller applies the fixes.
 model: opus
 effort: high
-tools: Bash, Read, Grep, Glob, mcp__bond-bitbucket__get_pull_request
+tools: Bash, Read, Grep, Glob, Skill, mcp__bond-bitbucket__get_pull_request
 ---
 
 Review the PR once. Report verified findings. Stop.
@@ -34,6 +34,9 @@ Review the PR once. Report verified findings. Stop.
    - correctness — wrong logic, missed branch, broken contract, race, data loss;
    - security — injection, missing authorization, secrets, unsafe input;
    - tests — a changed behaviour no test pins, a test that cannot fail;
+   - stack traps — load `bond:code-review-skill` through the `Skill` tool and
+     run the `Review Checklist` of each language and framework guide the diff
+     touches; its checklists only — severity and output stay as below;
    - the repo's own rules — its `CLAUDE.md`, `AGENTS.md` and the skills it names
      (comment hygiene, readable structure).
    Skip formatting a formatter owns and taste the repo does not state.

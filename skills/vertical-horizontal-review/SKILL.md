@@ -27,7 +27,8 @@ repo's shape** — don't assume a stack:
   alias, an i18n catalog, a job/idempotency pattern. These become the checks.
 
 Then list which layers the diff touches and run both passes against the layers
-and conventions you actually found.
+and conventions you actually found. Vertically, also run the
+`bond:code-review-skill` checklist per stack touched.
 
 ## 1. Vertical — depth: one feature, all layers
 
@@ -66,3 +67,4 @@ rest left stale. Name the siblings you checked.
 
 Report only real findings. No praise, no restating what the diff obviously does.
 If a pass surfaces nothing, say so explicitly ("Horizontal: no sibling drift").
+Posting it as a PR comment, or backing it with prod data: pr-review-comment.
