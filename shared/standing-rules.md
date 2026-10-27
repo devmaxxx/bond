@@ -172,6 +172,17 @@ A worktree that fails a check stays, reported in one line with the reason.
 Worktrees of other sessions or projects — scratchpads, benches, detached
 checkouts — are never touched.
 
+## Credentials stay out of commands — always on
+
+Never write a command, file or instruction with a slot for a secret — no
+`<YOUR_TOKEN>`, no `export KEY=paste-here`, no "paste your key in chat". Find
+the credential already on the machine — the tool's own login, env, a
+gitignored `.env`, the Keychain, a signed-in MCP server — and pass it by
+reference (`$NAME`, `$(gh auth token --user <account>)`), never printing it.
+Nothing holds it ⇒ hand the user a no-echo login as `! <command>`; cannot be
+had ⇒ stop and name it. Apply the `credential-handling` skill where it is
+installed: it owns the lookup order and the fallbacks.
+
 ## Waiting goes to an agent — always on
 
 Waiting on something outside the session — a PR's CI, a review, another PR
