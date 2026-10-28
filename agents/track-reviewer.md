@@ -5,7 +5,7 @@ description: >
   texts and the batch plan, through every lens in one pass (behaviour, tests
   that would pass without the code, permissions and row-level security, money
   and time, migrations and contract version, user-facing strings, the seams
-  between steps, the stack's own traps), and returns findings graded must, should or nit with
+  between steps, the stack's own traps, security footguns), and returns findings graded must, should or nit with
   file:line and a one-line fix. Use once per track after its last step. Read-only:
   never edits, commits or pushes — the track's fixer applies the findings.
 model: opus
@@ -34,8 +34,13 @@ Review the track once. Report. Stop.
 6. **User-facing strings** — in the product's language, none hard-coded where a
    catalogue exists.
 7. **Seams** — two steps that each assume the other did something.
-8. **Stack** — load `bond:code-review-skill` through the `Skill` tool and run
-   the `Review Checklist` of each language and framework guide the diff touches.
+8. **Stack** — load `bond:code-review` through the `Skill` tool and run the
+   `Review Checklist` of each language and framework guide the diff touches,
+   from its `stacks/`.
+9. **Footguns** — load `bond:sharp-edges` and probe each verifier, parser,
+   decoder, token or crypto helper and security flag the track adds with zero,
+   empty, malformed and oversized input. A verifier that succeeds on malformed
+   input is a `must`.
 
 Verify each finding by reading the code; drop what you cannot point at.
 
@@ -44,6 +49,6 @@ Verify each finding by reading the code; drop what you cannot point at.
 ```json
 { "findings": [
     { "severity": "must | should | nit", "file": "path", "line": 0,
-      "defect": "one line", "fix": "one line", "lens": "behaviour | tests | rls | money | migration | contract | strings | seam | stack" } ],
+      "defect": "one line", "fix": "one line", "lens": "behaviour | tests | rls | money | migration | contract | strings | seam | stack | footgun" } ],
   "summary": "one line" }
 ```

@@ -43,10 +43,18 @@ describe("pr-review and security-review stay paired", () => {
     });
   }
 
-  it("the shared flow names both", () => {
+  it("the shared flow names both, and Claude Code's built-in security review", () => {
     const text = readFileSync(join(ROOT, "shared/pr-review-flow.md"), "utf8");
     for (const agent of PAIR) {
       assert.ok(text.includes(`bond:${agent}`), agent);
     }
+    assert.match(text, /claude -p "\/security-review" --setting-sources ""/);
   });
+
+  // A PR review that skips the flow ships without either security pass.
+  for (const file of ["commands/review-pr.md", "agents/pr-audit.md"]) {
+    it(`${file} runs the shared flow`, () => {
+      assert.match(readFileSync(join(ROOT, file), "utf8"), /pr-review-flow\.md/);
+    });
+  }
 });
