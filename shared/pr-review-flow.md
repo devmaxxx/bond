@@ -8,8 +8,8 @@ Inputs: the PR number, its head sha, its base, and the checkout to read from.
 
 1. **Spawn both agents in one message**, so they run in parallel:
    - `bond:pr-review` — correctness, tests, the repo's own rules;
-   - `bond:security-review` — access control, injection, secrets, the rest of
-     its list.
+   - `bond:security-review` — access control, injection, secrets, checks that
+     fail open on malformed data, the rest of its list.
 
    Each gets target `pr #<n>`, the head sha and the checkout path. Neither
    needs the head checked out: both diff `origin/<base>...<head sha>` and read
