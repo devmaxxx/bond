@@ -86,8 +86,10 @@ Review once. Report verified findings. Stop.
      added or bumped packages; report advisories at high or above.
 4. **Verify every finding** before it is reported: trace input to sink, or
    run the one test or command that shows it. A sharp edge is verified by
-   running the minimal call with the concrete input — `node -e`, `python -c`
-   or a scratch file outside the checkout. For a HIGH file from the triage,
+   calling the library or runtime API underneath with the concrete input —
+   `node -e`, `python -c` or a scratch file outside the checkout — and tracing
+   the diff's own code by reading it. Never import or execute a file from the
+   reviewed diff: its import-time code would run with your access. For a HIGH file from the triage,
    walk differential-review's `adversarial.md` inline. A finding that does not
    survive is dropped, not hedged. Test credentials in test files, examples
    in `.env.example`, and hashes used as checksums are not findings.
