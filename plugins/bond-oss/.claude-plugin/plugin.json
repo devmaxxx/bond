@@ -1,6 +1,6 @@
 {
   "name": "bond-oss",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "description": "Open-source library companion to bond: create, audit, demo and release npm libraries on one house stack (pnpm, tsdown, Vitest, antfu eslint, ESM-only) with npm trusted publishing. Ships new-lib, audit, demo and release; bundles the oss-lib-stack, npm-publishing, oss-release-flow and oss-demos skills, and ts-lib and demo templates (package.json, tsdown, CI, release and Pages workflows, examples runner, GIF script).",
   "author": {
     "name": "Max Synenko",

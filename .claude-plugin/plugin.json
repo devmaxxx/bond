@@ -1,6 +1,6 @@
 {
   "name": "bond",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "description": "Dev workflow commands, project-flexible: commands resolve a per-repo profile (PR host, base branch, Jira tracker or none, reviewers, drafts) so they work inside Bonliva and outside it. Ships help, disk-analyze, fix-ci, implement, implement-batch, investigate, jira, linkedin, linkedin-draft, merge-pr, open-pr, sweep-pr, rebase, review-pr, ship-pr, start, worktree; bundles the readable-code-structure, comment-hygiene, testing-behavior, vertical-horizontal-review, pr-review-comment, pr-template, Trail of Bits' sharp-edges, differential-review, variant-analysis and insecure-defaults (CC BY-SA 4.0), photo-jpeg-exiftool, authorship-conventions, routing-model-and-effort, routing-code-review, linkedin-writing, and finishing-with-code-review skills; ships the docs-explorer, test-runner, pr-status and ci-diagnose agents and the effort-low…effort-max agents; a SessionStart hook carries the always-on standing rules, session-memory hooks carry a short note from one session in a repo to the next, a suggest-compact hook reminds at phase boundaries, and hooks block AI signatures in commits, PRs and docs and keep secrets out of prompts and tracked files. Bonliva-only commands and MCP setup live in the bond-bonliva plugin.",
   "author": {
     "name": "Max Synenko",
