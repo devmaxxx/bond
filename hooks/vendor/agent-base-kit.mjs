@@ -1,5 +1,4 @@
-// agent-base-kit 0.3.0, dist/index.mjs built from devmaxxx/agent-base-kit commit 3e5a3849c66ff5dfa22c731603afca7b730de1ab.
-// UNPUBLISHED: 0.3.0 is not on npm yet. Once it is, refresh with scripts/vendor-agent-base-kit.sh 0.3.0.
+// agent-base-kit 0.3.0, dist/index.mjs from npm (sha512-OsaVoKJ4pLxGEctTVLFPQZTIdUPvYk6AIs5GUX0aHXy3MTlhFnhQNALxTk2jGZ7+OqMXX9X1/mm6DDa4FICX4Q==).
 // Vendored, do not edit: refresh with scripts/vendor-agent-base-kit.sh <version>.
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -649,10 +648,14 @@ function hookArgs(args) {
 		const [flag, value] = [args[i], args[i + 1]];
 		if (flag === "--event" && isEvent(value) && parsed.event === void 0) parsed.event = value;
 		else if (flag === "--agent" && isAgent(value) && parsed.agent === void 0) parsed.agent = value;
-		else return {
-			...parsed,
-			error: `${[flag, value].filter((word) => word !== void 0).join(" ")} is not an argument hook takes`
-		};
+		else {
+			const named = args.find((word, at) => args[at - 1] === "--event" && isEvent(word));
+			return {
+				...parsed,
+				event: parsed.event ?? (isEvent(named) ? named : void 0),
+				error: `${[flag, value].filter((word) => word !== void 0).join(" ")} is not an argument hook takes`
+			};
+		}
 	}
 	return parsed;
 }

@@ -37,15 +37,8 @@ describe("the vendored agent-base-kit", () => {
     assert.equal(readFileSync(bonliva, "utf8"), readFileSync(bond, "utf8"));
   });
 
-  // A build vendored ahead of its npm release names the commit instead, and
-  // says so, until scripts/vendor-agent-base-kit.sh replaces it.
-  it("names the version and the tarball or unpublished commit it was taken from", () => {
-    const [header, next] = readFileSync(bond, "utf8").split("\n");
-    if (/ built from devmaxxx\/agent-base-kit commit /.test(header)) {
-      assert.match(header, /^\/\/ agent-base-kit \d+\.\d+\.\d+, dist\/index\.mjs built from devmaxxx\/agent-base-kit commit [0-9a-f]{40}\.$/);
-      assert.match(next, /^\/\/ UNPUBLISHED: /);
-      return;
-    }
+  it("names the version and the tarball it was taken from", () => {
+    const [header] = readFileSync(bond, "utf8").split("\n");
     assert.match(header, /^\/\/ agent-base-kit \d+\.\d+\.\d+, dist\/index\.mjs from npm \(sha512-/);
   });
 });
