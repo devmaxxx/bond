@@ -14,7 +14,7 @@ finding. Identity comes from `${CLAUDE_PLUGIN_ROOT}/shared/oss-profile.md`.
 
 ## The stack (TypeScript lib)
 
-- **pnpm** (`packageManager` pinned), **tsdown** (`dts`, `exports`, `publint`),
+- **pnpm 11** (`packageManager` pinned to the latest 11.x), **tsdown** (`dts`, `exports`, `publint`),
   **Vitest**, **`@antfu/eslint-config`** (`type: 'lib'`), `tsc` as `typecheck`.
 - **ESM-only**, `sideEffects: false`, `./package.json` exported, `files:
   [CHANGELOG.md, dist]`, zero or few runtime deps; optional peers for integrations.

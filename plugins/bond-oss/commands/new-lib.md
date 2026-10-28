@@ -28,7 +28,7 @@ In `~/Documents/projects/<name>` (abort if it exists and is not empty):
 
 - `node` / `react`: copy `${CLAUDE_PLUGIN_ROOT}/templates/ts-lib/` (dotfiles
   included), fill `{{NAME}}`, `{{DESCRIPTION}}`, `{{OWNER}}`, `{{LICENSE_HOLDER}}`,
-  `{{YEAR}}`; `react` adds React ≥ 18 as a peer dependency, `"lib": ["ES2022", "DOM"]` and
+  `{{YEAR}}`, and set `packageManager` to `pnpm@` + `npm view pnpm@latest-11 version`; `react` adds React ≥ 18 as a peer dependency, `"lib": ["ES2022", "DOM"]` and
   `"jsx": "react-jsx"` to `tsconfig.json`, and the `example/` workspace from the
   `oss-demos` skill.
 - `rn`: `npx create-react-native-library@latest` (bob), then align metadata,

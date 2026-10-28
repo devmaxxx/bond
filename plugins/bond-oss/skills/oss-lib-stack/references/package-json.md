@@ -8,7 +8,7 @@ broke a past lib.
 | `name` | free on npm (`npm view <name>` → E404) **before** the first public commit; check scoped and platform names too | repograph taken on npm *and* crates.io after weeks of work → rename of ~1000 occurrences |
 | `type` | `module` | — |
 | `version` | `0.1.0` for a new lib; `1.0.0` only when the API is promised | — |
-| `packageManager` | pinned `pnpm@x.y.z` | — |
+| `packageManager` | pinned `pnpm@11.x.y`, the latest 11 (`npm view pnpm@latest-11 version`) | — |
 | `description` | one sentence, plain; numbers as digits ("24 languages") | — |
 | `author` | `LICENSE_HOLDER`, same string as `LICENSE` | a handle in one, the full name in the other → "fix license" |
 | `license` | `MIT` | — |
