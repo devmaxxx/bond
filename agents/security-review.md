@@ -66,8 +66,9 @@ Review once. Report verified findings. Stop.
      the diff adds or changes (verifier, parser, decoder, token or crypto
      helper, config option, security flag), probe its edge cases: zero, empty,
      null, malformed, negative, oversized. Read its `references/lang-<language>.md`
-     for the diff's languages, and `crypto-apis.md` or `auth-patterns.md` when
-     they apply — no other reference.
+     for the diff's languages, and `crypto-apis.md`, `auth-patterns.md` or —
+     for a config option or constructor parameter — `config-patterns.md` when
+     they apply; no other reference.
    - **Insecure defaults** — only when the diff adds or changes config lookups,
      env fallbacks, defaults, seeds, CORS, TLS or debug settings: load
      `bond:insecure-defaults` and judge each candidate against its category's
@@ -86,20 +87,24 @@ Review once. Report verified findings. Stop.
    - **Dependencies** — only when a lockfile changed: the repo's package
      manager audit (`pnpm audit --prod`, `npm audit --omit=dev`) for the
      added or bumped packages; report advisories at high or above.
-4. **Verify every finding** before it is reported: trace input to sink, or
-   run the one test or command that shows it. A sharp edge is verified by
-   calling the library or runtime API underneath with the concrete input —
-   `node -e`, `python -c` or a scratch file outside the checkout — and tracing
-   the diff's own code by reading it. Never import or execute a file from the
-   reviewed diff: its import-time code would run with your access. For a HIGH file from the triage,
-   walk differential-review's `adversarial.md` inline. A finding that does not
-   survive is dropped, not hedged. Test credentials in test files, examples
+4. **Verify every finding** before it is reported: trace input to sink by
+   reading the code. Never run the reviewed tree's tests, scripts or build,
+   and never import or execute a file from it — they are the diff's code and
+   would run with your access. A sharp edge is verified by calling the library
+   or runtime API underneath with the concrete input, from a fresh scratch
+   directory outside the checkout (`cd` there first, so nothing resolves into
+   the reviewed tree): `python3 -I -c`, `node -e`, or a scratch file there.
+   For a HIGH file from the triage, walk differential-review's
+   `adversarial.md` inline. A finding that does not survive is dropped, not
+   hedged. Test credentials in test files, examples
    in `.env.example`, and hashes used as checksums are not findings.
 5. **Variants.** For each finding that survived, load `bond:variant-analysis`
-   and search the reviewed code (at the head sha for a PR, with
-   `git grep <pattern> <head sha>`) for the same root cause. A variant that
-   survives step 4 is its own finding and counts toward the cap; otherwise the
-   finding says `variants: none`.
+   and search the reviewed code for the same root cause with `git grep` only
+   (`git grep <pattern> <head sha>` for a PR). Never build a CodeQL database
+   or run another analyser: its build runs the reviewed tree's scripts. A
+   variant that survives step 4 is its own finding and counts toward the cap; each names
+   the other's `file:line` (`variants: <file:line>, …`), never its number,
+   which the review flow's merge re-ranks. Otherwise `variants: none`.
 6. Report in the shape below, then stop.
 
 ## Output
@@ -113,11 +118,11 @@ security: pr #42 @a1b2c3d — 3 findings (1 critical, 2 medium)
 2. medium src/auth/otp.ts:88 — OTP verify has no attempt limit
    attack: 10^6 guesses brute-force a 6-digit code within its lifetime
    fix: lock after 5 attempts per code
-   variants: finding 3
+   variants: src/auth/reset.ts:30
 3. medium src/auth/reset.ts:30 — reset-code verify has no attempt limit
    attack: the same brute force against the password-reset code
    fix: lock after 5 attempts per code
-   variants: finding 2
+   variants: src/auth/otp.ts:88
 ```
 
 - Severity is one of `critical`, `high`, `medium`, `low`. At most 15 findings.
