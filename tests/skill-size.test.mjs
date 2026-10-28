@@ -17,7 +17,6 @@ const LIMIT = 3072;
 
 // Vendored unchanged from upstream and refreshed from there, so its body is not ours to trim.
 const VENDORED = new Set([
-  "code-review-skill",
   "differential-review",
   "sharp-edges",
   "variant-analysis",
@@ -25,6 +24,9 @@ const VENDORED = new Set([
 
 // Third-party skills ship their upstream license file; the Trail of Bits ones are CC BY-SA, not bond's MIT.
 const THIRD_PARTY = new Set([...VENDORED, "insecure-defaults"]);
+
+// A skill that bundles several third-party corpora keeps each one's license beside it.
+const BUNDLED_LICENSES = { "code-review": ["stacks/LICENSE", "security/LICENSE"] };
 
 const skillsIn = (root) =>
   existsSync(root)
@@ -54,6 +56,12 @@ describe("what a skill body costs at every prompt", () => {
     if (THIRD_PARTY.has(name)) {
       it(`${name} ships its upstream license`, () => {
         assert.ok(existsSync(join(dir, "LICENSE")), `${name}/LICENSE is missing`);
+      });
+    }
+
+    for (const license of BUNDLED_LICENSES[name] ?? []) {
+      it(`${name} ships ${license}`, () => {
+        assert.ok(existsSync(join(dir, license)), `${name}/${license} is missing`);
       });
     }
 

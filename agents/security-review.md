@@ -47,7 +47,9 @@ Review once. Report verified findings. Stop.
    params, headers, webhook payloads, uploaded files, third-party responses)
    and where it lands (query, shell, filesystem path, URL fetch, HTML, log,
    redirect, deserializer). Every finding is one such path.
-3. **Check, in order:**
+3. **Check, in order.** Load `bond:code-review` and, for each class below
+   the diff touches, read its `security/` reference and the diff's language
+   guide there; its "when it is a finding" rule holds in step 4.
    - **Access control** — every route and resolver checks the caller, and
      object access checks ownership or tenant, not only login (IDOR). The
      repo's own permission model wins over a generic rule.

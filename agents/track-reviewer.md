@@ -34,8 +34,9 @@ Review the track once. Report. Stop.
 6. **User-facing strings** — in the product's language, none hard-coded where a
    catalogue exists.
 7. **Seams** — two steps that each assume the other did something.
-8. **Stack** — load `bond:code-review-skill` through the `Skill` tool and run
-   the `Review Checklist` of each language and framework guide the diff touches.
+8. **Stack** — load `bond:code-review` through the `Skill` tool and run the
+   `Review Checklist` of each language and framework guide the diff touches,
+   from its `stacks/`.
 9. **Footguns** — load `bond:sharp-edges` and probe each verifier, parser,
    decoder, token or crypto helper and security flag the track adds with zero,
    empty, malformed and oversized input. A verifier that succeeds on malformed
