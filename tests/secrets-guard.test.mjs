@@ -676,6 +676,97 @@ describe("the hook end to end", () => {
     assert.match(blocked.stderr, /Figma token/);
   });
 
+  it("exits 2 for an Edit that adds a token to a tracked file, and 0 for a clean one", () => {
+    const cwd = repo();
+    const edit = (new_string) =>
+      runHook({
+        hook_event_name: "PreToolUse",
+        cwd,
+        tool_name: "Edit",
+        tool_input: { file_path: join(cwd, "src", "config.ts"), old_string: "const ttl = 1;", new_string },
+      });
+    const blocked = edit(`const t = "${fake.github()}";`);
+    assert.equal(blocked.status, 2);
+    assert.match(blocked.stderr, /GitHub token/);
+    assert.equal(edit("const ttl = 2;").status, 0);
+  });
+
+  it("exits 2 for a NotebookEdit whose new source holds a token, and 0 for a clean one", () => {
+    const cwd = repo();
+    const notebookEdit = (new_source) =>
+      runHook({
+        hook_event_name: "PreToolUse",
+        cwd,
+        tool_name: "NotebookEdit",
+        tool_input: { notebook_path: join(cwd, "analysis.ipynb"), cell_id: "c1", new_source },
+      });
+    const blocked = notebookEdit(`key = "${fake.anthropic()}"`);
+    assert.equal(blocked.status, 2);
+    assert.match(blocked.stderr, /Anthropic API key/);
+    assert.equal(notebookEdit("key = os.environ['API_KEY']").status, 0);
+  });
+
+  for (const [tool, field] of [
+    ["create_pull_request", "description"],
+    ["create_draft_pull_request", "description"],
+    ["update_pull_request", "title"],
+    ["add_pull_request_comment", "content"],
+    ["update_pull_request_comment", "content"],
+  ]) {
+    it(`exits 2 for ${tool} with a token in its ${field}, and 0 for a clean one`, () => {
+      const call = (text) =>
+        runHook({
+          hook_event_name: "PreToolUse",
+          cwd: tempDir(),
+          tool_name: `mcp__bond-bitbucket__${tool}`,
+          tool_input: { workspace: "bonliva", repo_slug: "crm", pull_request_id: 7, [field]: text },
+        });
+      const blocked = call(`deploy with ${fake.slack()}`);
+      assert.equal(blocked.status, 2);
+      assert.match(blocked.stderr, /Slack token/);
+      assert.equal(call("deploy with the token from the vault").status, 0);
+    });
+  }
+
+  it("exits 2 for a MultiEdit that adds a token another of its edits takes out", () => {
+    const cwd = repo();
+    const token = fake.github();
+    const multiEdit = (edits) =>
+      runHook({
+        hook_event_name: "PreToolUse",
+        cwd,
+        tool_name: "MultiEdit",
+        tool_input: { file_path: join(cwd, "src", "config.ts"), edits },
+      });
+    const moved = [
+      { old_string: `const t = "${token}";`, new_string: "const t = process.env.GITHUB_TOKEN;" },
+      { old_string: "const ttl = 1;", new_string: `const ttl = 1;\nconst u = "${token}";` },
+    ];
+    const blocked = multiEdit(moved);
+    assert.equal(blocked.status, 2);
+    assert.match(blocked.stderr, /GitHub token/);
+    assert.equal(multiEdit(moved.slice(0, 1)).status, 0);
+  });
+
+  it("exits 2 for a MultiEdit whose second edit rewrites a token its first edit wrote", () => {
+    const cwd = repo();
+    const token = fake.github();
+    const out = runHook({
+      hook_event_name: "PreToolUse",
+      cwd,
+      tool_name: "MultiEdit",
+      tool_input: {
+        file_path: join(cwd, "config.py"),
+        edits: [
+          { old_string: "A = 1", new_string: `TOKEN = "${token}"` },
+          { old_string: `${token}"\nC = 2`, new_string: `${token}"\nC = 3` },
+        ],
+      },
+    });
+    assert.equal(out.status, 2);
+    assert.match(out.stderr, /GitHub token/);
+  });
+
   it("exits 0 for a secret written outside any repo", () => {
     const cwd = tempDir();
     assert.equal(write(cwd, join(cwd, "notes.txt"), fake.aws()).status, 0);
@@ -698,9 +789,17 @@ describe("the hook end to end", () => {
     assert.equal(commit().status, 0);
   });
 
-  it("exits 0 on unparseable input", () => {
+  it("exits 2 on unparseable input, so a tool call it cannot read does not run unchecked", () => {
     const out = spawnSync(process.execPath, [HOOK], { input: "not json", encoding: "utf8" });
+    assert.equal(out.status, 2);
+    assert.match(out.stderr, /^Blocked by secrets-guard, it could not check the call: /);
+  });
+
+  it("lets a prompt through when it cannot check it", () => {
+    const out = runHook({ hook_event_name: "UserPromptSubmit", prompt: { text: fake.github() } });
     assert.equal(out.status, 0);
+    assert.equal(out.stdout, "");
+    assert.match(out.stderr, /^secrets-guard could not check the prompt, so it let it pass: /);
   });
 });
 
@@ -711,7 +810,8 @@ describe("the hook run from the path a plugin cache gives it", () => {
   // strings would leave the hook running nothing and answering "all clear".
   const install = (dir) => {
     mkdirSync(dir, { recursive: true });
-    for (const file of ["secrets-guard.mjs", "shell.mjs"]) {
+    mkdirSync(join(dir, "vendor"));
+    for (const file of ["secrets-guard.mjs", "shell.mjs", "vendor/agent-base-kit.mjs"]) {
       copyFileSync(join(HOOKS_DIR, file), join(dir, file));
     }
     return join(dir, "secrets-guard.mjs");
@@ -762,5 +862,33 @@ describe("the registration in hooks.json", () => {
   it("also guards the prompt", () => {
     const registered = hooks.UserPromptSubmit.flatMap((group) => group.hooks);
     assert.ok(registered.some((hook) => hook.command.includes("secrets-guard.mjs")));
+  });
+
+  // The command as Claude Code runs it, from the plugin root.
+  const run = (command, input) =>
+    spawnSync("/bin/sh", ["-c", command.replaceAll("${CLAUDE_PLUGIN_ROOT}", dirname(HOOKS_DIR))], { input, encoding: "utf8" });
+  const promptCommand = () =>
+    hooks.UserPromptSubmit.flatMap((group) => group.hooks).find((hook) => hook.command.includes("secrets-guard.mjs")).command;
+
+  it("lets a prompt payload that arrives cut short or empty pass, saying why", () => {
+    for (const input of [`{"hook_event_name":"UserPromptSubmit","prompt":"token ${fake.github()} and the rest`, ""]) {
+      const out = run(promptCommand(), input);
+      assert.equal(out.status, 0, out.stderr);
+      assert.equal(out.stdout, "");
+      assert.match(out.stderr, /^secrets-guard could not check the prompt, so it let it pass: /);
+    }
+  });
+
+  // The entry names Claude Code, so a payload that looks like Codex's (it
+  // carries turn_id) still gets the field that keeps the prompt unprinted.
+  it("still blocks a whole prompt with a token, hiding it from the reply", () => {
+    const out = run(promptCommand(), JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: `token ${fake.github()}`, turn_id: "t1" }));
+    assert.equal(out.status, 0, out.stderr);
+    assert.deepEqual(JSON.parse(out.stdout).hookSpecificOutput, { hookEventName: "UserPromptSubmit", suppressOriginalPrompt: true });
+  });
+
+  it("blocks a tool call payload that arrives cut short", () => {
+    const out = run(guarded.hooks[0].command, '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_in');
+    assert.equal(out.status, 2);
   });
 });
