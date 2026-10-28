@@ -1,7 +1,7 @@
 ---
 name: insecure-defaults
 description: Judges insecure default configuration in a diff or path — fallback secrets, default credentials, fail-open security switches, weak crypto, permissive access, debug leakage — each candidate traced to the security decision it reaches before it is reported. Use when reviewing code that adds or changes config lookups, env-var fallbacks, defaults, seeds, feature flags, CORS, TLS or debug settings.
-allowed-tools: Read Grep Glob Bash
+allowed-tools: Read Grep Glob
 ---
 
 # Insecure defaults
@@ -27,7 +27,10 @@ holds seed patterns (POSIX ERE).
 ## Two shapes
 
 - **Configurable** — a lookup with a fallback (`env.get('K', 'x')`). A bug only
-  if the app can run with the fallback. `env['K']` crashes instead, so it is fine.
+  if the app can run with the fallback. A bare lookup is fine only where a
+  missing key throws (Python `os.environ['K']`, Ruby `ENV.fetch('K')`) or is
+  checked at startup. JS/TS `process.env.K` or a Workers `c.env.K` returns
+  `undefined` and runs on: configurable, with `undefined` as the fallback.
 - **Unconditional** — insecure as written, no configuration anywhere. A missing
   env var is not grounds to drop one.
 
