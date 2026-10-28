@@ -19,7 +19,7 @@ Compare against `templates/ts-lib/` and the user's newest lib, not memory.
 
 ## 3. Build and package
 
-- [ ] `packageManager`, tsdown `dts`/`exports`/`publint`, ESM-only (or a reason).
+- [ ] `packageManager` on the latest pnpm 11, tsdown `dts`/`exports`/`publint`, ESM-only (or a reason).
 - [ ] `files`, `sideEffects`, `./package.json` export, `bin` without `./`.
 - [ ] `engines.node` == the lowest Node CI tests.
 - [ ] `publishConfig` without `provenance` (trusted publishing adds it).
