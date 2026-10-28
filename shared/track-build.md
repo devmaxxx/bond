@@ -128,7 +128,9 @@ every lens at once:
 - migrations, and the contract version;
 - user-facing strings in the product's language;
 - the seams between steps;
-- the stack's own traps, from `bond:code-review-skill`.
+- the stack's own traps, from `bond:code-review-skill`;
+- security footguns — verifiers, parsers and flags probed with malformed input,
+  from `bond:sharp-edges`.
 
 Each finding: `severity` (`must` | `should` | `nit`), `file:line`, the defect in
 one line, the fix in one line.

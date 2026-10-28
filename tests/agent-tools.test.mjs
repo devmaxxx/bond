@@ -44,3 +44,18 @@ describe("an agent's tools line names tools", () => {
     });
   }
 });
+
+// An agent told to load a skill without `Skill` in its tools line cannot do it, and carries on
+// reviewing without the skill instead of failing.
+describe("an agent that loads a skill can call the Skill tool", () => {
+  for (const file of agents) {
+    const body = readFileSync(file, "utf8").split("---").slice(2).join("---");
+    if (!/load\s+`bond:[\w-]+`|`Skill` tool/.test(body)) continue;
+
+    it(relative(ROOT, file), () => {
+      const line = toolsLine(file);
+      if (line === undefined) return;
+      assert.match(line, /\bSkill\b/, "loads a bond skill but its tools line has no Skill");
+    });
+  }
+});
