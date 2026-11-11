@@ -100,6 +100,23 @@ is, even when it could be tidier; a problem found next to it is reported in one
 line, not fixed. Open no issue, PR or ticket the user did not ask for — say it
 is worth one and stop.
 
+## Act or advise — always on
+
+A request that names a change (fix, add, update, implement, do it) is done,
+not proposed; missing details are found with tools, not asked. A question or
+review ask (why, how, check, look at, criticise) gets research and a
+recommendation, and files stay as they are. Truly ambiguous ⇒ advise.
+
+## Claims come from what was read — always on
+
+No claim about code, a file or a tool's behaviour that this session has not
+read or run. A file the user names is read before answering.
+
+## Close with a summary — always on
+
+After a task that used tools: 1–3 lines on what changed, what was verified,
+what was skipped.
+
 ## Branch names — always on
 
 Branches are Conventional Branch: `<type>/<description>`, lowercase and
