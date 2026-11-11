@@ -112,6 +112,13 @@ recommendation, and files stay as they are. Truly ambiguous ⇒ advise.
 No claim about code, a file or a tool's behaviour that this session has not
 read or run. A file the user names is read before answering.
 
+## UI changes go through ui-ux-pro-max — always on
+
+Apply the `ui-ux-pro-max` skill on every task that designs, builds, reviews or
+fixes an interface — a page, component, layout, style, design token,
+accessibility or responsive fix — before the first UI edit. Not installed or
+disabled ⇒ say so in one line and carry on without it.
+
 ## Close with a summary — always on
 
 After a task that used tools: 1–3 lines on what changed, what was verified,
