@@ -147,21 +147,6 @@ start (a failing check, a ticket blocker, a tool error) earns a second question.
 Where nobody can be asked — a cron or `-p` turn, a subagent — take the
 recommended options and name them in the report.
 
-## Code review at the end — always on
-
-Apply the `bond:finishing-with-code-review` skill at the end of every task that
-changed code. **The skill owns the procedure** — the target, the launch, the
-apply-and-prove, the commit, and what the recap must name. Do not run a review
-from memory of this paragraph.
-
-In particular the level is not set here: `bond:routing-code-review` reads it off
-the diff, and a level written into a standing rule is a guess that outranks the
-router on every task it is wrong about.
-
-A task reported done with the review unrun is not done. The router's card names
-the skips — a docs-only or comment-only diff, or a small low-risk one — and a skip is said in words,
-as is a review that found nothing.
-
 ## A new PR is audited in a fresh context — always on
 
 Once implementation opens a PR — through `/bond:implement`, a batch, or by

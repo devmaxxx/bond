@@ -260,7 +260,6 @@ claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-c
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/medium by default, high for a change over five files, across modules or untested, fable for planning only on the hard predicates, opus for every build unless a model is named, a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session, and recon — search, callers, a docs lookup, one check run — spawned on `haiku`. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
 - **linkedin-writing** — voice and format for LinkedIn posts and articles: facts from the repo, numbers checked against the vendor's docs, attribution left to the author, plain text for posts, one cover-image prompt with its technical description, and how to fill LinkedIn's editors in Chrome without publishing. Used by `/linkedin` and `/linkedin-draft`. Bundled under `skills/linkedin-writing/`.
-- **finishing-with-code-review** — a task that changed code ends with the routed review, the findings applied, the tests re-run and the fixes committed, then the recap; a docs-only diff is the one skip. Triggers before a recap, before a PR, and on "ship it". Bundled under `skills/finishing-with-code-review/`.
 
 ## Agents
 
@@ -316,7 +315,6 @@ bond/
 │   ├── authorship-conventions/  # branch/commit/PR/doc naming, attribution, gh account
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
 │   ├── routing-code-review/  # /code-review level, target and flags per diff
-│   └── finishing-with-code-review/  # every code task ends with the review
 ├── agents/
 │   ├── docs-explorer.md     # look up official docs before using a third-party API
 │   ├── test-runner.md       # run one check, return only the failures

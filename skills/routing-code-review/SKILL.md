@@ -1,6 +1,6 @@
 ---
 name: routing-code-review
-description: Use when a `/code-review` is about to be launched — at task end by finishing-with-code-review, in the review step of /implement, or because the user asked for a diff, branch, PR or path to be reviewed — and no level was typed for it in this conversation; when you notice yourself picking a review level or a `--fix`, `--comment` or `--post` flag; when the user names a level or asks for ultra; or when the diff under review changes shape after it was routed (new commits land, the target moves from the tree to a PR, a second fix round starts).
+description: Use when a `/code-review` is about to be launched — in the review step of /implement, or because the user asked for a diff, branch, PR or path to be reviewed — and no level was typed for it in this conversation; when you notice yourself picking a review level or a `--fix`, `--comment` or `--post` flag; when the user names a level or asks for ultra; or when the diff under review changes shape after it was routed (new commits land, the target moves from the tree to a PR, a second fix round starts).
 ---
 
 # Routing code review
