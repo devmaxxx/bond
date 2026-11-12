@@ -17,7 +17,7 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
 | `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
-| `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task or a `--spec` file where there is no tracker — then branch, plan (reviewed in a fresh context), tests first, code, and map every acceptance criterion to its test; `--review-plan` / `--checkpoints` stop for approval, `--resume` continues |
+| `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task or a `--spec` file where there is no tracker — then branch, plan (reviewed in a fresh context), tests first, code, and map every acceptance criterion to its test, each phase through its superpowers skill when that plugin is installed; `--review-plan` / `--checkpoints` stop for approval, `--resume` continues |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/linkedin`       | Write a LinkedIn post or article from the source, facts and numbers checked, with an optional cover-image prompt |
 | `/linkedin-draft` | Put an approved post or article into LinkedIn's composer or article editor through Chrome — a draft, never published |
@@ -346,6 +346,7 @@ bond/
 │   └── effort-{low,medium,high,xhigh,max}.md  # one agent per effort level
 ├── shared/
 │   ├── implement-flow.md   # shared procedures used by /implement
+│   ├── superpowers.md      # which superpowers skill each implement phase runs
 │   ├── merge-conflicts.md  # detect, rebase or merge, resolve, prove — ship-pr, rebase, sweep-pr
 │   ├── project-profile.md  # per-repo host, base, tracker, reviewers
 │   ├── standing-rules.md   # always-on rules, printed by the SessionStart hook

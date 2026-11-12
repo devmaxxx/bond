@@ -6,6 +6,10 @@
 > below for everything they have in common, so the shared logic lives in exactly
 > one place. A command lists which procedures it runs, in what order, and the
 > inputs it sets; follow the procedure definitions here.
+>
+> Each phase runs through the superpowers skill
+> `${CLAUDE_PLUGIN_ROOT}/shared/superpowers.md` names for it, with that
+> file's overrides; without the plugin, from the text here.
 
 ## Autonomy
 
@@ -294,12 +298,22 @@ write the criteria the task implies and mark them `(inferred)`.>
 ## Files to change
 - `<path/to/file>` — <one-line reason>
 
+## Global constraints
+<the spec's project-wide requirements — version floors, dependency limits,
+naming and copy rules — one line each, values copied verbatim; omit if none>
+
 ## Implementation steps
 Contract first — shared types, schemas, DTOs or the API shape both sides
 use — then one vertical slice per behaviour (schema → service/API → UI), each
-slice small enough to test on its own.
-1. <Concrete step>
-2. ...
+slice small enough to test on its own. One task per slice, each naming its
+files, the exact names and signatures it adds, and the test that proves it:
+### Task 1: <slice>
+Files: `<path>` · Test: `<file> › <test>` · ACs: <ids>
+- [ ] Write the failing test (already red when **Tests first** ran)
+- [ ] Run it and see it fail for the missing behaviour
+- [ ] Implement the minimum to pass
+- [ ] Run it and the module's tests green
+### Task 2: ...
 
 ## Tests
 - `<test file path>` — `<describe> > <it>` — <what it asserts> — <AC ids>
@@ -312,6 +326,10 @@ slice small enough to test on its own.
 Choices made autonomously during the flow (see **Autonomy**):
 - <decision>: considered <options>; chose <selected> — <why>.
 ```
+
+Write it through `superpowers:writing-plans` — its file mapping, task sizing
+and step granularity — in this structure and at `PLAN_FILE` (see the
+overrides in `shared/superpowers.md`).
 
 - `PLAN_MODE=write`: create `PLAN_FILE` with the base structure filled in.
 - `PLAN_MODE=append`: locate `PLAN_FILE` (`docs/plans/<TICKET_ID>_*.md` also
@@ -387,7 +405,8 @@ starts, at every phase boundary and at every stop:
 reason while the run waits, empty otherwise; `pr` is the PR's number or URL
 once **Ship + PR** opened it. A phase the run will not do — by its mode, or
 **Tests first** with two or more tickets — is `skipped` from the first write,
-never left `todo`. At each boundary also print one line:
+never left `todo`; **Tests first** under a subagent-driven build is marked
+`skipped` at the Plan review boundary, once the plan's file count decides it. At each boundary also print one line:
 `▰▰▰▱▱▱▱▱▱▱ 3/10 · Plan review`. After the last phase every status is `done` or
 `skipped`. Mark **Audit** `done` before spawning the `bond:pr-audit` agent, so
 a resume never spawns a second one.
@@ -437,8 +456,8 @@ with or without `--from`.
 **Inputs:** `SCOPE` (as in **Implement**).
 
 Before any production code in `SCOPE`, write the tests the plan's **Tests**
-section lists for it — through `superpowers:test-driven-development` when the
-superpowers plugin is installed — following the rules of **Test** (co-located,
+section lists for it — through `superpowers:test-driven-development` — following
+the rules of **Test** (co-located,
 the module's own style, `bond:testing-behavior`). Run them through
 `bond:test-runner` and read why each fails:
 
@@ -456,11 +475,15 @@ No commit here: tests and code ship together.
 **Inputs:** `SCOPE` — what to implement: the whole plan (`/implement`) or only
 the newest appended section (`PLAN_MODE=append`).
 
-Execute the implementation steps within `SCOPE` in order. After each logical
-group of changes, briefly say what was done and which files were modified.
+Execute the plan's tasks within `SCOPE` in order: through
+`superpowers:subagent-driven-development` when the plan names three or more
+files — the main thread keeps the plan and the verdicts, test output stays in
+the subagents — otherwise inline through `superpowers:executing-plans`. After
+each task, briefly say what was done and which files were modified.
 
-- Do **not** commit — leave staging and committing to the user or
-  the **Ship + PR** step.
+- Commit only the per-task commits subagent-driven-development makes for its
+  task reviews, local and per `bond:authorship-conventions`; never push.
+  Inline builds do not commit — **Ship + PR** does.
 - If something blocks a step (missing type, unexpected API shape, etc.), pause
   and ask the user rather than guessing. An unexpected shape from a
   third-party library is a `bond:docs-explorer` lookup first, a question only if
@@ -481,13 +504,17 @@ and that **Tests first** has not already written:
 - Do not write tests for code that was not changed.
 
 Run them, and the module's existing tests, through the `bond:test-runner` agent —
-one command per call — so only the failures come back.
+one command per call — so only the failures come back. A failure whose cause
+is not obvious from its message goes through `superpowers:systematic-debugging`:
+root cause first, then one fix, never a guess.
 
 ## Procedure: Converge
 
 **Inputs:** `PLAN_FILE`, `SCOPE`.
 
-After **Test** is green, fill the plan's `## Coverage`: for each AC in
+After **Test** is green — green per `superpowers:verification-before-completion`:
+a fresh run in this phase, its output read, never a remembered one — fill the
+plan's `## Coverage`: for each AC in
 `## Spec`, the test that proves it (`<file> › <test>`), found by reading the
 tests, not by trusting the plan. An AC with no test gets one written now and
 run through `bond:test-runner`; an AC that cannot be tested automatically
@@ -500,9 +527,10 @@ recorded under `## Decisions`, never quietly left out.
 **Inputs:** `SCOPE` (as above); `MODE`.
 
 A run gets **one** review pair — the code review and the security review,
-once each, over the finished change. No review runs during the build (a track
-build skips its own, `track-build.md` **The review**) and none runs again
-after the fixes.
+once each, over the finished change. No review pair runs during the build (a
+track build skips its own, `track-build.md` **The review**; the per-task gates
+of subagent-driven-development check the plan, not the code's quality or
+security) and none runs again after the fixes.
 
 - **`MODE` is `auto` and `PR_HANDLING` is `create`** ⇒ skip this step: the pair
   runs in **Hand off the audit**, over the PR, in a context that did not write
@@ -522,9 +550,11 @@ commits, and Teardown refuses a dirty worktree.
 - **Re-run the test commands from Test afterwards**, through
   `bond:test-runner`. A review fix can break a test, and an unverified fix is
   worth less than the finding it closed.
-- Apply what the review returns without asking (see **Autonomy**). Log any
-  finding you deliberately did not take under the plan file's `## Decisions`,
-  with the reason.
+- Weigh each finding through `superpowers:receiving-code-review` — verify it
+  against the code before acting, push back on one that is wrong — then apply
+  what holds without asking (see **Autonomy**). Log any finding you
+  deliberately did not take under the plan file's `## Decisions`, with the
+  reason.
 - A finding in code the change did not touch is out of `SCOPE`: report it to the
   user, do not fix it here.
 - An empty review is a pass. Say so and continue.
@@ -561,7 +591,8 @@ again.
    - **Checks.** Run the repo's own typecheck, lint and test scripts for the
      packages the change touched — whichever of them the repo defines — each
      through `bond:test-runner`. A red check stops here; fix it, do not skip or
-     loosen it.
+     loosen it. Nothing is called green that this step did not just run
+     (`superpowers:verification-before-completion`).
    - **Stage by path.** `git add -- <file>…` with the files `SCOPE` changed and
      the plan file (`PLAN_FILE` ships with the work: the PR's test plan is
      built from its `## Coverage`). Never `git add -A`, `git add .` or
@@ -649,12 +680,15 @@ surface it, never force.
 
 ## Do NOT
 
-- Do not commit anything yourself in `no-auto` mode. In `auto` mode, committing
-  belongs to the **Ship + PR** step.
-- Do not commit before **Review and fix** has run, where it runs — the review's
-  fixes belong in the same commit as the work they correct, not in a follow-up.
-- Do not review twice: no review during the build, none in the session when
-  the audit takes the PR, no re-review after the fixes.
+- Do not commit anything yourself in `no-auto` mode beyond the build's local
+  task commits. In `auto` mode, the rest of the committing belongs to the
+  **Ship + PR** step.
+- Do not commit the review's fixes before **Review and fix** has finished,
+  where it runs; the build's task commits are the only earlier ones.
+- Do not review twice: no review pair during the build, none in the session
+  when the audit takes the PR, no re-review after the fixes.
+- Do not run `superpowers:finishing-a-development-branch` or
+  `superpowers:using-git-worktrees` — the flow's own procedures do that work.
 - Do not push the branch yourself in `no-auto` mode — tell the user to validate,
   commit and push.
 - Do not move a ticket to In Review on a red or still-running pipeline, and do
