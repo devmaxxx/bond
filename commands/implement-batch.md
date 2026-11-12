@@ -12,10 +12,16 @@ hand is the scheduling: it predicts which files each issue will touch and never
 runs two issues at once that share one, so the PRs that come out do not fight
 each other at merge time.
 
+`--integration` swaps the many-PRs shape for one: every issue lands on one
+**integration branch**, an item starts the moment its blockers are merged
+there instead of when their PRs open, and the whole batch is reviewed once and
+ships as one PR (**5i**).
+
 Everything per issue — claim, In Progress, branch, plan, implement, test,
 review, ship, PR, In Review, teardown — is `${CLAUDE_PLUGIN_ROOT}/commands/implement.md`
 and the procedures it names in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`.
-This command owns only selection, the conflict map, the schedule and the ledger.
+This command owns only selection, the conflict map, the schedule and the ledger
+— and, under `--integration`, the merges and the one closing review.
 Read both files.
 
 A repository that owns its task flow has a companion command instead: in
@@ -32,7 +38,7 @@ that only surfaces during a run sets that issue aside for the report.
 ## Usage
 
 ```
-/bond:implement-batch <source> [--max N] [--group] [--limit K] [--base <branch>] [--dry-run]
+/bond:implement-batch <source> [--max N] [--group | --integration [<branch>]] [--limit K] [--base <branch>] [--dry-run]
 ```
 
 ### Source
@@ -56,6 +62,7 @@ following `nextPageToken` until the result is exhausted.
 | --- | --- |
 | `--max N` | Concurrent subagents, default `3`, capped at `10`: each holds a checkout with its own dependency install and test runs. |
 | `--group` | Merge tightly related issues into one branch and PR (step 4). |
+| `--integration [<branch>]` | One integration branch and one PR for the whole batch (**5i**). Branch default: `feat/<source-slug>`, named per `bond:authorship-conventions`. Excludes `--group`: the integration branch already is the one PR. |
 | `--limit K` | Implement only the first `K` selected issues, in rank order. |
 | `--base <branch>` | Passed to every `/bond:implement` run. Default: the profile's `BASE_BRANCH`. |
 | `--dry-run` | Stop after printing the schedule — nothing claimed, transitioned, branched or pushed. |
@@ -67,9 +74,10 @@ outside the repo, like ship-pr's, so a later session can resume. Written after e
 continues instead of redoing:
 
 ```json
-{ "source": "…", "base": "main", "max": 3,
+{ "source": "…", "base": "main", "max": 3, "notes": "…-notes.md",
+  "integration": { "branch": "feat/…", "worktree": "…", "pr": "…" },
   "items": [ { "keys": ["PROJ-41", "PROJ-44"], "files": ["apps/api/src/x.ts"],
-               "after": ["PROJ-39"], "status": "pending | running | pr-open | blocked | failed | skipped",
+               "after": ["PROJ-39"], "status": "pending | running | pr-open | merged | blocked | failed | skipped",
                "branch": "feat/PROJ-41_PROJ-44", "worktree": "…", "pr": "…", "ci": "…",
                "agent": "<agent id>", "note": "…" } ] }
 ```
@@ -90,7 +98,9 @@ there is not started again.
    it; otherwise read the remote (`git ls-remote --heads origin | grep -iE '(^|[^0-9A-Za-z])<KEY>([^0-9]|$)'`,
    the host's PR list for that branch). PR open ⇒ `pr-open`. Worktree kept with
    commits ⇒ `pending`, resumed in that worktree (step 5). Neither ⇒ `pending`.
-   Jump to step 5.
+   Under `--integration`, an item whose branch tip is already on the
+   integration branch (`git merge-base --is-ancestor`) ⇒ `merged`.
+   Jump to step 5 (**5i** under `--integration`).
 
 ### 2. Select
 
@@ -138,6 +148,15 @@ the same base number theirs the same. `confidence: low` ⇒ conflict with every
 issue sharing its top-level module: a wrong guess costs some parallelism, a
 missed one costs a merge conflict.
 
+**Shared notes.** Write what recon found to the ledger's `notes` file, beside
+the ledger: per issue its verdict, files, the code it builds on (`path:line`)
+and its decisions. Two issues that each add the same kind of thing — a
+user-facing string key, a type or field, a config entry, a column — get the
+exact name each one uses pinned there, so parallel runs that never see each
+other's work do not name one concept twice (`blockedSince` beside
+`blockedOn`). Every run gets the notes path, not a pasted summary: the prompt
+stays small and the run skips exploration recon already did.
+
 ### 4. Schedule
 
 1. **Group** (`--group` only). Conflicting issues that are one piece of work —
@@ -165,7 +184,11 @@ missed one costs a merge conflict.
    when the predecessor returns `pr-open`, since its branch is deleted on merge.
    When most selected issues conflict through one shared kind (a contract
    version, a generated client, migrations), chaining yields a stack as deep
-   as the batch: offer `--group` instead, in step 4.4.
+   as the batch: offer `--group` or `--integration` instead, in step 4.4.
+   **Under `--integration` nothing stacks:** a chained item, and one that `is
+   blocked by` another, waits until all its `after` items are `merged` and is
+   cut from the integration tip — no predecessor branches, no rebase after a
+   squash.
 3. Print the schedule: items in start order, each with its keys, predicted
    files, `after`, and group. `--dry-run` ⇒ stop here.
 4. **Ask once.** One `AskUserQuestion`, per `owner-questions.md`, with only
@@ -177,6 +200,8 @@ missed one costs a merge conflict.
    open point start in step 5 at once; the rest start when their answer lands.
 
 ### 5. Run
+
+Under `--integration`, run **5i** instead.
 
 `git fetch origin` once before each start, from the orchestrator. A slot is free
 while fewer than `--max` items are `running`. Start the next `pending` item
@@ -215,6 +240,63 @@ before it starts. `failed` / `blocked` ⇒ its chained successors become
 `skipped` (their base never landed). Each run already ran its own review pair
 before its PR opened, so nothing reviews it again here. Then fill the freed slot.
 
+### 5i. Run — integration mode
+
+The batch is a task graph: `after` edges are its blocking edges, and every
+`pending` item whose `after` items are all `merged` is on the **frontier**. The
+frontier comes from the ledger, never from the tracker — a Jira or GitHub
+blocked-by link clears only when its blocker closes, which here is the end of
+the run.
+
+1. **Open the integration branch.** Cut it from `origin/<base>` into its own
+   worktree per **Set up the branch** (`BRANCH_SOURCE=new`), run **Prepare the
+   worktree**, push it. Record both in the ledger. All merges happen there,
+   never in the main checkout. Write the batch's `PLAN_FILE` there per
+   **Implementation plan** — every selected issue under `## Tickets` and
+   `## Spec`, one step per item, the R and L decisions — and commit it: it is
+   each implementer's plan, and Verify maps its coverage at the end.
+2. **Claim up front.** For every selected issue: **Claim unassigned
+   ticket(s)**, then **Transition to In Progress** — the runs below do not
+   touch the tracker.
+3. **Build the frontier.** Same slot rule as step 5 (`--max`, no overlap with
+   a `running` item's files). Per item, the lead cuts a worktree from the
+   integration tip (`git worktree add -b <item branch> ../worktrees/<dir>
+   <integration branch>`, then **Prepare the worktree**) and starts one
+   background `bond:track-implementer` with `track-build.md`'s `COMMON`
+   prefix, the worktree path, the item's keys, the notes path, the `PLAN_FILE`
+   and its step. Its added rules:
+   - before the first edit, check the worktree's base is the current
+     integration tip, and reset onto it when it is not;
+   - test first, the cheap slice at the end — no review pair, no push, no PR:
+     the batch reviews once, in 5i.5;
+   - before reporting `done`, merge the integration tip into its branch and
+     re-run the cheap slice, so landing it is a fast-forward;
+   - a GitHub issue gets `Closes #<n>` in its commit body.
+4. **Merge each result as it lands.** `done` ⇒ in the integration worktree,
+   `git merge --ff-only <item branch>`; not a fast-forward because another
+   item landed meanwhile ⇒ `git merge --no-ff`; a conflict ⇒ one
+   `bond:track-implementer` in the integration worktree resolves it per
+   **Resolve merge conflicts** in `merge-conflicts.md` and re-runs the cheap
+   slice. Mark the item `merged`, compare its actual files with every
+   `pending` prediction as in step 5, then refill the slots from the new
+   frontier. `partial` / `blocked` ⇒ not merged, its successors `skipped`.
+5. **Review once, at the end.** When nothing is `pending` or `running`:
+   **Verify** in the integration worktree, then **Review and fix** over the
+   integration branch's whole diff against `origin/<base>` — one review pair,
+   its findings through the scope gate, every finding that holds fixed by
+   **one** `bond:track-implementer`, then the Verify commands again. Never
+   mid-run: reviewed against the whole batch, every unbuilt item reads as a
+   defect. No second review after the fix.
+6. **Ship.** **Ship + PR** from the integration worktree with
+   `PR_HANDLING=create`, `TICKET_IDS` = every `merged` key, then **Transition
+   to In Review** for them. Remove every item worktree per **close** in
+   `worktree.md`, then the integration worktree per **Teardown**. A failed
+   item keeps its worktree for the report.
+
+A test that reads gitignored fixtures, a local database or credentials can
+skip silently in a worktree and report green: an item whose proof depends on
+such material is verified in 5i.5, not trusted from its slice.
+
 ### 6. Report
 
 When nothing is `pending` or `running`: one `bond:pr-status` agent per PR, all in
@@ -230,6 +312,9 @@ PROJ-50           —                      —     —        blocked   comment 
 PROJ-52           —                      —     —        skipped   assigned to D. Lind
 ```
 
+Under `--integration`: one row per issue with the shared branch and PR, status
+`merged` or why not, then the review's follow-ups from `## Decisions`.
+
 Then: merge order for stacked PRs, every `blocked` issue with its quoted
 blocker, failed items with their worktree path (kept for inspection), and the
 ledger path.
@@ -244,4 +329,7 @@ ledger path.
   a decide-class point at all — record it as an L.
 - Do not merge, approve, or mark a PR ready — that is `/bond:ship-pr` and a human.
 - Do not let a subagent touch the main checkout or another item's worktree.
+- Under `--integration`, do not review per item or mid-run, and do not start a
+  second broad review after the fix — that loop is how a five-issue batch
+  turns into hours.
 - `implement.md`'s and the shared flow's **Do NOT** lists apply to every item.

@@ -2,7 +2,7 @@
 
 > **Not an invocable command.** How a batch of issues is scouted, split into
 > tracks and built by a fleet of subagents, with one review and one fix pass
-> per track. Used by `/bond:implement-batch --group`, by `/bond:implement` with
+> per track. Used by `/bond:implement-batch --group` and `--integration`, by `/bond:implement` with
 > two or more tickets, and by companion batch commands, which add their
 > repository's own claim, plan and close steps around it.
 
