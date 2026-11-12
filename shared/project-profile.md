@@ -59,8 +59,7 @@ The path segments of the `origin` URL. `git@bitbucket.org:bonliva/bonliva-erp.gi
 
 True when the workspace is `bonliva`, when a remote points at
 `bitbucket.org/bonliva/…`, or when `.bonliva-dev/project.json` exists at the
-root. It gates the Jira, Teams and Clockify defaults below, and `DRAFT` — nothing
-else.
+root. It gates the Jira defaults below, and `DRAFT` — nothing else.
 
 ### `DRAFT` — does a PR open as a draft?
 
@@ -243,7 +242,6 @@ behaviour.
 **`repograph`** — origin `https://github.com/devmaxxx/repograph.git` ⇒ host
 GitHub, owner `devmaxxx`, `BONLIVA` false, base `main` (remote default; the slug
 table is skipped, which is what stops it landing on `dev`), tracker `none`,
-reviewers from GitHub's own defaults or none, no Teams channel, no Clockify
-project. `/implement add a rename cache` cuts `feat/add-a-rename-cache`, writes
+reviewers from GitHub's own defaults or none. `/implement add a rename cache` cuts `feat/add-a-rename-cache`, writes
 the plan, implements, and opens a GitHub PR (not a draft) with `## Summary` and
 `## Test plan` and no `## Jira`.

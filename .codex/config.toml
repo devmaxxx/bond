@@ -10,24 +10,3 @@ env_vars = [
     "BITBUCKET_TOKEN",
     "BITBUCKET_WORKSPACE",
 ]
-
-[mcp_servers.bond-clockify]
-command = "npx"
-args = [
-    "-y",
-    "mcp_clockify@latest",
-]
-env_vars = ["CLOCKIFY_API_KEY"]
-
-[mcp_servers.bond-outline]
-command = "npx"
-args = [
-    "-y",
-    "--package=outline-mcp-server@latest",
-    "-c",
-    "outline-mcp-server-stdio",
-]
-env_vars = [
-    "OUTLINE_API_KEY",
-    "OUTLINE_API_URL",
-]

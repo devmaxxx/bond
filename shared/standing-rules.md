@@ -137,8 +137,8 @@ is open costs the PR.
 Every bond command — `bond`, `bond-beauty-crm`, `bond-oss` — opens with
 **one** `AskUserQuestion` that carries every decision its arguments leave open:
 the target, the scope, an ambiguous argument, which of several candidates, and
-each outward or destructive step it will take (push, PR, merge, Jira, Teams or
-Outline writes, deletes). Up to four questions, the recommended option first. A
+each outward or destructive step it will take (push, PR, merge, Jira
+writes, deletes). Up to four questions, the recommended option first. A
 few read-only calls to frame the options come before it; no write does.
 
 Arguments that settle everything ⇒ no question. Once answered, the command runs

@@ -522,7 +522,7 @@ describe("PreToolUse on Bash", () => {
   });
 
   describe("registering an MCP server", () => {
-    // setup-plugin hands each server its token through `claude mcp add-json`;
+    // The user registers each server by hand, its token through `claude mcp add-json`;
     // local and user scope keep it in ~/.claude.json, project scope in the committed .mcp.json.
     const json = () => `'{"type":"stdio","env":{"TOKEN":"${fake.atlassian()}"}}'`;
 
