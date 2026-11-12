@@ -3,8 +3,9 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl, TabName } from './cache'
-import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, flowBand, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
-import { drawCards } from './pane'
+import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, flowActions, flowBand, flowResume, isBusy, pausePath, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
+import { FLOW_HOTKEY, FLOW_LABEL, drawCards } from './pane'
+import type { FlowAction } from './cache'
 import { isStripMode, stripLine, summaryCard } from './summary'
 import type { StripMode } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
@@ -46,6 +47,8 @@ let ttlSetting = DEFAULT_CACHE_TTL
 let reportedTtl: CacheTtl | null = null
 let warnMs = DEFAULT_WARN_SECONDS * 1000
 let isTurnRunning = false
+// The main loop's running turn, so the cockpit's stop can abort it.
+let heldTurn: string | null = null
 
 export const register: Register = (on, options) => {
   const warnSeconds = Number(options.cacheWarnSeconds ?? DEFAULT_WARN_SECONDS)
@@ -96,6 +99,7 @@ export const register: Register = (on, options) => {
     const agentId = (e as { agentId?: string }).agentId
     if (agentId === undefined) {
       isTurnRunning = true
+      heldTurn = (e as { turnId?: string }).turnId ?? null
       await guard(async () => {
         const now = await $.clock.now()
         await update($, job, current => startJob(current, e.text, now))
@@ -110,6 +114,7 @@ export const register: Register = (on, options) => {
     const agentId = e.agentId
     if (agentId === undefined) {
       isTurnRunning = false
+      heldTurn = null
     }
     await guard(async () => {
       const now = await $.clock.now()
@@ -213,17 +218,25 @@ export const register: Register = (on, options) => {
   // and a checkpoint's wait stay in sight with the pane closed or on another tab.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const [jobNow, now] = await Promise.all([read($, job), $.clock.now(), read($, beat)])
-    // The strip under the prompt carries the flow unless it is hidden.
-    const isStripShown = (await stripMode($)) !== 'hidden'
-    const band = isStripShown || e.props.hasSurvey || e.props.maxRows < 1 ? null : flowBand(jobNow, now, e.props.bodyColumns)
-    if (band === null) {
+    // The band stays even with the strip shown: the line under the prompt takes no keys, so the flow's buttons live here.
+    const band = e.props.hasSurvey || e.props.maxRows < 1 ? null : flowBand(jobNow, now, e.props.bodyColumns)
+    const flow = jobNow.flow ?? null
+    if (band === null || flow === null) {
       return next(e)
     }
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const isRunning = jobNow.startedAt !== null && jobNow.endedAt === null
+    const phase = flow.phases[flow.current]?.name
 
     return (
       <Box flexDirection="column">
         <Text color={band.tone === 'warn' ? 'yellow' : 'green'} wrap="truncate-end">{band.text}</Text>
+        <Box flexDirection="row" gap={2}>
+          {flowActions(flow, isRunning).map(action => (
+            <Button key={`flow:${action}`} label={FLOW_LABEL[action]} hotkey={FLOW_HOTKEY[action]} onPress={() => void flowPress($, action).catch(() => undefined)} />
+          ))}
+          {phase === undefined ? null : <Button key="flow:rerun" label={`↻ rerun ${phase}`} onPress={() => void flowPress($, 'rerun', phase).catch(() => undefined)} />}
+        </Box>
         {await next(e)}
       </Box>
     )
@@ -285,7 +298,10 @@ export const register: Register = (on, options) => {
     const [entry] = cacheCards(cacheNow, sessionNow, now, warnMs)
     const cards = [...(current === null ? [] : [current]), ...(entry === undefined ? [] : [entry])]
 
-    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns, { onAgent: agentId => void openAgent($, agentId, agents).catch(() => undefined) })
+    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns, {
+      onAgent: agentId => void openAgent($, agentId, agents).catch(() => undefined),
+      onFlow: (action, phase) => void flowPress($, action, phase).catch(() => undefined),
+    })
   })
 
   // One agent up close: its latest calls, and a line to message it (SendMessage's own delivery).
@@ -370,6 +386,34 @@ async function openAgent($: EngineInterface, agentId: string, agents: readonly {
   const name = current.loops[agentId]?.name ?? agents.find(agent => agent.id === agentId)?.description ?? `#${agentId.slice(0, 6)}`
   await $.ui.open({ id: AGENT, title: `agent ${name}`, columns: PANE_COLUMNS, focus: true })
   await $.ui.focus({ requestId: AGENT, key: 'say' }).catch(() => undefined)
+}
+
+/**
+ * A flow button. Pause leaves the `.pause` file the run checks at each phase boundary; stop aborts the
+ * running turn, so a resume restarts the phase it was in; resume and rerun submit the resume command,
+ * rerun first aborting a turn still running.
+ */
+async function flowPress($: EngineInterface, action: FlowAction | 'rerun', phase?: string): Promise<void> {
+  const flow = (await read($, job)).flow ?? null
+  if (flow === null) {
+    return
+  }
+  if (action === 'pause') {
+    const path = pausePath(flow)
+    if (path !== null) {
+      await $.fs.write(path, '')
+      $.ui.toast('bond flow: pauses at the next phase boundary')
+    }
+    return
+  }
+  if ((action === 'stop' || action === 'rerun') && heldTurn !== null) {
+    await $.turn.abort({ turnId: heldTurn })
+  }
+  if (action === 'stop') {
+    $.ui.toast(`bond flow: stopped; resume restarts ${flow.phases[flow.current]?.name ?? 'the run'}`)
+    return
+  }
+  await $.prompt.submit({ text: flowResume(flow, action === 'rerun' ? phase : undefined), asUser: true })
 }
 
 async function stripMode($: EngineInterface): Promise<StripMode> {

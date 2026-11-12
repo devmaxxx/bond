@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CacheSnapshot, ModelTally, UsageSnapshot } from '../types'
-import { EMPTY_JOB, agentCard, agentSpawned, flowBand, flowWritten, sendNotice, elapsed, endJob, isBusy, jobCard, jobBrief, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
+import { EMPTY_JOB, agentCard, agentSpawned, flowActions, flowBand, flowResume, flowWritten, pausePath, sendNotice, elapsed, endJob, isBusy, jobCard, jobBrief, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
 import { summaryCard } from '../hooks/summary'
 
 const NOW = Date.parse('2026-10-12T12:00:00Z')
@@ -266,7 +266,9 @@ test('a write of the implement flow progress file draws its gauge and one mark p
 
   expect(rows).toContainEqual({ kind: 'section', title: 'flow · feat/auth', tone: 'dim' })
   expect(rows).toContainEqual({ kind: 'gauge', label: 'flow', value: '2/4', ratio: 0.5, note: 'Plan · 30s', tone: 'ok' })
-  expect(rows).toContainEqual({ kind: 'line', text: '– Review', tone: 'dim' })
+  expect(rows).toContainEqual({ kind: 'phase', mark: '–', name: 'Review', canRerun: true, tone: 'dim' })
+  expect(rows).toContainEqual({ kind: 'phase', mark: '○', name: 'Ship + PR', canRerun: false, tone: 'dim' })
+  expect(rows).toContainEqual({ kind: 'controls', actions: ['pause', 'stop'], tone: 'dim' })
 })
 
 test('a paused flow warns with its reason and survives the next prompt', () => {
@@ -291,4 +293,16 @@ test('the band above the prompt carries the flow bar while it runs, the wait at 
   expect(flowBand(at([['Plan', 'done'], ['Build', 'paused']], 'plan approval'), NOW, 120)?.tone).toBe('warn')
   expect(flowBand(at([['Plan', 'done'], ['Build', 'done']]), NOW, 120)).toBe(null)
   expect(flowBand(EMPTY_JOB, NOW, 120)).toBe(null)
+})
+
+test('a running flow offers pause and stop, a stopped one resume, a finished one nothing; resume and rerun name the branch and phase', () => {
+  const flow = flowWritten({ file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Build', 'active']]) }, NOW)!
+
+  expect(flowActions(flow, true)).toEqual(['pause', 'stop'])
+  expect(flowActions(flow, false)).toEqual(['resume'])
+  expect(flowActions({ ...flow, file: undefined }, true)).toEqual(['stop'])
+  expect(flowActions({ ...flow, current: -1 }, true)).toEqual([])
+  expect(flowResume(flow)).toBe('/bond:implement --resume feat/auth')
+  expect(flowResume(flow, 'Tests "first"')).toBe('/bond:implement --resume feat/auth --from "Tests first"')
+  expect(pausePath(flow)).toBe('/Users/x/.claude/bond-flow/repo--feat-auth.pause')
 })

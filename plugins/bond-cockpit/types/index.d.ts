@@ -85,6 +85,8 @@ export type FlowPhase = { name: string; status: 'done' | 'active' | 'paused' | '
 /** A bond implement run's progress: the flow writes it to `…/bond-flow/<branch>.json` at every phase boundary. */
 export type FlowState = {
   branch: string
+  // The progress file the run wrote; its `.pause` sibling stops the run at the next boundary. Absent in state saved before it.
+  file?: string
   phases: FlowPhase[]
   // The phase the run is in or stopped at; -1 once every phase is done.
   current: number

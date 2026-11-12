@@ -1,5 +1,5 @@
 import type { FlowPhase, FlowState, JobLoop, JobState } from '../types'
-import type { Card, Row, Tone } from './cache'
+import type { Card, FlowAction, Row, Tone } from './cache'
 
 const RECENT_TOOLS = 3
 // A loop with no tool call for this long counts as quiet, not working: a fork the engine never
@@ -132,7 +132,7 @@ export function flowWritten(args: Record<string, unknown>, now: number): FlowSta
     }
     const current = phases.findIndex(phase => phase.status === 'active' || phase.status === 'paused' || phase.status === 'todo')
 
-    return { branch: raw.branch, phases, current, paused: typeof raw.paused === 'string' && raw.paused !== '' ? raw.paused : null, at: now }
+    return { branch: raw.branch, file: args.file_path, phases, current, paused: typeof raw.paused === 'string' && raw.paused !== '' ? raw.paused : null, at: now }
   } catch {
     return null
   }
@@ -215,7 +215,7 @@ export function jobCard(job: JobState, agents: readonly AgentName[], now: number
   }
   const flow = job.flow ?? null
   if (flow !== null) {
-    rows.push(...flowRows(flow, now))
+    rows.push(...flowRows(flow, now, isRunning))
   }
   if (loops.length > 0) {
     const red = loops.filter(isRed).length
@@ -479,14 +479,44 @@ export function flowBand(job: JobState, now: number, columns: number): { text: s
 }
 
 /** The flow's section: its branch, a gauge of finished phases, then one mark per phase. */
-function flowRows(flow: FlowState, now: number): Row[] {
-  const marks = flow.phases.map(phase => `${FLOW_MARK[phase.status]} ${phase.name}`)
-
+function flowRows(flow: FlowState, now: number, isRunning: boolean): Row[] {
   return [
     { kind: 'section', title: `flow · ${flow.branch}`, tone: 'dim' },
     flowGauge(flow, now),
-    ...marks.map(text => ({ kind: 'line' as const, text, tone: 'dim' as const })),
+    { kind: 'controls', actions: flowActions(flow, isRunning), tone: 'dim' },
+    ...flow.phases.map(phase => ({
+      kind: 'phase' as const,
+      mark: FLOW_MARK[phase.status],
+      name: phase.name,
+      // Only a phase already reached can run again; one still ahead is reached by resuming.
+      canRerun: phase.status !== 'todo',
+      tone: phase.status === 'active' ? ('ok' as const) : phase.status === 'paused' ? ('warn' as const) : ('dim' as const),
+    })),
   ]
+}
+
+/** The buttons a flow offers: pause and stop while the session runs it, resume once it stands still. */
+export function flowActions(flow: FlowState, isRunning: boolean): FlowAction[] {
+  if (flow.current === -1) {
+    return []
+  }
+  if (!isRunning) {
+    return ['resume']
+  }
+
+  return flow.file === undefined ? ['stop'] : ['pause', 'stop']
+}
+
+/** The prompt that resumes a flow, from its next phase or from the one named. */
+export function flowResume(flow: FlowState, phase?: string): string {
+  const from = phase === undefined ? '' : ` --from "${phase.replace(/"/g, '')}"`
+
+  return `/bond:implement --resume ${flow.branch}${from}`
+}
+
+/** The file whose presence stops the run at its next phase boundary. */
+export function pausePath(flow: FlowState): string | null {
+  return flow.file === undefined ? null : flow.file.replace(/\.json$/, '.pause')
 }
 
 function flowGauge(flow: FlowState, now: number): Row {

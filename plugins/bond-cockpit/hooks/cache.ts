@@ -99,6 +99,9 @@ export type Segment = { label: string; value: string; share: number; tone: Tone 
 
 export type TabName = 'job' | 'session'
 
+/** What a cockpit button does to a /bond:implement run. */
+export type FlowAction = 'pause' | 'stop' | 'resume'
+
 export type Row =
   | { kind: 'split'; hit: number; tone: Tone; segments: Segment[] }
   | { kind: 'meter'; label: string; ratio: number; tone: Tone }
@@ -110,6 +113,10 @@ export type Row =
   // One agent loop: a head line (mark, name, model, calls, time) and a detail line (latest tool, last test, push).
   | { kind: 'agent'; id: string; mark: string; name: string; model: string; calls: number; time: string; detail: string; test: { pass: number | null; fail: number | null } | null; pushed: boolean; tone: Tone }
   | { kind: 'gauge'; label: string; value: string; ratio: number; note: string; tone: Tone }
+  // One phase of an implement flow: its mark and name, and whether a press may run it again.
+  | { kind: 'phase'; mark: string; name: string; canRerun: boolean; tone: Tone }
+  // The implement flow's controls; which ones show depends on whether the run is going or stopped.
+  | { kind: 'controls'; actions: FlowAction[]; tone: Tone }
   // `tab`: the heading is a button that opens that tab.
   | { kind: 'section'; title: string; tab?: TabName; tone: Tone }
 

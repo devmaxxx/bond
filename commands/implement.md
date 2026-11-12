@@ -27,6 +27,7 @@ Examples:
 - `/implement --spec docs/specs/auth.md --review-plan` — stops at the plan for approve / edit / stop, then runs on to the PR
 - `/implement --spec docs/specs/auth.md --checkpoints` — pauses after every phase
 - `/implement --resume` — continues the stopped run of the current branch from its next phase
+- `/implement --resume feat/auth --from "Tests first"` — runs that phase again, then the ones after it
 
 ### Flags
 
@@ -36,7 +37,7 @@ By **default** `/implement` runs in **worktree mode** and **auto mode**: it crea
 - `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR and Teardown procedures are skipped; the worktree is left in place).
 - `--review-plan` — stop once the plan is written and reviewed: **Approve**, **Edit** (say what to change, or edit `PLAN_FILE` yourself and reply `approved`) or **Stop**. After approval the run goes on as in auto mode — build, PR, audit. Differs from `--no-auto`, which also stops after implementation.
 - `--checkpoints` — pause after every phase (see **Progress and checkpoints**) with **Continue**, **Stop** or a note to apply first. Implies `--review-plan`.
-- `--resume [<branch>]` — continue a run that stopped (a checkpoint's Stop, a pause file, an interrupt) from the phase its progress file names, with the flags it started with. Skips steps 1–4; the plan file is re-read, so edits made while it was stopped count.
+- `--resume [<branch>]` — continue a run that stopped (a checkpoint's Stop, a pause file, an interrupt) from the phase its progress file names, with the flags it started with. Skips steps 1–4; the plan file is re-read, so edits made while it was stopped count. `--from "<phase>"` (a name from the progress file, as the bond-cockpit ↻ button sends it) starts at that phase instead and marks it and every later phase `todo` first.
 - `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive **Tests first** and **Converge**. A path that does not exist aborts the run before anything is written.
 - `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, the Bonliva slug table inside Bonliva, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
 

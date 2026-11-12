@@ -403,8 +403,16 @@ resume command printed: `/bond:implement --resume <branch>`. An interrupt
 
 **Resume.** Read `FLOW_FILE` for the branch (the current one when none is
 named), `cd` to its `repo`, re-read `plan` and the spec, restore `flags`, and
-continue at the first phase not `done` or `skipped`. A missing file aborts:
-"no stopped run for <branch>".
+continue at the first phase not `done` or `skipped` — or, with `--from "<phase>"`,
+at that phase, after marking it and every later phase `todo` (a name the file
+does not list aborts, naming the phases it does). Rerunning a build or test
+phase re-runs it over the whole plan; work it already committed stays and is
+checked, not redone. A missing file aborts: "no stopped run for <branch>".
+
+**From the cockpit.** bond-cockpit's buttons drive the same mechanisms: pause
+leaves the `.pause` file, stop aborts the running turn (the file stays at the
+last boundary), resume and ↻ rerun submit `/bond:implement --resume <branch>`
+with or without `--from`.
 
 ## Procedure: Tests first
 

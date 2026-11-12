@@ -86,8 +86,12 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   without opening a pane. `/bond-cockpit collapse` folds it to one line (state,
   flow, cache, 5h and context, cost), `hide` takes it away, `expand` / `show`
   bring it back; the mode is kept across sessions, and there is no close.
-- **Flow band** — while the strip is hidden and a `/bond:implement` run reports
-  progress, one line floats above the prompt on every tab: branch, phase bar, count and
+- **Flow band and controls** — while a `/bond:implement` run reports progress,
+  the band above the prompt carries its line and buttons (ctrl+x tab to focus):
+  `⏸ pause` (`p`, stops at the next phase boundary), `■ stop` (`x`, aborts the
+  turn now), `▶ resume` (`r`, once it stands still) and `↻ rerun <phase>`; the
+  job tab's phase list has a ↻ beside every phase reached, which runs
+  `/bond:implement --resume <branch> --from "<phase>"`. The line, on every tab: branch, phase bar, count and
   the current phase, yellow with `⏸` and the reason while a checkpoint waits;
   gone once every phase is done.
 - **Cache toast** — `cache expires in 10s: send a message now`, once per cache
