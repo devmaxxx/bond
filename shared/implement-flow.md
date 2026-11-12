@@ -557,14 +557,26 @@ branch** procedure resolves it).
 Commit and push happen here as the upfront question settled them — do not ask
 again.
 
-1. Validate, commit, and push the branch: run the repo's own checks (its test
-   and lint scripts, each through `bond:test-runner`) and then commit and push
-   directly. Every
-   commit message follows the `authorship-conventions` skill: Conventional Commits
-   subject, prose *why* body, and no AI signature — no `Co-Authored-By`
-   naming a tool, no `Claude-Session:` link, no "generated with" footer. The
-   plugin's `check-commit` hook blocks a commit that breaks this; fix the
-   message rather than bypassing the hook.
+1. Validate, commit, and push the branch:
+   - **Checks.** Run the repo's own typecheck, lint and test scripts for the
+     packages the change touched — whichever of them the repo defines — each
+     through `bond:test-runner`. A red check stops here; fix it, do not skip or
+     loosen it.
+   - **Stage by path.** `git add -- <file>…` with the files `SCOPE` changed and
+     the plan file (`PLAN_FILE` ships with the work: the PR's test plan is
+     built from its `## Coverage`). Never `git add -A`, `git add .` or
+     `commit -a`. Then read `git status --porcelain`: anything left unstaged
+     that is not yours (an env file, a stray artifact, a file outside `SCOPE`)
+     ⇒ report it and stop rather than sweep it in or delete it.
+   - **Commit.** Every commit message follows the `authorship-conventions`
+     skill: Conventional Commits subject, prose *why* body, and no AI
+     signature — no `Co-Authored-By` naming a tool, no `Claude-Session:` link,
+     no "generated with" footer. The plugin's `check-commit` hook blocks a
+     commit that breaks this; fix the message rather than bypassing the hook.
+   - **Push** with an explicit refspec, `git push -u origin HEAD:<branch>`, as
+     the account `bond:authorship-conventions` names for this repo — a
+     per-command `GH_TOKEN=$(gh auth token -u <account>)` over HTTPS, never
+     `gh auth switch`.
 2. Then, by `PR_HANDLING`:
    - `create` → invoke `/bond:open-pr <BASE_BRANCH> --issue <TICKET_IDS>`
      (no `--issue` when `TICKET_IDS` is empty) to create the PR on
