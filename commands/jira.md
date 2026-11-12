@@ -38,13 +38,13 @@ an issue key. There is no rigid grammar; infer the operation from the wording.
 
 Examples:
 
-- `/bond:jira create a Bug in ERP: login page 500s on submit`
-- `/bond:jira create Task "Wire up the export endpoint" --project CRMDEV`
-- `/bond:jira ERP-142 assign to me`
-- `/bond:jira ERP-142 assign to Daniel Berg`
-- `/bond:jira ERP-142 set priority High, add label regression`
-- `/bond:jira comment on ERP-142: deployed to staging, ready for QA`
-- `/bond:jira move ERP-142 to In Review`
+- `/bond:jira create a Bug in PROJ: login page 500s on submit`
+- `/bond:jira create Task "Wire up the export endpoint" --project OPS`
+- `/bond:jira PROJ-142 assign to me`
+- `/bond:jira PROJ-142 assign to Daniel Berg`
+- `/bond:jira PROJ-142 set priority High, add label regression`
+- `/bond:jira comment on PROJ-142: deployed to staging, ready for QA`
+- `/bond:jira move PROJ-142 to In Review`
 
 ### Flags (optional, override inferred values)
 
@@ -87,7 +87,7 @@ key and stop.
 
 ### create
 
-1. **Project:** from `--project`, else the `ERP-`-style prefix in the text, else
+1. **Project:** from `--project`, else the `PROJ-`-style prefix in the text, else
    an explicit project name. If still unknown, call
    `mcp__bond-atlassian__getVisibleJiraProjects({ cloudId, action: "create" })`;
    if exactly one is returned, use it, otherwise list the candidates and ask
@@ -145,14 +145,14 @@ chain one hop at a time**, re-reading the available transitions after each move.
 3. If at any hop no transition advances toward the target (chain dead-ends, or
    the target name doesn't match any reachable status), list the statuses
    actually reachable from here and ask — do not force an unrelated transition.
-4. Report the path taken, e.g. `ERP-142: Todo → In Progress → In Review → QA`.
+4. Report the path taken, e.g. `PROJ-142: Todo → In Progress → In Review → QA`.
 
 ### worklog
 
 Log time against an issue's timesheet.
 
 1. Normalise the key: it must match `^[A-Z][A-Z0-9_]+-\d+$`. Strip branch-style
-   suffixes (`feature/CRMDEV-6335-2` → `CRMDEV-6335`); note the stripped suffix
+   suffixes (`feature/OPS-6335-2` → `OPS-6335`); note the stripped suffix
    in the comment when relevant.
 2. `mcp__bond-atlassian__addWorklogToJiraIssue({ cloudId, issueIdOrKey: KEY,
    timeSpent, started, comment })`:
@@ -160,7 +160,7 @@ Log time against an issue's timesheet.
    - `started` — local wall-clock timestamp **with its local offset**, e.g.
      `2026-05-13T09:00:00.000+02:00`. Do **not** convert to UTC.
    - `comment` — the short note for the entry.
-3. Report the post, e.g. `✓ Jira CRMDEV-1366 30m on 2026-05-13 — Call: Daniel`.
+3. Report the post, e.g. `✓ Jira OPS-1366 30m on 2026-05-13 — Call: Daniel`.
 
 ### get
 

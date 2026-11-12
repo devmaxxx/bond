@@ -6,7 +6,7 @@ description: >-
   restate the code (a name, a type, a union, a literal). A doc comment on a
   public surface (rustdoc `///`, a docstring, JSDoc on an export) is API
   documentation, not commentary — it states the contract and stays. Keep
-  work-item keys (`ERP-587`, `CRMDEV-7212`) and issue links out of code
+  work-item keys (`PROJ-587`, `OPS-7212`) and issue links out of code
   comments — blame, the commit and the PR carry that; a spec or invariant ID
   the repo itself defines (`FR-PAY-03`, `INV-11`) is a name, keep it. Any
   language, any comment syntax. Use whenever you write, edit, or review
@@ -20,7 +20,7 @@ description: >-
 
 ## Rules
 
-Comment the *why*, never the *what*. An inline comment survives only by saying what the code cannot; one that restates a name, a type, a literal or the next line goes. A doc comment on a public surface is API documentation: keep it and make it state the contract. A tool directive (`eslint-disable*`, `@ts-expect-error`, `# noqa`, `// nolint`, …) is code — never delete it. Commented-out code, a bare `TODO`, a block label, an author, date or AI signature: delete. Strip a work-item key (`ERP-587`, `CRMDEV-7212`) and keep the sentence; a spec or invariant ID this repo defines (`FR-PAY-03`, `INV-11`) is a name, keep it. License headers and generated files are out of scope.
+Comment the *why*, never the *what*. An inline comment survives only by saying what the code cannot; one that restates a name, a type, a literal or the next line goes. A doc comment on a public surface is API documentation: keep it and make it state the contract. A tool directive (`eslint-disable*`, `@ts-expect-error`, `# noqa`, `// nolint`, …) is code — never delete it. Commented-out code, a bare `TODO`, a block label, an author, date or AI signature: delete. Strip a work-item key (`PROJ-587`, `OPS-7212`) and keep the sentence; a spec or invariant ID this repo defines (`FR-PAY-03`, `INV-11`) is a name, keep it. License headers and generated files are out of scope.
 
 Anything the table does not name: *does this tell me something I could not get by reading the code?* Yes ⇒ keep. No ⇒ delete.
 

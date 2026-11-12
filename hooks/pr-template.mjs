@@ -11,8 +11,6 @@ import { join } from "node:path";
 
 import { quotedRanges, runsCommand, scrubShell } from "./shell.mjs";
 
-const DEFAULT_JIRA_PROJECTS = ["ERP", "CRMDEV"];
-
 const WEB = /(?:^|\s)(?:-w|--web)(?:\s|$)/;
 const FILL = /(?:^|\s)--fill(?:-first|-verbose)?(?:\s|$)/;
 const DRAFT = /(?:^|\s)(?:-d|--draft)(?:\s|=|$)/;
@@ -20,7 +18,7 @@ const DRAFT = /(?:^|\s)(?:-d|--draft)(?:\s|=|$)/;
 // title is read by people in a list, so it is a plain sentence.
 const COMMIT_SUBJECT = /^[a-z]+(?:\([^)]*\))?!?:\s/;
 const COMMIT_TITLE =
-  "the title is a Conventional Commits subject — write a plain sentence, led by its issue (`#164: …`, `ERP-123: …`) when it has one";
+  "the title is a Conventional Commits subject — write a plain sentence, led by its issue (`#164: …`, `PROJ-123: …`) when it has one";
 
 // The Conventional Commits types a repo's commit-msg check accepts; looser here would pass a
 // title CI then reds.
@@ -65,17 +63,17 @@ export function resolveJiraTracked(cwd) {
 /**
  * Project keys, not a generic `[A-Z]+-\d+`: that shape also spells UTF-8,
  * SHA-256, ISO-8601 and RFC-822, and a PR was once rejected for the word
- * "UTF-8" in its description. The keys are enumerable, so they are enumerated;
- * `BOND_JIRA_PROJECTS` (comma- or space-separated) replaces the list when
- * a project is added. An unlisted key means no `## Jira` section is
- * demanded — a missed reminder, never a blocked PR.
+ * "UTF-8" in its description. The keys are enumerable, so they are enumerated
+ * in `BOND_JIRA_PROJECTS` (comma- or space-separated); there are no built-in
+ * ones. An unlisted key means no `## Jira` section is demanded — a missed
+ * reminder, never a blocked PR.
  */
 export function jiraProjects() {
   const configured = (process.env.BOND_JIRA_PROJECTS ?? "")
     .split(/[\s,]+/)
     .map((key) => key.toUpperCase())
     .filter((key) => /^[A-Z][A-Z0-9]+$/.test(key));
-  return configured.length > 0 ? configured : DEFAULT_JIRA_PROJECTS;
+  return configured;
 }
 
 /**
@@ -112,11 +110,14 @@ function gitOutput(cwd, ...args) {
 
 /**
  * The boundaries are hand-rolled because `\b` gets both ends wrong here: it
- * refuses the `ERP-135_ERP-136` a multi-ticket branch carries, and it accepts
- * the `ERP` tail of a longer word.
+ * refuses the `PROJ-135_PROJ-136` a multi-ticket branch carries, and it accepts
+ * the `PROJ` tail of a longer word.
  */
 export function hasTicket(text) {
   const keys = jiraProjects().join("|");
+  if (keys === "") {
+    return false;
+  }
   return new RegExp(`(?<![A-Za-z0-9])(?:${keys})-\\d+(?![0-9])`).test(text);
 }
 

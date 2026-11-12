@@ -47,7 +47,7 @@ Good: `feat/add-login-page`, `fix/issue-482-header-overflow`,
 
 Bad: `Feature/Add-Login` (uppercase), `fix/header_bug` (underscore),
 `feat/new--login` (consecutive hyphens), `csv-export` (no type prefix),
-`feat/ERP-587-export` (uppercase ticket id where no Jira tooling
+`feat/PROJ-587-export` (uppercase ticket id where no Jira tooling
 consumes it — lowercase it: `feat/erp-587-export`).
 
 # Jira branches
@@ -57,8 +57,8 @@ own shape. **Do not override them** — the Jira tooling finds
 the branch by that shape:
 
 - Prefix from the issue type: `Bug` → `fix`, everything else → `feat`.
-- Single ticket: `<prefix>/<KEY>`, e.g. `feat/ERP-135`, `fix/CRMDEV-6335`.
-- Multiple tickets: `<prefix>/<KEY>_<KEY>`, e.g. `feat/ERP-135_ERP-136`.
+- Single ticket: `<prefix>/<KEY>`, e.g. `feat/PROJ-135`, `fix/OPS-6335`.
+- Multiple tickets: `<prefix>/<KEY>_<KEY>`, e.g. `feat/PROJ-135_PROJ-136`.
 
 That shape keeps the uppercase Jira key and uses an underscore, so it breaks
 rules 1 and 2 above on purpose. Under `TRACKER=jira` bond wins. Everywhere else
@@ -66,7 +66,7 @@ this skill's rules win. Where the project profile resolves `TRACKER=none` there
 is no key at all — use the `<type>/<description>` shape of §1.
 
 Naming a branch by hand under `TRACKER=jira`? Match bond: `<feat|fix>/<KEY>` and
-**stop at the key**. `feat/ERP-587-export-timesheet-to-csv` is the natural thing
+**stop at the key**. `feat/PROJ-587-export-timesheet-to-csv` is the natural thing
 to write and it is wrong here — no slug after the key, no lowercasing the key.
 
 # Renaming a branch

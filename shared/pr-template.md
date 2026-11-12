@@ -19,15 +19,16 @@ Set these before building the title/description:
 - `<base>` — destination branch the PR targets.
 - `<commits>` — commits not yet in the base: `git log origin/<base>..<branch> --oneline`.
 - `<tickets>` — Jira ticket IDs extracted from `<branch>`: a configured project
-  key (`ERP`, `CRMDEV`) followed by `-` and digits. Not any `[A-Z]+-\d+` — that
-  shape also spells `UTF-8` and `SHA-256`. Set `BOND_JIRA_PROJECTS` (comma- or
-  space-separated) to replace the list when a project is added. Empty whenever
+  key followed by `-` and digits. Not any `[A-Z]+-\d+` — that shape also spells
+  `UTF-8` and `SHA-256`. The keys come from `BOND_JIRA_PROJECTS` (comma- or
+  space-separated, e.g. `PROJ,OPS`); there are no built-in ones, so with it unset
+  no ticket is found. Empty whenever
   the project profile resolves `TRACKER=none`, which is every repo unless
   `.bond/project.json` says `jira`.
 
 ## Title
 
-`<TICKET_IDs>: <short description>` — `ERP-123: Tidy the export`, `#164: Index full ADR bodies`.
+`<TICKET_IDs>: <short description>` — `PROJ-123: Tidy the export`, `#164: Index full ADR bodies`.
 
 The description is a plain sentence that says what the PR does as a whole, never a
 Conventional Commits subject: no `feat(scope)!:` prefix, even when the PR holds one
@@ -53,7 +54,7 @@ refusing it. The issue goes into the body (`Closes #<n>`).
 
 ## Jira
 
-<For each ticket: - ERP-123: https://<site>.atlassian.net/browse/ERP-123>
+<For each ticket: - PROJ-123: https://<site>.atlassian.net/browse/PROJ-123>
 
 ## Test plan
 

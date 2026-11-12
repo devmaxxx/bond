@@ -75,11 +75,11 @@ check does not count as a tenant. Name each hit with `ps -o pid=,etime=,command=
      name the missing repo. `MERGED` / `CLOSED` ⇒ say so and stop.
    - **Ticket key** (`^[A-Z]+-\d+$`, any case) — every branch containing it,
      local and remote, case-insensitively (branches are `feat/erp-390` as often
-     as `feat/ERP-390`):
+     as `feat/PROJ-390`):
      ```sh
      git for-each-ref --format='%(refname:short) %(committerdate:unix)' refs/heads refs/remotes/origin | grep -iE '(^|[^0-9A-Za-z])<KEY>([^0-9]|$)'
      ```
-     The digit boundary matters: a bare `grep -i ERP-39` also matches `erp-390`.
+     The digit boundary matters: a bare `grep -i PROJ-39` also matches `erp-390`.
      Several ⇒ prefer one with an open PR, then the newest commit; record the
      choice in the report. None ⇒ stop: *no branch for `<KEY>` — `/bond:implement
      <KEY>` starts one*.
@@ -198,9 +198,9 @@ the main checkout's files.
 
    ```
    repo          worktree                       branch            reason      state            action
-   erp           worktrees/erp-feat-…           feat/ERP-370      pr-merged   clean            remove + branch
-   erp           worktrees/erp-fix-…            fix/ERP-402       gone        2 unpushed       keep
-   crm           worktrees/crm-feat-…           feat/CRMDEV-7037  pr-closed   busy: claude 41m keep
+   erp           worktrees/erp-feat-…           feat/PROJ-370      pr-merged   clean            remove + branch
+   erp           worktrees/erp-fix-…            fix/PROJ-402       gone        2 unpushed       keep
+   crm           worktrees/crm-feat-…           feat/OPS-7037  pr-closed   busy: claude 41m keep
    ```
 
 6. Remove each `remove` row by close's steps 3–5; a closed-unmerged PR's branch

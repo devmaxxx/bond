@@ -35,7 +35,7 @@ have, use `/bond:implement <KEY> --no-auto`.
 Examples:
 - `/bond:start add a CSV export to the reports page`
 - `/bond:start login page 500s on submit --bug`
-- `/bond:start "wire up export endpoint" --project CRMDEV`
+- `/bond:start "wire up export endpoint" --project OPS`
 - `/bond:start add rate limiting to the auth API --base develop --worktree`
 
 ### Flags
@@ -78,7 +78,7 @@ to `In Progress`.)
 ### 3. Determine the branch name
 
 - Prefix: `Bug` → `fix`; `Task`/`Story`/other → `feat`.
-- Name: `<prefix>/<KEY>` (e.g. `feat/ERP-135`, `fix/CRMDEV-6335`).
+- Name: `<prefix>/<KEY>` (e.g. `feat/PROJ-135`, `fix/OPS-6335`).
 - **`TRACKER=none`**: prefix from the work (`fix` with `--bug`, else `feat`),
   then three to five hyphenated lowercase words from the free text —
   `feat/add-a-csv-export`. That is the `bond:authorship-conventions` shape; the

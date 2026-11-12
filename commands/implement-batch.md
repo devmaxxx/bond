@@ -43,7 +43,7 @@ that only surfaces during a run sets that issue aside for the report.
 | Jira board/backlog URL (`…/projects/<P>/boards/<n>/…`) | JQL `project = <P>`, plus `assignee = <id>` when the URL filters on one |
 | one key whose type is `Epic` | JQL `parent = <KEY> OR "Epic Link" = <KEY>` — team- and company-managed projects store the link differently |
 | JQL (contains `=`, ` AND `, ` IN ` or `ORDER BY`) | as given |
-| keys `ERP-1 ERP-2 …` (or a single non-epic key) | those keys |
+| keys `PROJ-1 PROJ-2 …` (or a single non-epic key) | those keys |
 | GitHub milestone URL, `milestone:<name>`, `label:<name>` | `gh issue list --state open --limit 1000 --milestone/--label … --json number,title,body,labels,assignees` (the default limit is 30) |
 
 Jira search: `mcp__bond-atlassian__searchJiraIssuesUsingJql` with the `cloudId`
@@ -68,9 +68,9 @@ continues instead of redoing:
 
 ```json
 { "source": "…", "base": "main", "max": 3,
-  "items": [ { "keys": ["ERP-41", "ERP-44"], "files": ["apps/api/src/x.ts"],
-               "after": ["ERP-39"], "status": "pending | running | pr-open | blocked | failed | skipped",
-               "branch": "feat/ERP-41_ERP-44", "worktree": "…", "pr": "…", "ci": "…",
+  "items": [ { "keys": ["PROJ-41", "PROJ-44"], "files": ["apps/api/src/x.ts"],
+               "after": ["PROJ-39"], "status": "pending | running | pr-open | blocked | failed | skipped",
+               "branch": "feat/PROJ-41_PROJ-44", "worktree": "…", "pr": "…", "ci": "…",
                "agent": "<agent id>", "note": "…" } ] }
 ```
 
@@ -103,7 +103,7 @@ in the report with its reason:
   GitHub: state open.
 - **unassigned or mine** — never take an issue someone else holds.
 - **no branch yet** — no local or `origin` branch contains its key (case-insensitive,
-  and `ERP-4` is not in `ERP-41`). One that does
+  and `PROJ-4` is not in `PROJ-41`). One that does
   is someone's work in progress (`/bond:worktree open <KEY>` picks it up).
 - **unblocked** — run **Check for blockers** on it (description and every
   comment, via **Resolve Jira ticket(s)**). Any blocker ⇒ `blocked`, quoted with
@@ -228,11 +228,11 @@ one message, for the CI verdict. Do not watch or fix CI here — a red PR is
 
 ```
 issue            branch                 PR    CI       status    note
-ERP-41, ERP-44   feat/ERP-41_ERP-44     #212  passed   pr-open   grouped: shared invoice form
-ERP-39           feat/ERP-39            #211  running  pr-open
-ERP-47           feat/ERP-47            #213  failed   pr-open   stacked on #211 — merge after it
-ERP-50           —                      —     —        blocked   comment by A. Berg 2026-08-02 unanswered
-ERP-52           —                      —     —        skipped   assigned to D. Lind
+PROJ-41, PROJ-44   feat/PROJ-41_PROJ-44     #212  passed   pr-open   grouped: shared invoice form
+PROJ-39           feat/PROJ-39            #211  running  pr-open
+PROJ-47           feat/PROJ-47            #213  failed   pr-open   stacked on #211 — merge after it
+PROJ-50           —                      —     —        blocked   comment by A. Berg 2026-08-02 unanswered
+PROJ-52           —                      —     —        skipped   assigned to D. Lind
 ```
 
 Then: merge order for stacked PRs, every `blocked` issue with its quoted

@@ -26,7 +26,7 @@ step that would close it.
 
 `$ARGUMENTS` — anything that identifies the failure, in any mix:
 
-- a URL to the failing entity (CRM/ERP page, admin page)
+- a URL to the failing entity (app page, admin page)
 - a Temporal workflow/run URL
 - a Jira issue key
 - a raw error string, screenshot, or "the kit failed for booking X"

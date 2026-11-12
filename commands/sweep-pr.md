@@ -99,9 +99,9 @@ Print it before any write:
 
 ```
 #   PR    head → base                 draft  CI       review     cmts  merge        action
-1   #381  feat/ERP-1244 → main        no     passed   APPROVED   0     MERGEABLE    merge
-2   #377  fix/ERP-1201 → main         no     failed   —          0     CONFLICTING  rebase
-3   #370  feat/ERP-1190 → main        yes    passed   —          2     MERGEABLE    report: draft, 2 comments
+1   #381  feat/PROJ-1244 → main        no     passed   APPROVED   0     MERGEABLE    merge
+2   #377  fix/PROJ-1201 → main         no     failed   —          0     CONFLICTING  rebase
+3   #370  feat/PROJ-1190 → main        yes    passed   —          2     MERGEABLE    report: draft, 2 comments
 ```
 
 `--dry-run` ⇒ stop here.
