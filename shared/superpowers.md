@@ -65,9 +65,9 @@ defaults collides with the flow, the flow wins:
 - **Reviews.** Subagent-driven-development's per-task reviews stay. They
   gate each task against the plan and the spec. Its final whole-branch review
   does not run: the run's one code-and-security review pair replaces it
-  (**Review and fix**, or the audit over the PR).
+  (**Review and fix**).
 - **Finishing.** `superpowers:finishing-a-development-branch` does not run.
-  **Ship + PR**, **Hand off the audit** and **Teardown** finish the branch.
+  **Ship + PR** and **Teardown** finish the branch.
   Remove the plan's `.superpowers/sdd/` workspace before **Report
   completion**, since the final review that would have removed it is skipped.
 - **Progress.** The subagent-driven-development ledger tracks tasks inside

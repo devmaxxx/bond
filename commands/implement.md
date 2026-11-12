@@ -32,11 +32,11 @@ Examples:
 
 ### Flags
 
-By **default** `/implement` runs in **worktree mode** and **auto mode**: it creates an isolated git worktree, skips the plan confirmation prompt, runs ship + open-pr after implementation, then hands the new PR to a background `bond:pr-audit` agent — a fresh context that runs the code and security review pair once, fixes what it finds and removes the worktree when it is done.
+By **default** `/implement` runs in **worktree mode** and **auto mode**: it creates an isolated git worktree, skips the plan confirmation prompt, runs the code and security review pair once over the finished work, then ships, opens the PR and removes the worktree.
 
 - `--no-worktree` — switch branches in the current working tree instead of a worktree (requires a clean tree).
 - `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR and Teardown procedures are skipped; the worktree is left in place).
-- `--review-plan` — stop once the plan is written and reviewed: **Approve**, **Edit** (say what to change, or edit `PLAN_FILE` yourself and reply `approved`) or **Stop**. After approval the run goes on as in auto mode — build, PR, audit. Differs from `--no-auto`, which also stops after implementation.
+- `--review-plan` — stop once the plan is written and reviewed: **Approve**, **Edit** (say what to change, or edit `PLAN_FILE` yourself and reply `approved`) or **Stop**. After approval the run goes on as in auto mode — build, review, PR. Differs from `--no-auto`, which also stops after implementation.
 - `--checkpoints` — pause after every phase (see **Progress and checkpoints**) with **Continue**, **Stop** or a note to apply first. Implies `--review-plan`.
 - `--resume [<branch>]` — continue a run that stopped (a checkpoint's Stop, a pause file, an interrupt) from the phase its progress file names, with the flags, tickets, base and PR it recorded. Skips steps 1–4; the plan file is re-read, so edits made while it was stopped count. `--from "<phase>"` (a name from the progress file, as the bond-cockpit ↻ button sends it) starts at that phase instead and marks it and every later phase `todo` first. Outside bypass mode, allow the progress folder once — `Edit(~/.local/state/bond-flow/**)` in `permissions.allow` — or every phase boundary asks.
 - `--subagents` — build through `superpowers:subagent-driven-development`: a fresh implementer and a task reviewer per plan task, with per-task commits. Slower — several minutes per task — but every task gets an independent gate. Default: inline TDD in this context.
@@ -112,13 +112,13 @@ Run the shared **Set up the branch** procedure with `BRANCH_NAME` from step 3, `
 
 ### 5. Plan, build, verify
 
-Run these shared procedures in order, reporting each phase through **Progress and checkpoints** (`PHASES` = Setup, Plan, Build, Verify, Review, Ship + PR, Audit — a phase this run will not do is marked `skipped` from the start: Review in auto mode, Ship + PR and Audit under `--no-auto`; `CHECKPOINTS` = `all` under `--checkpoints`, `plan` under `--review-plan`, otherwise `none`; `BUILD` = `subagents` under `--subagents`, `track` with two or more tickets, otherwise `inline`; `THOROUGH` = yes under `--thorough`; `TICKET_IDS` and `BASE_BRANCH` as resolved above):
+Run these shared procedures in order, reporting each phase through **Progress and checkpoints** (`PHASES` = Setup, Plan, Build, Verify, Review, Ship + PR — a phase this run will not do is marked `skipped` from the start: Ship + PR under `--no-auto`; `CHECKPOINTS` = `all` under `--checkpoints`, `plan` under `--review-plan`, otherwise `none`; `BUILD` = `subagents` under `--subagents`, `track` with two or more tickets, otherwise `inline`; `THOROUGH` = yes under `--thorough`; `TICKET_IDS` and `BASE_BRANCH` as resolved above):
 
 1. **Plan** phase — **Analyse the codebase** (`FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed, plus the `--spec` file when given as `SPEC_FILE`), then **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `SPEC_FILE` = the `--spec` path or empty, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."* **Review the plan** runs only when `THOROUGH`.
 2. **Build** phase — **Implement** with `SCOPE` = the whole plan and `BUILD` as set above. With `BUILD=track`, each ticket is a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — without that file's review and fix pass — the run's one review comes at the end.
 3. **Verify** phase — **Verify**: one fresh full run of the checks, then every acceptance criterion mapped to the test that proves it.
-4. **Review and fix** — skipped in auto mode, where the audit runs the code and security review pair once over the PR; under `--no-auto`, the pair runs here once over the work, then the tests re-run.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create` (`update` on a resume whose progress file names a PR), then **Hand off the audit**, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
+4. **Review and fix** — the code and security review pair runs here once over the work, then the tests re-run.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create` (`update` on a resume whose progress file names a PR), then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**. `/implement` never runs **Hand off the audit**: its review already ran.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto` (`--review-plan` and `--checkpoints` keep `auto`; their stops come from `CHECKPOINTS`); `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 

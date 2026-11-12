@@ -413,9 +413,9 @@ starts, at every phase boundary and at every stop:
 reason while the run waits, empty otherwise; `pr` is the PR's number or URL
 once **Ship + PR** opened it. A phase the run will not do — by its mode — is `skipped` from the first write,
 never left `todo`. At each boundary also print one line:
-`▰▰▰▱▱▱▱ 3/7 · Build`. After the last phase every status is `done` or
-`skipped`. Mark **Audit** `done` before spawning the `bond:pr-audit` agent, so
-a resume never spawns a second one.
+`▰▰▰▱▱▱ 3/6 · Build`. After the last phase every status is `done` or
+`skipped`. A caller that lists an **Audit** phase marks it `done` before
+spawning the `bond:pr-audit` agent, so a resume never spawns a second one.
 
 **Pause file.** Before each phase starts, check for `FLOW_FILE` with `.json`
 replaced by `.pause` (`touch` it from another terminal to stop the run). When it
@@ -524,10 +524,10 @@ track build skips its own, `track-build.md` **The review**; the per-task gates
 of a `BUILD=subagents` run check the plan, not the code's quality or
 security) and none runs again after the fixes.
 
-- **`MODE` is `auto` and `PR_HANDLING` is `create`** ⇒ skip this step: the pair
-  runs in **Hand off the audit**, over the PR, in a context that did not write
-  it. Say "review: handed to the audit".
-- **Otherwise** (`no-auto`, or a fix round on an open PR) ⇒ run the pair here,
+- **The caller hands the PR to an audit** (`/bond:implement-batch`, auto mode,
+  `PR_HANDLING=create`) ⇒ skip this step: the pair runs in **Hand off the
+  audit**. Say "review: handed to the audit".
+- **Otherwise** (`/bond:implement`, `no-auto`, or a fix round on an open PR) ⇒ run the pair here,
   in one message: `/code-review` from the worktree at the level
   `bond:routing-code-review` reads off the diff, `--fix` on, and a background
   `bond:security-review` over the same working-tree diff. In `auto` mode the
@@ -565,9 +565,8 @@ Tell the user:
 - Plan file: `PLAN_FILE`, and the spec when there was one.
 - Coverage: `<covered>/<total>` acceptance criteria, each `manual:` one named.
 - Files changed: brief list.
-- Next step: in `auto` mode Ship + PR, Hand off the audit and Teardown run
-  automatically — once the audit is handed off, its agent removes the
-  worktree; in `no-auto` mode, tell the user to validate, commit, and push
+- Next step: in `auto` mode Ship + PR and Teardown run automatically (plus
+  Hand off the audit where the caller uses it); in `no-auto` mode, tell the user to validate, commit, and push
   (**Ship + PR** does that in `auto` mode).
 
 ## Procedure: Ship + PR  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
@@ -617,10 +616,10 @@ If either step fails, surface the error and stop — do not retry blindly, and d
 resume).
 
 Record the PR number or URL as `PR_REF` for the completion report. Only a PR
-opened by a `create` run goes to **Hand off the audit**; an `update` run that
+opened by a `create` run of a caller that uses it goes to **Hand off the audit**; an `update` run that
 found none and opened one has already had its review pair.
 
-## Procedure: Hand off the audit  *(auto mode only — runs when a `create` run opened the PR)*
+## Procedure: Hand off the audit  *(auto mode only — callers that skip **Review and fix**, such as `/bond:implement-batch`; never `/bond:implement`)*
 
 **Inputs:** `PR_REF`; `WORKTREE`, or the current checkout when it is `none` —
 the agent then opens its own worktree, since the user keeps working in the
