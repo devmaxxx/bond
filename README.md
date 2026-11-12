@@ -60,9 +60,11 @@ flowchart LR
     G --> D
 ```
 
-`/implement` runs ten phases, shown live in the cockpit. You can pause, stop, resume or rerun any phase:
+`/implement` runs seven phases, shown live in the cockpit. You can pause, stop, resume or rerun any phase:
 
-`Setup → Analyse → Plan → Plan review → Tests first → Build → Converge → Review → Ship + PR → Audit`
+`Setup → Plan → Build → Verify → Review → Ship + PR → Audit`
+
+The build is inline TDD: one red→green slice per behaviour, typecheck and single test files as it goes, the full suite once in Verify, and one commit at the end — so the repo's commit hook runs once. `--subagents` switches to one implementer and one reviewer per task, and `--thorough` adds a plan-review agent; both are slower.
 
 `--review-plan` stops for approval after the plan, `--checkpoints` after every phase, and `--resume` picks a stopped run back up.
 

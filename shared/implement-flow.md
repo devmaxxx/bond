@@ -312,7 +312,7 @@ slice small enough to test on its own. One task per slice, each naming its
 files, the exact names and signatures it adds, and the test that proves it:
 ### Task 1: <slice>
 Files: `<path>` · Test: `<file> › <test>` · ACs: <ids>
-- [ ] Write the failing test (already red when **Tests first** ran)
+- [ ] Write the failing test
 - [ ] Run it and see it fail for the missing behaviour
 - [ ] Implement the minimum to pass
 - [ ] Run it and the module's tests green
@@ -322,7 +322,7 @@ Files: `<path>` · Test: `<file> › <test>` · ACs: <ids>
 - `<test file path>` — `<describe> > <it>` — <what it asserts> — <AC ids>
 
 ## Coverage
-<filled by **Converge**: one line per AC — `AC1` → `<file> › <test>`, or
+<filled by **Verify**: one line per AC — `AC1` → `<file> › <test>`, or
 `not covered` with the reason>
 
 ## Decisions
@@ -345,7 +345,7 @@ As the flow proceeds, log every autonomous choice point under `## Decisions`
 choice already made before this procedure runs (e.g. branch selection). Leave
 the section empty (or omit the bullet) if nothing was chosen.
 
-Under `PLAN_MODE=write`, run **Review the plan** before the plan is printed.
+Under `PLAN_MODE=write` and `THOROUGH`, run **Review the plan** before the plan is printed. Without `THOROUGH` it does not run — the run's one review pair is the gate.
 
 Print the full plan (write) or the appended section (append) to the user.
 
@@ -355,7 +355,7 @@ in `auto` mode, skip confirmation and note that auto-confirm is enabled. In
 `no-auto` mode, ask `CONFIRM_PROMPT` and wait for explicit confirmation; if the
 user requests changes, update the plan and ask again before proceeding.
 
-## Procedure: Review the plan
+## Procedure: Review the plan  *(only when `THOROUGH` — `/implement --thorough`)*
 
 **Inputs:** `PLAN_FILE`; `SPEC_FILE` or the tickets.
 
@@ -406,11 +406,9 @@ starts, at every phase boundary and at every stop:
 
 `status` is `done`, `active`, `paused`, `todo` or `skipped`; `paused` holds the
 reason while the run waits, empty otherwise; `pr` is the PR's number or URL
-once **Ship + PR** opened it. A phase the run will not do — by its mode, or
-**Tests first** with two or more tickets — is `skipped` from the first write,
-never left `todo`; **Tests first** under a subagent-driven build is marked
-`skipped` at the Plan review boundary, once the plan's file count decides it. At each boundary also print one line:
-`▰▰▰▱▱▱▱▱▱▱ 3/10 · Plan review`. After the last phase every status is `done` or
+once **Ship + PR** opened it. A phase the run will not do — by its mode — is `skipped` from the first write,
+never left `todo`. At each boundary also print one line:
+`▰▰▰▱▱▱▱ 3/7 · Build`. After the last phase every status is `done` or
 `skipped`. Mark **Audit** `done` before spawning the `bond:pr-audit` agent, so
 a resume never spawns a second one.
 
@@ -424,8 +422,8 @@ set `paused` to why, write `FLOW_FILE`, then ask in one `AskUserQuestion`:
 
 - after the plan: **Approve**, **Edit** (the user names the changes, or edits
   `PLAN_FILE` and replies `approved` — re-read the file then, never the copy in
-  context), **Stop**. The plan's stop comes once **Review the plan** has run,
-  so under `all` there is no separate stop between Plan and Plan review;
+  context), **Stop**. The plan's stop comes once **Review the plan** has run
+  (when `THOROUGH`), never between the two;
 - elsewhere: **Continue**, **Stop**; free text is a note — apply it (record it
   under `## Decisions` as an owner ruling), then ask again.
 
@@ -454,76 +452,62 @@ leaves the `.pause` file, stop aborts the running turn (the file stays at the
 last boundary), resume and ↻ rerun submit `/bond:implement --resume <branch>`
 with or without `--from`.
 
-## Procedure: Tests first
-
-**Inputs:** `SCOPE` (as in **Implement**).
-
-Before any production code in `SCOPE`, write the tests the plan's **Tests**
-section lists for it — through `superpowers:test-driven-development` — following
-the rules of **Test** (co-located,
-the module's own style, `bond:testing-behavior`). Run them through
-`bond:test-runner` and read why each fails:
-
-- failing because the behaviour is missing ⇒ correct, go on;
-- failing on an import, a typo or the test setup ⇒ fix the test, run again;
-- **passing** ⇒ the behaviour already exists or the test proves nothing: tighten
-  the test, or record under `## Decisions` that the criterion was already met.
-
-Tests that need code to exist before they compile (a new module's types) get
-the bare contract first — signatures and types, no behaviour — then the red run.
-No commit here: tests and code ship together.
-
 ## Procedure: Implement
 
 **Inputs:** `SCOPE` — what to implement: the whole plan (`/implement`) or only
-the newest appended section (`PLAN_MODE=append`).
+the newest appended section (`PLAN_MODE=append`); `BUILD` — `inline` (default),
+`subagents` (`--subagents`) or `track` (two or more tickets, see
+`track-build.md`).
 
-Execute the plan's tasks within `SCOPE` in order: through
-`superpowers:subagent-driven-development` when the plan names three or more
-files — the main thread keeps the plan and the verdicts, test output stays in
-the subagents — otherwise inline through `superpowers:executing-plans`. After
-each task, briefly say what was done and which files were modified.
+**`BUILD=inline`** — build in this context, through
+`superpowers:test-driven-development`, in **vertical slices**: per behaviour
+the plan names, write one failing test at the plan's seam, run it and read why
+it fails, write the minimum code to pass, run it green, then the next slice.
+Never write all the tests first — tests written ahead of the code test its
+imagined shape and go insensitive to the real one. The plan's tasks give the
+order; a task with no behaviour of its own (a type, a migration, a helper) is
+built inside the first slice that needs it.
 
-- Commit only the per-task commits subagent-driven-development makes for its
-  task reviews, local and per `bond:authorship-conventions`; never push.
-  Inline builds do not commit — **Ship + PR** does.
-- If something blocks a step (missing type, unexpected API shape, etc.), pause
-  and ask the user rather than guessing. An unexpected shape from a
-  third-party library is a `bond:docs-explorer` lookup first, a question only if
-  the docs do not settle it.
+- Run the typecheck and the touched test file after each slice — through the
+  `bond:test-runner` agent when the output is long — never the whole suite;
+  the full suite runs once, in **Verify**.
+- Do not commit. An inline build leaves its work in the tree, and **Ship + PR**
+  (or, under `--no-auto`, the user) commits it once, so the repo's commit hook
+  runs once over the finished change, never skipped.
+- After each task, say in one line what was done and which files changed.
 
-## Procedure: Test
+**`BUILD=subagents`** — execute the plan's tasks through
+`superpowers:subagent-driven-development`: a fresh implementer and a task
+reviewer per task. Its per-task commits stay local and follow
+`bond:authorship-conventions`; never push.
 
-**Inputs:** `SCOPE` (as above).
+Either way: if something blocks a step (missing type, unexpected API shape),
+pause and ask the user rather than guessing. An unexpected shape from a
+third-party library is a `bond:docs-explorer` lookup first, a question only if
+the docs do not settle it. A test that fails for a reason that is not obvious
+goes through `superpowers:systematic-debugging`: root cause first, then one
+fix, never a guess.
 
-Write the tests listed in the plan's **Tests** section that fall within `SCOPE`
-and that **Tests first** has not already written:
+Tests follow the module's own style and sit next to the code they test, cover
+the golden path and at least one edge or error case per new behaviour, follow
+`bond:testing-behavior`, and never test code the change did not touch.
 
-- Co-locate tests with the code they test (e.g. `*.spec.ts` next to the
-  service/controller, `*.test.tsx` next to the component).
-- Follow existing test patterns in the same module — do not introduce a new
-  testing style.
-- Cover the golden path and at least one edge/error case for each new behaviour.
-- Do not write tests for code that was not changed.
-
-Run them, and the module's existing tests, through the `bond:test-runner` agent —
-one command per call — so only the failures come back. A failure whose cause
-is not obvious from its message goes through `superpowers:systematic-debugging`:
-root cause first, then one fix, never a guess.
-
-## Procedure: Converge
+## Procedure: Verify
 
 **Inputs:** `PLAN_FILE`, `SCOPE`.
 
-After **Test** is green — green per `superpowers:verification-before-completion`:
-a fresh run in this phase, its output read, never a remembered one — fill the
-plan's `## Coverage`: for each AC in
-`## Spec`, the test that proves it (`<file> › <test>`), found by reading the
-tests, not by trusting the plan. An AC with no test gets one written now and
-run through `bond:test-runner`; an AC that cannot be tested automatically
-(visual, third-party, manual) is marked `manual: <how to check>` and becomes an
-item of the PR's **Test plan**. A requirement the build changed or dropped is
-recorded under `## Decisions`, never quietly left out.
+One fresh run of every check the repo has — typecheck, lint, the full unit
+suite, e2e when the change touches a user flow — through `bond:test-runner`,
+one command per call, per `superpowers:verification-before-completion`: a run
+in this phase, its output read, never a remembered one. A failure goes back
+through **Implement**'s debugging rule, then the failing command runs again.
+
+Then fill the plan's `## Coverage` from that run: for each AC in `## Spec`,
+the test that proves it (`<file> › <test>`), found by reading the tests, not
+by trusting the plan. An AC with no test gets one now, run alone. An AC that
+cannot be tested automatically is marked `manual: <how to check>` and becomes
+an item of the PR's **Test plan**. A requirement the build changed or dropped
+is recorded under `## Decisions`, never quietly left out.
 
 ## Procedure: Review and fix
 
@@ -532,7 +516,7 @@ recorded under `## Decisions`, never quietly left out.
 A run gets **one** review pair — the code review and the security review,
 once each, over the finished change. No review pair runs during the build (a
 track build skips its own, `track-build.md` **The review**; the per-task gates
-of subagent-driven-development check the plan, not the code's quality or
+of a `BUILD=subagents` run check the plan, not the code's quality or
 security) and none runs again after the fixes.
 
 - **`MODE` is `auto` and `PR_HANDLING` is `create`** ⇒ skip this step: the pair
@@ -550,7 +534,7 @@ It runs **after Test, before Report completion**, never later: its fixes
 write to the working tree, so they must be inside the diff that Ship + PR
 commits, and Teardown refuses a dirty worktree.
 
-- **Re-run the test commands from Test afterwards**, through
+- **Re-run the commands from Verify afterwards**, through
   `bond:test-runner`. A review fix can break a test, and an unverified fix is
   worth less than the finding it closed.
 - Weigh each finding through `superpowers:receiving-code-review` — verify it
@@ -683,11 +667,11 @@ surface it, never force.
 
 ## Do NOT
 
-- Do not commit anything yourself in `no-auto` mode beyond the build's local
-  task commits. In `auto` mode, the rest of the committing belongs to the
+- Do not commit anything yourself in `no-auto` mode beyond a `--subagents`
+  build's local task commits; an inline build commits nothing. In `auto` mode, the rest of the committing belongs to the
   **Ship + PR** step.
 - Do not commit the review's fixes before **Review and fix** has finished,
-  where it runs; the build's task commits are the only earlier ones.
+  where it runs; a `--subagents` build's task commits are the only earlier ones.
 - Do not review twice: no review pair during the build, none in the session
   when the audit takes the PR, no re-review after the fixes.
 - Do not run `superpowers:finishing-a-development-branch` or

@@ -27,7 +27,8 @@ Examples:
 - `/implement --spec docs/specs/auth.md --review-plan` — stops at the plan for approve / edit / stop, then runs on to the PR
 - `/implement --spec docs/specs/auth.md --checkpoints` — pauses after every phase
 - `/implement --resume` — continues the stopped run of the current branch from its next phase
-- `/implement --resume feat/auth --from "Tests first"` — runs that phase again, then the ones after it
+- `/implement --resume feat/auth --from "Build"` — runs that phase again, then the ones after it
+- `/implement --spec docs/specs/auth.md --subagents --thorough` — the slow, double-checked build: plan-review agent, one implementer and one reviewer per task
 
 ### Flags
 
@@ -38,7 +39,9 @@ By **default** `/implement` runs in **worktree mode** and **auto mode**: it crea
 - `--review-plan` — stop once the plan is written and reviewed: **Approve**, **Edit** (say what to change, or edit `PLAN_FILE` yourself and reply `approved`) or **Stop**. After approval the run goes on as in auto mode — build, PR, audit. Differs from `--no-auto`, which also stops after implementation.
 - `--checkpoints` — pause after every phase (see **Progress and checkpoints**) with **Continue**, **Stop** or a note to apply first. Implies `--review-plan`.
 - `--resume [<branch>]` — continue a run that stopped (a checkpoint's Stop, a pause file, an interrupt) from the phase its progress file names, with the flags, tickets, base and PR it recorded. Skips steps 1–4; the plan file is re-read, so edits made while it was stopped count. `--from "<phase>"` (a name from the progress file, as the bond-cockpit ↻ button sends it) starts at that phase instead and marks it and every later phase `todo` first. Outside bypass mode, allow the progress folder once — `Edit(~/.local/state/bond-flow/**)` in `permissions.allow` — or every phase boundary asks.
-- `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive **Tests first** and **Converge**. A path that does not exist aborts the run before anything is written.
+- `--subagents` — build through `superpowers:subagent-driven-development`: a fresh implementer and a task reviewer per plan task, with per-task commits. Slower — several minutes per task — but every task gets an independent gate. Default: inline TDD in this context.
+- `--thorough` — run the read-only plan-review agent (**Review the plan**) before the plan is printed. Default: off; the final review pair is the gate.
+- `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive the **Build** slices and the **Verify** map. A path that does not exist aborts the run before anything is written.
 - `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
 
 Flags that only apply when **creating** a ticket (no key given — see step 1):
@@ -87,17 +90,15 @@ Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs 
 
 Run the shared **Set up the branch** procedure with `BRANCH_NAME` from step 3, `BRANCH_SOURCE=new`, `BASE_BRANCH` = the `--base` value if given else resolved via the shared **Default base branch** procedure, and `WORKTREE_SUFFIX=` (empty).
 
-### 5. Analyse, plan, and implement
+### 5. Plan, build, verify
 
-Run these shared procedures in order, reporting each phase through **Progress and checkpoints** (`PHASES` = Setup, Analyse, Plan, Plan review, Tests first, Build, Converge, Review, Ship + PR, Audit — a phase this run will not do is marked `skipped` from the start: Review in auto mode, Ship + PR and Audit under `--no-auto`, Tests first with two or more tickets — or, once the plan is reviewed, under a subagent-driven build; `CHECKPOINTS` = `all` under `--checkpoints`, `plan` under `--review-plan`, otherwise `none`; `TICKET_IDS` and `BASE_BRANCH` as resolved above):
+Run these shared procedures in order, reporting each phase through **Progress and checkpoints** (`PHASES` = Setup, Plan, Build, Verify, Review, Ship + PR, Audit — a phase this run will not do is marked `skipped` from the start: Review in auto mode, Ship + PR and Audit under `--no-auto`; `CHECKPOINTS` = `all` under `--checkpoints`, `plan` under `--review-plan`, otherwise `none`; `BUILD` = `subagents` under `--subagents`, `track` with two or more tickets, otherwise `inline`; `THOROUGH` = yes under `--thorough`; `TICKET_IDS` and `BASE_BRANCH` as resolved above):
 
-1. **Analyse the codebase** — `FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed, plus the `--spec` file when given (`SPEC_FILE`).
-2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `SPEC_FILE` = the `--spec` path or empty, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."* The plan is checked by **Review the plan** before it is printed or confirmed.
-3. **Tests first** — `SCOPE` = the whole plan. Skipped with two or more tickets: each track step in step 4 writes its own failing test first (`track-build.md`, `COMMON`), and red tests for the later tickets left uncommitted in the track's worktree would fail every earlier step's test slice. Skipped for the same reason when the plan names three or more files and the build runs through `superpowers:subagent-driven-development`: each task's implementer writes that task's failing test first.
-4. **Implement** then **Test** — `SCOPE` = the whole plan — task by task, in the plan's order, through the build skill `${CLAUDE_PLUGIN_ROOT}/shared/superpowers.md` picks for the plan's size. With two or more tickets, each ticket is instead a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — without that file's review and fix pass — the run's one review comes at the end.
-5. **Converge** — every acceptance criterion mapped to the test that proves it.
-6. **Review and fix** — skipped in auto mode, where the audit runs the code and security review pair once over the PR; under `--no-auto`, the pair runs here once over the work, then the tests re-run.
-7. **Report completion**, then **Ship + PR** with `PR_HANDLING=create` (`update` on a resume whose progress file names a PR), then **Hand off the audit**, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
+1. **Plan** phase — **Analyse the codebase** (`FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed, plus the `--spec` file when given as `SPEC_FILE`), then **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `SPEC_FILE` = the `--spec` path or empty, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."* **Review the plan** runs only when `THOROUGH`.
+2. **Build** phase — **Implement** with `SCOPE` = the whole plan and `BUILD` as set above. With `BUILD=track`, each ticket is a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — without that file's review and fix pass — the run's one review comes at the end.
+3. **Verify** phase — **Verify**: one fresh full run of the checks, then every acceptance criterion mapped to the test that proves it.
+4. **Review and fix** — skipped in auto mode, where the audit runs the code and security review pair once over the PR; under `--no-auto`, the pair runs here once over the work, then the tests re-run.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create` (`update` on a resume whose progress file names a PR), then **Hand off the audit**, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto` (`--review-plan` and `--checkpoints` keep `auto`; their stops come from `CHECKPOINTS`); `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 

@@ -23,12 +23,11 @@ in-thread`. The procedures are written to stand on their own.
 |---|---|---|
 | Ask first | `superpowers:brainstorming` | Free text or a new ticket with no `--spec`, where the description leaves the design open: criteria would have to be invented, or two or more designs fit. Skipped when a spec or the ticket's acceptance criteria settle what gets built. |
 | Plan | `superpowers:writing-plans` | Always. |
-| Tests first | `superpowers:test-driven-development` | Inline builds. A subagent-driven build skips the phase: each task's implementer writes its own failing test first, so later tasks' red tests never sit in an earlier task's test run. |
-| Build | `superpowers:subagent-driven-development` | The plan names three or more files. |
-| Build | `superpowers:executing-plans` | Smaller plans, built inline. |
-| Test, Converge, Review and fix | `superpowers:systematic-debugging` | A test or check fails for a reason that is not yet known. Find the root cause before changing anything. |
+| Build | `superpowers:executing-plans` + `superpowers:test-driven-development` | Default (`BUILD=inline`): one vertical red→green slice per behaviour, never all tests first. |
+| Build | `superpowers:subagent-driven-development` | Only under `--subagents`. Each task's implementer writes its own failing test first. |
+| Build, Verify, Review and fix | `superpowers:systematic-debugging` | A test or check fails for a reason that is not yet known. Find the root cause before changing anything. |
 | Review and fix, the audit | `superpowers:receiving-code-review` | Every finding, before it is applied or rejected. |
-| Converge, Report completion, Ship + PR | `superpowers:verification-before-completion` | Before any claim that a test, check or criterion passes. |
+| Verify, Report completion, Ship + PR | `superpowers:verification-before-completion` | Before any claim that a test, check or criterion passes. |
 | Track build (two or more tickets) | `test-driven-development`, `systematic-debugging`, `verification-before-completion` | Inside each track implementer. |
 
 ## Overrides
@@ -49,16 +48,20 @@ defaults collides with the flow, the flow wins:
   writing-plans writes into `PLAN_FILE` in the shape the **Implementation
   plan** procedure gives, not `docs/superpowers/plans/`. Its header line that
   asks for an execution skill is left out: the flow already chose one.
-- **Plan review.** The flow's **Review the plan** agent is the plan's one
-  review. Subagent-driven-development's pre-flight plan review is skipped.
+- **Plan review.** The plan gets a review agent only under `--thorough`
+  (**Review the plan**). Subagent-driven-development's pre-flight plan review
+  is always skipped.
 - **Worktree.** **Set up the branch** has already made the worktree, or
   chose `--no-worktree`. `superpowers:using-git-worktrees` does not run, and
   the build never starts a second one.
-- **Commits.** Subagent-driven-development commits each task, because its
-  task reviews diff `BASE..HEAD`. Those commits stay local and follow
-  `bond:authorship-conventions`. Nothing in the build pushes. **Ship + PR**
-  commits what is left and pushes, as the upfront answer settled. Under
-  `--no-auto` the run stops with the task commits unpushed.
+- **Commits.** An inline build never commits; executing-plans' and TDD's
+  per-step commits are skipped, so the repo's commit hook runs once, over the
+  finished change. Under `--subagents`, subagent-driven-development commits
+  each task, because its task reviews diff `BASE..HEAD`; those commits stay
+  local and follow `bond:authorship-conventions`. Nothing in the build
+  pushes. **Ship + PR** commits what is left and pushes. Under `--no-auto`
+  the run stops with the work uncommitted (inline) or the task commits
+  unpushed (`--subagents`).
 - **Reviews.** Subagent-driven-development's per-task reviews stay. They
   gate each task against the plan and the spec. Its final whole-branch review
   does not run: the run's one code-and-security review pair replaces it
