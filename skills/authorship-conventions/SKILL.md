@@ -42,7 +42,7 @@ Details: references/commits-and-enforcement.md — read for the footers, the bod
 
 `gh` has two accounts on github.com: **maxSynEfisco** (work) and **devmaxxx** (personal). The active one decides which token pushes and is global to this machine, so check `gh auth status --active --hostname github.com` and `git remote -v` before every write.
 
-First match wins: remote owner `devmaxxx` → **devmaxxx**; an owner `BOND_GH_ACCOUNTS` maps (the work org) → **maxSynEfisco**; anything else → **ask once. Do not guess.**
+First match wins: remote owner `devmaxxx` → **devmaxxx**; an owner `BOND_GH_ACCOUNTS` maps → **the account it maps to**; anything else → **ask once. Do not guess.**
 
 Details: references/accounts.md — read before switching account or identity.
 

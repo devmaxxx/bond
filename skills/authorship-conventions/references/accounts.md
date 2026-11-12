@@ -34,8 +34,9 @@ match wins:
 
 1. **GitHub remote owner is `devmaxxx`** → **devmaxxx**. The token must match the
    repo owner, so this beats every other signal, manifest included.
-2. **GitHub remote owner is mapped in `BOND_GH_ACCOUNTS`** (the work org) →
-   **maxSynEfisco**.
+2. **GitHub remote owner is mapped in `BOND_GH_ACCOUNTS`** → **the account the
+   map names for that owner** — maxSynEfisco for the work org, devmaxxx for
+   another personal owner. Being in the map is not what makes a repo work's.
 3. **Anything else** — a remote owned by another org, no remote, a bare
    directory → **ask once which account this repo uses. Do not guess.**
 
