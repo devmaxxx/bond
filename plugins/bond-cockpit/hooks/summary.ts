@@ -1,7 +1,7 @@
 import type { CacheSnapshot, JobState, ModelTally, UsageSnapshot } from '../types'
 import { cacheView, tokens } from './cache'
-import type { Card, Row } from './cache'
-import { jobBrief } from './job'
+import type { Card, Row, Tone } from './cache'
+import { flowBand, jobBrief } from './job'
 import { shortModel, usageCard } from './usage'
 
 // The 5h window and the context fill always matter; any other gauge only once it turns warn or bad.
@@ -58,4 +58,37 @@ function modelRow(models: ModelTally): Row | null {
     note: [shortModel(models.current), `${main.requests} req`, others > 0 ? `+${others} more` : ''].filter(part => part !== '').join(' · '),
     tone: 'plain',
   }
+}
+
+/** How the strip under the prompt shows: the main card, one line, or nothing. It never closes for good. */
+export type StripMode = 'expanded' | 'collapsed' | 'hidden'
+
+export function isStripMode(value: unknown): value is StripMode {
+  return value === 'expanded' || value === 'collapsed' || value === 'hidden'
+}
+
+/** The collapsed strip: state, the flow, cache and the gauges that always matter, the cost, in one line. */
+export function stripLine(job: JobState, cache: CacheSnapshot | null, usage: UsageSnapshot | null, now: number, warnMs: number): { text: string; tone: Tone } {
+  const brief = jobBrief(job, now)
+  const usageNow = usageCard(usage, now)
+  const flow = flowBand(job, now, Number.POSITIVE_INFINITY)
+  const parts = [`cockpit ${brief.isActive ? '●' : '○'}${brief.badge === '' ? '' : ` ${brief.badge}`}`]
+  if (flow !== null) {
+    parts.push(flow.text)
+  }
+  if (cache !== null) {
+    const view = cacheView(cache, now, warnMs)
+    parts.push(`cache ${view.hit}%${view.countdown === '' ? '' : ` ${view.countdown}`}`)
+  }
+  for (const row of usageNow?.rows ?? []) {
+    if (row.kind === 'gauge' && isImportant(row)) {
+      parts.push(`${row.label} ${row.value}`)
+    }
+  }
+  if (usageNow !== null && usageNow.badge !== '') {
+    parts.push(usageNow.badge)
+  }
+  const tone: Tone = flow?.tone === 'warn' || usageNow?.tone === 'bad' || usageNow?.tone === 'warn' ? (usageNow?.tone === 'bad' ? 'bad' : 'warn') : brief.isActive ? 'ok' : 'dim'
+
+  return { text: parts.join(' · '), tone }
 }

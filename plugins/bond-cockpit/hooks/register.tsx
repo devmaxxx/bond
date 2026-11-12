@@ -5,7 +5,8 @@ import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTt
 import type { CacheTtl, TabName } from './cache'
 import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, flowBand, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
 import { drawCards } from './pane'
-import { summaryCard } from './summary'
+import { isStripMode, stripLine, summaryCard } from './summary'
+import type { StripMode } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
 // Three tabs in open order: main, job, session. The agent tab opens beside them on a press.
@@ -20,6 +21,9 @@ const PANE_COLUMNS = 46
 const TICK_MS = 1000
 const DEFAULT_CACHE_TTL = 'auto'
 const DEFAULT_WARN_SECONDS = 10
+// $.store, so the strip under the prompt keeps its mode across sessions.
+const STRIP_KEY = 'strip'
+const STRIP_MODES: Record<string, StripMode> = { expand: 'expanded', show: 'expanded', collapse: 'collapsed', hide: 'hidden' }
 
 
 const cache = atom({ plugin: 'bond-cockpit', key: 'cache' } as const, null)
@@ -50,8 +54,7 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit: the main tab, or `job` / `session` for that tab' })
-    openPanes($).catch(() => undefined)
+    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit panes (`job` / `session` for one tab), or set the strip under the prompt: `expand`, `collapse`, `hide`, `show`' })
     await measure($).catch(() => undefined)
     await pushStatus($)
     tick?.cancel()
@@ -62,6 +65,11 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'bond-cockpit' }, async ($, e) => {
     const tab = e.args.trim()
+    const mode = STRIP_MODES[tab]
+    if (mode !== undefined) {
+      await $.store.set(STRIP_KEY, mode)
+      return { text: mode === 'hidden' ? 'bond cockpit: strip hidden; `/bond-cockpit show` brings it back.' : `bond cockpit: strip ${mode}.` }
+    }
     const isTab = isTabName(tab)
     await (isTab ? openTab($, tab) : openPanes($))
     await pushStatus($)
@@ -205,7 +213,9 @@ export const register: Register = (on, options) => {
   // and a checkpoint's wait stay in sight with the pane closed or on another tab.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const [jobNow, now] = await Promise.all([read($, job), $.clock.now(), read($, beat)])
-    const band = e.props.hasSurvey || e.props.maxRows < 1 ? null : flowBand(jobNow, now, e.props.bodyColumns)
+    // The strip under the prompt carries the flow unless it is hidden.
+    const isStripShown = (await stripMode($)) !== 'hidden'
+    const band = isStripShown || e.props.hasSurvey || e.props.maxRows < 1 ? null : flowBand(jobNow, now, e.props.bodyColumns)
     if (band === null) {
       return next(e)
     }
@@ -216,6 +226,47 @@ export const register: Register = (on, options) => {
         <Text color={band.tone === 'warn' ? 'yellow' : 'green'} wrap="truncate-end">{band.text}</Text>
         {await next(e)}
       </Box>
+    )
+  })
+
+  // The cockpit under the prompt, below the engine's hint line: the main card, one line collapsed, or nothing hidden.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    const mode = await stripMode($)
+    if (mode === 'hidden') {
+      return next(e)
+    }
+    const [hint, cacheNow, now, usageNow, jobNow, modelsNow] = await Promise.all([
+      next(e),
+      read($, cache),
+      $.clock.now(),
+      read($, usage),
+      read($, job),
+      read($, models),
+      read($, countdown),
+      read($, beat),
+    ])
+    const ui = $.ui.resolve(e)
+    const columns = e.viewport?.columns ?? 80
+    if (mode === 'collapsed') {
+      const line = stripLine(jobNow, cacheNow, usageNow, now, warnMs)
+      const color = line.tone === 'bad' ? 'red' : line.tone === 'warn' ? 'yellow' : line.tone === 'ok' ? 'green' : undefined
+
+      return (
+        <ui.Box flexDirection="column">
+          {hint}
+          <ui.Text wrap="truncate-end" dimColor={color === undefined} {...(color === undefined ? {} : { color })}>{line.text}</ui.Text>
+        </ui.Box>
+      )
+    }
+    const main = summaryCard(jobNow, cacheNow, usageNow, modelsNow, now, warnMs)
+    // The hint line takes no keys, so its headings stay plain text rather than buttons that open a tab.
+    const card = { ...main, rows: main.rows.map(row => (row.kind === 'section' ? { ...row, tab: undefined } : row)) }
+
+    return (
+      <ui.Box flexDirection="column">
+        {hint}
+        {drawCards(ui, [card], columns)}
+      </ui.Box>
     )
   })
 
@@ -319,6 +370,12 @@ async function openAgent($: EngineInterface, agentId: string, agents: readonly {
   const name = current.loops[agentId]?.name ?? agents.find(agent => agent.id === agentId)?.description ?? `#${agentId.slice(0, 6)}`
   await $.ui.open({ id: AGENT, title: `agent ${name}`, columns: PANE_COLUMNS, focus: true })
   await $.ui.focus({ requestId: AGENT, key: 'say' }).catch(() => undefined)
+}
+
+async function stripMode($: EngineInterface): Promise<StripMode> {
+  const stored = await $.store.get(STRIP_KEY).catch(() => undefined)
+
+  return isStripMode(stored) ? stored : 'expanded'
 }
 
 async function pushStatus($: EngineInterface): Promise<void> {

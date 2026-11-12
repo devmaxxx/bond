@@ -44,7 +44,7 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 
 - **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
-  110 columns (opened unasked, from 144), inline above the prompt otherwise.
+  110 columns, inline above the prompt otherwise; it opens only on `/bond-cockpit`.
   Three tabs, main first and in front (ctrl+x tab cycles them;
   `/bond-cockpit job` or `session` opens one). **main** keeps only what
   matters now: the task, then a few lines from each other tab under a heading
@@ -82,8 +82,12 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   with time to reset and for the context fill, coloured at 75% and 90%. Its
   badge adds the session's cost. Bars stretch to
   the pane's width. `/bond-cockpit` opens it.
-- **Flow band** — while a `/bond:implement` run reports progress, one line floats
-  above the prompt on every tab, pane open or closed: branch, phase bar, count and
+- **Strip under the prompt** — the main card, always there below the hint line
+  without opening a pane. `/bond-cockpit collapse` folds it to one line (state,
+  flow, cache, 5h and context, cost), `hide` takes it away, `expand` / `show`
+  bring it back; the mode is kept across sessions, and there is no close.
+- **Flow band** — while the strip is hidden and a `/bond:implement` run reports
+  progress, one line floats above the prompt on every tab: branch, phase bar, count and
   the current phase, yellow with `⏸` and the reason while a checkpoint waits;
   gone once every phase is done.
 - **Cache toast** — `cache expires in 10s: send a message now`, once per cache

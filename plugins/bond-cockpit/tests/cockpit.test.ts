@@ -112,3 +112,41 @@ test('the agent tab asks for a pick before one is chosen', async ($, on) => {
     await pane.unmount()
   }
 })
+
+const HINT = { component: 'PromptHint', requestId: 'hint', props: { isDraft: false, isWorking: false, hint: '? for shortcuts' }, viewport: { columns: 100, rows: 40 } } as const
+const strip = (args: string) => ({ ...RUN_COCKPIT, args })
+
+test('the cockpit sits under the prompt expanded, collapses to one line and hides, never opening a pane', async ($, on) => {
+  const opened: string[] = []
+  stubHost(on, opened)
+  const stored = new Map<string, unknown>()
+  on('store.get', (_, e) => ({ value: stored.get(e.key) }))
+  on('store.set', (_, e) => {
+    stored.set(e.key, e.value)
+    return { value: undefined }
+  })
+
+  for (const surface of SURFACES) {
+    const expanded = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...HINT })
+    expect(await expanded.find({ type: 'Text', text: 'Cockpit' })).toBeDefined()
+    expect(await expanded.find({ type: 'Button', key: 'tab:job' })).toBe(undefined)
+    await expanded.unmount()
+  }
+
+  expect((await $.command.run(strip('collapse'))).text).toBe('bond cockpit: strip collapsed.')
+  const collapsed = await $.ui.mount({ plugin: 'bond-cockpit', surface: 'terminal', ...HINT })
+  expect(await collapsed.find({ type: 'Text', text: /^cockpit ○/ })).toBeDefined()
+  expect(await collapsed.find({ type: 'Text', text: 'Cockpit' })).toBe(undefined)
+  await collapsed.unmount()
+
+  await $.command.run(strip('hide'))
+  const hidden = await $.ui.mount({ plugin: 'bond-cockpit', surface: 'terminal', ...HINT })
+  expect(await hidden.find({ type: 'Text', text: /cockpit/i })).toBe(undefined)
+  await hidden.unmount()
+
+  await $.command.run(strip('show'))
+  const shown = await $.ui.mount({ plugin: 'bond-cockpit', surface: 'terminal', ...HINT })
+  expect(await shown.find({ type: 'Text', text: 'Cockpit' })).toBeDefined()
+  await shown.unmount()
+  expect(opened).toEqual([])
+})
