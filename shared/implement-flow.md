@@ -310,6 +310,10 @@ write the criteria the task implies and mark them `(inferred)`.>
 <the spec's project-wide requirements — version floors, dependency limits,
 naming and copy rules — one line each, values copied verbatim; omit if none>
 
+## Out of scope
+<every item the spec or the tickets rule out, copied verbatim, one line each;
+omit if none. Nothing listed here is built, by the build or by a review fix.>
+
 ## Implementation steps
 Contract first — shared types, schemas, DTOs or the API shape both sides
 use — then one vertical slice per behaviour (schema → service/API → UI), each
@@ -492,6 +496,12 @@ the docs do not settle it. A test that fails for a reason that is not obvious
 goes through `superpowers:systematic-debugging`: root cause first, then one
 fix, never a guess.
 
+Build only what an AC in `## Spec` or a line of `## Global constraints`
+needs. Behaviour no AC asks for — extra hardening, cleanup, a refactor, a
+"while I'm here" fix — and anything under `## Out of scope` is not built, even
+when it looks like an improvement: it becomes one follow-up line under
+`## Decisions` instead.
+
 Tests follow the module's own style and sit next to the code they test, cover
 the golden path and at least one edge or error case per new behaviour, follow
 `bond:testing-behavior`, and never test code the change did not touch.
@@ -510,8 +520,9 @@ Then fill the plan's `## Coverage` from that run: for each AC in `## Spec`,
 the test that proves it (`<file> › <test>`), found by reading the tests, not
 by trusting the plan. An AC with no test gets one now, run alone. An AC that
 cannot be tested automatically is marked `manual: <how to check>` and becomes
-an item of the PR's **Test plan**. A requirement the build changed or dropped
-is recorded under `## Decisions`, never quietly left out.
+an item of the PR's **Test plan**. A requirement the build changed or dropped,
+and any behaviour it added that no AC asks for, is recorded under
+`## Decisions`, never quietly left out or kept.
 
 ## Procedure: Review and fix
 
@@ -525,11 +536,13 @@ security) and none runs again after the fixes.
 
 - Run the pair here,
   in one message: `/code-review` from the worktree at the level
-  `bond:routing-code-review` reads off the diff, `--fix` on, and a background
-  `bond:security-review` over the same working-tree diff. In `auto` mode the
-  router cannot ask, so a max predicate runs at `high` and says
-  `(escalation not asked)`. Wait for both; apply the security findings you
-  verify in place.
+  `bond:routing-code-review` reads off the diff, **without `--fix`**, and a
+  background `bond:security-review` over the same working-tree diff, its
+  prompt naming `PLAN_FILE` and `SPEC_FILE`. In `auto` mode the router cannot
+  ask, so a max predicate runs at `high` and says `(escalation not asked)`.
+  Wait for both, then apply the findings yourself through the scope gate
+  below — a reviewer does not see the spec, so its own fixes would land
+  unfiltered.
 
 It runs **after Test, before Report completion**, never later: its fixes
 write to the working tree, so they must be inside the diff that Ship + PR
@@ -543,6 +556,13 @@ commits, and Teardown refuses a dirty worktree.
   what holds without asking (see **Autonomy**). Log any finding you
   deliberately did not take under the plan file's `## Decisions`, with the
   reason.
+- **Scope gate.** A finding is fixed only when it is a defect in behaviour an
+  AC or a global constraint requires: a bug, a requirement broken or missed, a
+  security hole in a required feature or in a defence the spec relies on. A
+  finding that asks for behaviour no AC names — a new feature, extra
+  hardening, a refactor, a cleanup — or for anything under `## Out of scope`
+  is not applied: log it under `## Decisions` as a follow-up and list it in
+  the completion report.
 - A finding in code the change did not touch is out of `SCOPE`: report it to the
   user, do not fix it here.
 - An empty review is a pass. Say so and continue.
@@ -560,6 +580,8 @@ Tell the user:
 - Tickets handled: `<ID>: <summary>` for each.
 - Plan file: `PLAN_FILE`, and the spec when there was one.
 - Coverage: `<covered>/<total>` acceptance criteria, each `manual:` one named.
+- Follow-ups: the findings and ideas the scope rule kept out of the change,
+  one line each, from `## Decisions`.
 - Files changed: brief list.
 - Next step: in `auto` mode Ship + PR and Teardown run automatically; in `no-auto` mode, tell the user to validate, commit, and push
   (**Ship + PR** does that in `auto` mode).
