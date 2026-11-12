@@ -26,7 +26,7 @@ in-thread`. The procedures are written to stand on their own.
 | Build | `superpowers:executing-plans` + `superpowers:test-driven-development` | Default (`BUILD=inline`): one vertical red→green slice per behaviour, never all tests first. |
 | Build | `superpowers:subagent-driven-development` | Only under `--subagents`. Each task's implementer writes its own failing test first. |
 | Build, Verify, Review and fix | `superpowers:systematic-debugging` | A test or check fails for a reason that is not yet known. Find the root cause before changing anything. |
-| Review and fix, the audit | `superpowers:receiving-code-review` | Every finding, before it is applied or rejected. |
+| Review and fix | `superpowers:receiving-code-review` | Every finding, before it is applied or rejected. |
 | Verify, Report completion, Ship + PR | `superpowers:verification-before-completion` | Before any claim that a test, check or criterion passes. |
 | Track build (two or more tickets) | `test-driven-development`, `systematic-debugging`, `verification-before-completion` | Inside each track implementer. |
 

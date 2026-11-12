@@ -119,7 +119,7 @@ code.
 ### The review
 
 Off (`TRACK_REVIEW = false`) for `/bond:implement` and `/bond:implement-batch`:
-their run reviews once, at the end, in the audit — a track review before it
+their run reviews once, at the end, in **Review and fix** — a track review before it
 would be a second pass. On for a caller that has no review after the build.
 
 One reviewer per track, read-only, `effort: high`, over the track's whole diff,

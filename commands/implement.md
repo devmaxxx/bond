@@ -118,7 +118,7 @@ Run these shared procedures in order, reporting each phase through **Progress an
 2. **Build** phase — **Implement** with `SCOPE` = the whole plan and `BUILD` as set above. With `BUILD=track`, each ticket is a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — without that file's review and fix pass — the run's one review comes at the end.
 3. **Verify** phase — **Verify**: one fresh full run of the checks, then every acceptance criterion mapped to the test that proves it.
 4. **Review and fix** — the code and security review pair runs here once over the work, then the tests re-run.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create` (`update` on a resume whose progress file names a PR), then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**. `/implement` never runs **Hand off the audit**: its review already ran.
+5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create` (`update` on a resume whose progress file names a PR), then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown**.
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto` (`--review-plan` and `--checkpoints` keep `auto`; their stops come from `CHECKPOINTS`); `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 

@@ -157,13 +157,13 @@ recommended options and name them in the report.
 
 ## A new PR is audited in a fresh context — always on
 
-Once implementation opens a PR — through a batch, or by
+Once implementation opens a PR by
 hand with `/bond:open-pr` or a bare `gh pr create` — hand it to a background
 `bond:pr-audit` agent. A command that opens a PR and carries on with it —
 `/bond:ship-pr`, `/bond:fix-ci`, a bond-oss command that hands CI to
 `bond:pr-watch` — keeps it: two writers in one checkout reject each other's
-pushes. `/bond:implement` keeps it too: it runs the review pair itself before
-the PR opens. A context that did not write the change runs the code and security
+pushes. `/bond:implement` and `/bond:implement-batch` keep it too: each run reviews
+itself before its PR opens. A context that did not write the change runs the code and security
 review pair on it **once**, fixes and pushes the real findings, and stops — no
 second round, no browser run, no test-plan ticking. Give it
 the PR's checkout and the push account. A linked worktree is the agent's from
