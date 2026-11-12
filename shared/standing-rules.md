@@ -46,9 +46,11 @@ needs no question.
 
 ## Plugin profiles — always on
 
-Apply the `bond:routing-plugins` skill at the start of a session and when the
-task changes kind. **The skill owns the profiles and the signals.** Applying a
-profile changes settings, so it asks once first, unless the user named it.
+Sessions run the `full` profile, everything on, by default. Apply the
+`bond:routing-plugins` skill when the user asks to trim context or names a
+profile, or when `/context` shows the skill or MCP listing taking a large
+share. **The skill owns the profiles and the signals.** Applying a profile
+changes settings, so it asks once first, unless the user named it.
 
 ## Caveman mode — always on
 

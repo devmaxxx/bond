@@ -64,7 +64,10 @@ const DEV_SKILLS = ['credential-handling', 'clean-architecture', 'software-desig
 // The standing rules send every UI change through ui-ux-pro-max.
 const FRONTEND_PLUGINS = [...DEV_PLUGINS, 'frontend-design@claude-plugins-official', 'chrome-devtools-mcp@claude-plugins-official', 'ui-ux-pro-max@ui-ux-pro-max-skill']
 
+export const DEFAULT_PROFILE = 'full'
+
 export const PROFILES: readonly Profile[] = [
+  { name: DEFAULT_PROFILE, summary: 'everything on: the default', plugins: [...MANAGED_PLUGINS], skills: [...MANAGED_SKILLS] },
   { name: 'minimal', summary: 'chat, docs, notes: no extra plugins', plugins: [], skills: ['credential-handling'] },
   { name: 'job-search', summary: 'applications and boards in Chrome', plugins: [], skills: ['credential-handling', 'captcha-ninja', 'writing-scope-briefs'] },
   { name: 'dev', summary: 'backend and full-stack code', plugins: DEV_PLUGINS, skills: DEV_SKILLS },
