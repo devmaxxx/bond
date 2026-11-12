@@ -98,6 +98,22 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   phase list has a ↻ beside every phase reached, which runs
   `/bond:implement --resume <branch> --from "<phase>"`. While the strip is
   hidden, a **show cockpit** button (`c`) brings it back.
+- **plugins tab** — profiles and every plugin and user skill, each with what it
+  adds to every request (its skills' listing plus its MCP tools) and how often
+  it was used (Skill and plugin MCP calls, all sessions). A press toggles one in
+  this checkout's `.claude/settings.local.json`; `▶ <profile>` applies a
+  profile (minimal, job-search, dev, frontend, design, architecture, review,
+  work, authoring), `✎` edits one (toggles then change the profile, kept across
+  sessions), `reset` hands everything back to the user settings, and `reload
+  plugins` puts `/reload-plugins` in the prompt. bond-cockpit itself never goes
+  off. `/bond-cockpit profile [<name>|reset]` lists or applies one, and the model
+  calls the same through the `mcp__bond-cockpit__profile` tool, which the
+  **routing-plugins** skill uses to pick a profile per session.
+- **settings tab** — built-in features that cost context: git and PR
+  instructions, the Artifact tool, bundled skills and workflows, claude.ai skills,
+  plugins and connectors, auto memory, workflows, a skill description cap
+  (full, 160, 80 chars), and each MCP server (`deniedMcpServers`), each with its
+  measured tokens and a toggle written to the same local file.
 
 No request reports its cache TTL, so `cacheTtl` (default `auto`) infers it on
 every request: a subscription past a rate-limit window is in overage and drops
@@ -260,6 +276,7 @@ claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-c
 - **photo-jpeg-exiftool** — converts a photo to JPEG, resizes it or matches its colour profile with `sips`, and reads, copies or strips its metadata with `exiftool`, all on this machine, never through a website. It copies tags only from the source file of the same shot and never invents a camera, a date or GPS. Disabled for the model (`disable-model-invocation: true`): it never triggers on its own and costs no context; run it by hand with `/bond:photo-jpeg-exiftool`. Bundled under `skills/photo-jpeg-exiftool/`.
 - **authorship-conventions** — naming and attribution for every git artefact: Conventional Branch `<type>/<description>`, Conventional Commits subject, prose _why_ body, one human owner, zero AI signatures (no `Co-Authored-By` naming a tool, no `Claude-Session:`, no "generated with") in commits, PR bodies/comments or docs — plus the rename trap: renaming a branch after its PR is open closes the PR. Under `TRACKER=jira` the `<prefix>/<KEY>` branch shape bond imposes wins; everywhere else the spec wins. Backed by the `check-commit` / `check-doc` hooks. Triggers on `checkout -b`, "commit", "amend", "open a PR", "write the ADR/plan/README". Also decides which of the two `gh` accounts pushes — the active one is machine-global, so another session may have moved it since. Bundled under `skills/authorship-conventions/`.
 - **routing-model-and-effort** — picks a (model, effort) pair per task phase: opus/medium by default, high for a change over five files, across modules or untested, fable for planning only on the hard predicates, opus for every build unless a model is named, a fresh `bond:effort-<tier>` subagent whenever the pair differs from the session, and recon — search, callers, a docs lookup, one check run — spawned on `haiku`. Triggers when a task will change files or needs a plan, and when a model or effort comes up. Bundled under `skills/routing-model-and-effort/`.
+- **routing-plugins** — picks one plugin and skill profile per session from the repo and the task (job-search, authoring, work, review, architecture, design, frontend, dev, minimal), asks once, and applies it through the cockpit's profile tool to `.claude/settings.local.json`; profiles and why each plugin is in or out in `references/profiles.md`. Bundled under `skills/routing-plugins/`.
 - **routing-code-review** — routes the `/code-review` level off the diff: `high` by default, `medium`/`low` when the diff is small, single-module, tested and risk-free, a question for `max`, and `ultra` only recommended (the user launches and pays for it); `--fix` for our own diff, `--comment`/`--post` on the user's word. Triggers when a review is about to be launched. Bundled under `skills/routing-code-review/`.
 - **linkedin-writing** — voice and format for LinkedIn posts and articles: facts from the repo, numbers checked against the vendor's docs, attribution left to the author, plain text for posts, one cover-image prompt with its technical description, and how to fill LinkedIn's editors in Chrome without publishing. Used by `/linkedin` and `/linkedin-draft`. Bundled under `skills/linkedin-writing/`.
 
@@ -316,6 +333,7 @@ bond/
 │   ├── photo-jpeg-exiftool/  # JPEG via sips, metadata via exiftool, local only
 │   ├── authorship-conventions/  # branch/commit/PR/doc naming, attribution, gh account
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
+│   ├── routing-plugins/           # plugin and skill profile per session
 │   └── routing-code-review/  # /code-review level, target and flags per diff
 ├── agents/
 │   ├── docs-explorer.md     # look up official docs before using a third-party API
