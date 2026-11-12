@@ -24,12 +24,11 @@ This command owns only selection, the conflict map, the schedule and the ledger
 — and, under `--integration`, the merges and the one closing review.
 Read both files.
 
-A repository that owns its task flow has a companion command instead: in
-beauty-crm (`.bond/project.json` with `tracker: none` and a `pnpm tasks` CLI)
-the batch is `/bond-beauty-crm:batch`. When it is not installed, say so and
-offer to enable it in the clone's `.claude/settings.local.json` before running
-this one — the generic flow knows nothing of the repository's claim, its
-plan-file dependencies or its trailers.
+A repository that owns its task flow names its own batch command in the
+project profile (`BATCH_COMMAND`). When it is set, run that instead; when its
+plugin is not installed, say so and offer to enable it in the clone's
+`.claude/settings.local.json` — the generic flow knows nothing of the
+repository's claim, its plan-file dependencies or its trailers.
 
 Autonomous per the **Autonomy** note in `implement-flow.md`. It never stops to
 ask mid-batch: what recon can see is asked once in step 4.4, and a question

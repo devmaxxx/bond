@@ -32,7 +32,8 @@ the repo's own statement about itself beats a guess made from its URL.
   "productionBranch": "main",
   "reviewers": [],
   "draft": false,
-  "prTitle": "plain"
+  "prTitle": "plain",
+  "batchCommand": "/<companion>:batch"
 }
 ```
 
@@ -130,6 +131,13 @@ those keys is free text, not a ticket.
 2. The repo's configured reviewers or `CODEOWNERS` on GitHub.
 
 Nothing resolved ⇒ open the PR with no reviewers. Never invent one.
+
+### `BATCH_COMMAND` — the repository's own batch command
+
+`batchCommand` in `.bond/project.json`, else unset. Set ⇒
+`/bond:implement-batch` hands the batch to that command (a companion plugin's,
+which drives the repository's own claim, plan and close steps). Unset ⇒ the
+generic batch runs.
 
 ## Procedure: Resolve PR coordinates
 

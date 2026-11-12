@@ -22,7 +22,7 @@ to this plugin: `BOND=$(ls -d ${CLAUDE_PLUGIN_ROOT}/../../bond/*/ | sort -V | ta
 
 - `$BOND/shared/owner-questions.md` — how a question is phrased, owner rulings
   (R) apart from lead decisions (L).
-- `$BOND/shared/track-build.md` — recon schema, tracks, fleet arithmetic, the
+- `$BOND/shared/track-build.md` — tracks, fleet arithmetic, the
   build/review/fix workflow and its schemas.
 
 **Roles.** The **owner** decides. The **lead** — this session, on opus —
@@ -79,16 +79,19 @@ orchestrates and barely codes.
 2. **A recon worktree.** Detached, on fresh `origin/main`, read-only:
    `git worktree add --detach .claude/worktrees/recon-<date> origin/main`.
 3. **The recon fleet.** About seven `bond-beauty-crm:batch-scout` agents, each with its
-   group of cards, per `track-build.md` **Recon**: the task line, the PRD
+   group of cards, all launched in one message, each returning the scout's
+   fixed schema: the task line, the PRD
    references, what the code already has (`pnpm exec repograph ask` / `impact`
    first), spec roots `prd/` and the milestone files. Verdicts
    `ready | mostly-built | already-done | blocked | needs-owner`, with
    estimate, dependencies and open questions, each with its class and
    recommended answer.
-4. **The lead re-checks** per `track-build.md` **Recon** — every
-   `mostly-built` and `already-done`, a `ready` only when low-confidence or
-   waiting on something open — against the code and the PRD. Haiku misses
-   decisions already taken and pins remainders on the wrong milestone.
+4. **The lead re-checks** every `mostly-built` and `already-done`, a `ready`
+   only when low-confidence or waiting on something open — against the code
+   and the PRD. Haiku misses decisions already taken and pins remainders on
+   the wrong milestone, and a wrong `already-done` closes work nobody did; a
+   wrong `ready` costs less, since its implementer finds the code and stops.
+   One read each, in parallel.
 5. **Tracks** by code, two to four, so they never edit the same files (for
    example track A «Najemca», track B «Kalendarz»). A migration sequence or a contract
    version bump is one shared kind: its tasks share a track. Doubtful tasks are
