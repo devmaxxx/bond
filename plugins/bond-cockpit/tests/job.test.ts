@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CacheSnapshot, ModelTally, UsageSnapshot } from '../types'
-import { EMPTY_JOB, agentCard, agentSpawned, flowWritten, sendNotice, elapsed, endJob, isBusy, jobCard, jobBrief, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
+import { EMPTY_JOB, agentCard, agentSpawned, flowBand, flowWritten, sendNotice, elapsed, endJob, isBusy, jobCard, jobBrief, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
 import { summaryCard } from '../hooks/summary'
 
 const NOW = Date.parse('2026-10-12T12:00:00Z')
@@ -282,4 +282,13 @@ test('other writes and malformed progress files leave the flow alone', () => {
   expect(flowWritten({ file_path: FLOW_PATH, content: '{' }, NOW)).toBe(null)
   expect(flowWritten({ file_path: FLOW_PATH, content: flowJson([['Plan', 'running']]) }, NOW)).toBe(null)
   expect(flowWritten({ file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Ship', 'done']]) }, NOW)?.current).toBe(-1)
+})
+
+test('the band above the prompt carries the flow bar while it runs, the wait at a checkpoint, and nothing once done', () => {
+  const at = (phases: [string, string][], paused = '') => toolStarted(startJob(EMPTY_JOB, 'implement', NOW), 'f', 'Write', { file_path: FLOW_PATH, content: flowJson(phases, paused) }, undefined, NOW)
+
+  expect(flowBand(at([['Setup', 'done'], ['Plan', 'active']]), NOW + 5_000, 120)).toEqual({ text: 'flow feat/auth  ▰▱ 1/2 · Plan · 5s', tone: 'ok' })
+  expect(flowBand(at([['Plan', 'done'], ['Build', 'paused']], 'plan approval'), NOW, 120)?.tone).toBe('warn')
+  expect(flowBand(at([['Plan', 'done'], ['Build', 'done']]), NOW, 120)).toBe(null)
+  expect(flowBand(EMPTY_JOB, NOW, 120)).toBe(null)
 })

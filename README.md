@@ -82,6 +82,10 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   with time to reset and for the context fill, coloured at 75% and 90%. Its
   badge adds the session's cost. Bars stretch to
   the pane's width. `/bond-cockpit` opens it.
+- **Flow band** — while a `/bond:implement` run reports progress, one line floats
+  above the prompt on every tab, pane open or closed: branch, phase bar, count and
+  the current phase, yellow with `⏸` and the reason while a checkpoint waits;
+  gone once every phase is done.
 - **Cache toast** — `cache expires in 10s: send a message now`, once per cache
   entry and never mid-turn, so a reply sent in time is read from cache instead
   of written again.

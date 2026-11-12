@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
 import type { CacheTtl, TabName } from './cache'
-import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
+import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, flowBand, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
 import { drawCards } from './pane'
 import { summaryCard } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
@@ -199,6 +199,24 @@ export const register: Register = (on, options) => {
     reportedTtl = isTtl(e.cache_ttl) ? e.cache_ttl : null
 
     return next(e)
+  })
+
+  // The flow floats above the prompt while a /bond:implement run reports progress, so its stage
+  // and a checkpoint's wait stay in sight with the pane closed or on another tab.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const [jobNow, now] = await Promise.all([read($, job), $.clock.now(), read($, beat)])
+    const band = e.props.hasSurvey || e.props.maxRows < 1 ? null : flowBand(jobNow, now, e.props.bodyColumns)
+    if (band === null) {
+      return next(e)
+    }
+    const { Box, Text } = $.ui.resolve(e)
+
+    return (
+      <Box flexDirection="column">
+        <Text color={band.tone === 'warn' ? 'yellow' : 'green'} wrap="truncate-end">{band.text}</Text>
+        {await next(e)}
+      </Box>
+    )
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {

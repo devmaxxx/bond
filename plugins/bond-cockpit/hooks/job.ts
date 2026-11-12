@@ -458,6 +458,26 @@ function isWorking(loop: Pick<JobLoop, 'done' | 'at'>, now: number): boolean {
   return !loop.done && now - loop.at < STALE_MS
 }
 
+/**
+ * The flow in one line for the band above the prompt, seen whatever tab or pane is open:
+ * a bar of filled phases, the count, and the phase it is in or stopped at. Null once it is done.
+ */
+export function flowBand(job: JobState, now: number, columns: number): { text: string; tone: Tone } | null {
+  const flow = job.flow ?? null
+  if (flow === null || flow.current === -1) {
+    return null
+  }
+  const total = flow.phases.length
+  const finished = flow.phases.filter(phase => phase.status === 'done' || phase.status === 'skipped').length
+  const width = Math.min(total, 12)
+  const filled = Math.round((finished / total) * width)
+  const phase = flow.phases[flow.current]?.name ?? ''
+  const state = flow.paused !== null ? `⏸ ${phase} · ${flow.paused} · reply to continue` : `${phase} · ${elapsed(now - flow.at)}`
+  const text = `flow ${flow.branch}  ${'▰'.repeat(filled)}${'▱'.repeat(width - filled)} ${finished}/${total} · ${state}`
+
+  return { text: clip(text, Math.max(20, columns)), tone: flow.paused !== null ? 'warn' : 'ok' }
+}
+
 /** The flow's section: its branch, a gauge of finished phases, then one mark per phase. */
 function flowRows(flow: FlowState, now: number): Row[] {
   const marks = flow.phases.map(phase => `${FLOW_MARK[phase.status]} ${phase.name}`)
