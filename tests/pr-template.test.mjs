@@ -11,6 +11,7 @@ import {
   hasTicket,
   isGhPrCreate,
   resolveDraft,
+  resolveJiraTracked,
   resolvePrTitle,
   titleProblems,
 } from "../hooks/pr-template.mjs";
@@ -339,6 +340,23 @@ describe("requiring the `## Jira` section", () => {
       "- write the CSV as UTF-8, not CP-1251, and stamp it ISO-8601",
     );
     assert.deepEqual(checkBash(create("", body)), []);
+  });
+
+  it("does not demand it where the repo tracks no Jira", () => {
+    const cmd = create("--head feat/ERP-135", GOOD_BODY, "ERP-135: tidy the export");
+    assert.deepEqual(checkBash(cmd, { jiraTracked: () => false }), []);
+  });
+});
+
+describe("resolving whether a repo tracks Jira", () => {
+  it("tracks none when there is no manifest", () => {
+    assert.equal(resolveJiraTracked(repo()), false);
+  });
+
+  it("follows the manifest's `tracker`", () => {
+    assert.equal(resolveJiraTracked(repo({ tracker: "jira" })), true);
+    assert.equal(resolveJiraTracked(repo({ tracker: "none" })), false);
+    assert.equal(resolveJiraTracked(repo({ draft: true })), false);
   });
 });
 

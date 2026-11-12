@@ -52,6 +52,17 @@ export function resolvePrTitle(cwd) {
 }
 
 /**
+ * Mirrors `TRACKER` in shared/project-profile.md: `jira` only when the repo's
+ * `.bond/project.json` says so. Under `none` the template leaves `## Jira` out,
+ * so the hook must not demand it.
+ */
+export function resolveJiraTracked(cwd) {
+  const root = gitOutput(cwd, "rev-parse", "--show-toplevel");
+  const manifest = root === null ? null : readManifest(join(root, ".bond", "project.json"));
+  return manifest?.tracker === "jira";
+}
+
+/**
  * Project keys, not a generic `[A-Z]+-\d+`: that shape also spells UTF-8,
  * SHA-256, ISO-8601 and RFC-822, and a PR was once rejected for the word
  * "UTF-8" in its description. The keys are enumerable, so they are enumerated;
@@ -152,10 +163,14 @@ export function isGhPrCreate(scrubbed) {
 /**
  * Returns null when the command is not a PR creation, or when the body cannot
  * be read out of it — an unreadable body is not evidence of a missing template.
- * `requireDraft` is lazy because resolving it shells out to git, and this runs
- * on every Bash call. It receives the `cd` target, if any.
+ * `requireDraft`, `titleStyle` and `jiraTracked` are lazy because resolving
+ * them shells out to git, and this runs on every Bash call. Each receives the
+ * `cd` target, if any.
  */
-export function checkBash(cmd, { requireDraft = () => false, titleStyle = () => "plain" } = {}) {
+export function checkBash(
+  cmd,
+  { requireDraft = () => false, titleStyle = () => "plain", jiraTracked = () => true } = {},
+) {
   const scrubbed = scrubShell(cmd);
   if (!isGhPrCreate(scrubbed)) {
     return null;
@@ -192,12 +207,13 @@ export function checkBash(cmd, { requireDraft = () => false, titleStyle = () => 
   ]
     .filter((value) => value !== null)
     .join("\n");
-  return [...problems, ...missingSections(body, haystack)];
+  return [...problems, ...missingSections(body, jiraTracked(dir) ? haystack : "")];
 }
 
 /**
  * `haystack` is where a ticket id may appear (title, branch, body) — the Jira
- * section is only required when the work actually has a ticket.
+ * section is only required when the work actually has a ticket. An empty
+ * haystack (the repo tracks no Jira) demands none.
  */
 export function missingSections(body, haystack) {
   const problems = [];

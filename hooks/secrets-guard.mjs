@@ -7,9 +7,10 @@
  * that outlives a rotation.
  *
  * Prompt: blocked with the kind named, never the value; `#allow-secret` lets
- * it through. Tool call (Bash / Write / Edit / MultiEdit / NotebookEdit): exit 2 hands the reason back to the agent,
- * unless the value only lands in a file git will never commit (gitignored, or
- * outside any repo), or the file already held it.
+ * it through. Tool call (Bash / Write / Edit / MultiEdit / NotebookEdit): exit 2
+ * hands the reason back to the agent, unless the value only lands in a file git
+ * will never commit (gitignored, or outside any repo), or the file already held
+ * it.
  *
  * Runs on agent-base-kit. The prompt check fails open: a fault lets the
  * prompt through, since blocking it would stop the user typing at all. The
