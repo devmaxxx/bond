@@ -141,6 +141,10 @@ Do not start the plan until it is answered; record each answer in the plan's
 **Decisions**. No blocker ⇒ continue without asking. `--no-auto` does not change
 this.
 
+Under `SPEC_ONLY` the spec is the only input: an open question in it is
+decided by the Autonomy rule and logged, not asked — only a blocker with no
+viable option stops the run.
+
 Under `TRACKER=none` there is nothing to fetch: apply the same checks to the
 free-text task (an unanswered question in it, a dependency it names, a decision
 it leaves open).
@@ -265,7 +269,8 @@ Explore the code relevant to `FOCUS`:
 - Locate related backend API endpoints and DTOs if data is touched.
 - Find existing tests covering the affected area.
 - A third-party library, SDK or CLI the change will call ⇒ confirm its current
-  API through the `bond:docs-explorer` agent before the plan relies on it.
+  API before the plan relies on it: from its installed types and README first,
+  through the `bond:docs-explorer` agent only when those do not settle it.
 
 ## Procedure: Implementation plan
 

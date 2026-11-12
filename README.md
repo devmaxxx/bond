@@ -66,6 +66,8 @@ flowchart LR
 
 The build is inline TDD: one red→green slice per behaviour, typecheck and single test files as it goes, the full suite once in Verify, and one commit at the end — so the repo's commit hook runs once. `--subagents` switches to one implementer and one reviewer per task, and `--thorough` adds a plan-review agent; both are slower.
 
+`/implement --spec <path>` with no ticket key is spec-only: no Jira, no upfront question, no browser, and library APIs checked against what is installed before any web lookup. The spec and the repo are the whole input.
+
 `--review-plan` stops for approval after the plan, `--checkpoints` after every phase, and `--resume` picks a stopped run back up.
 
 ## Commands

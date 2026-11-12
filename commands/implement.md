@@ -4,7 +4,7 @@ description: Fetch (or create) a Jira ticket — or take a free-text task in a r
 
 # /implement
 
-**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*). When free text with no `--spec` leaves the design itself open — criteria would have to be invented, or two or more designs fit — that upfront round runs through `superpowers:brainstorming` instead, and its approved design becomes the run's spec (`${CLAUDE_PLUGIN_ROOT}/shared/superpowers.md`).
+**Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all, and none in a spec-only run (standing rule *Commands ask first*). When free text with no `--spec` leaves the design itself open — criteria would have to be invented, or two or more designs fit — that upfront round runs through `superpowers:brainstorming` instead, and its approved design becomes the run's spec (`${CLAUDE_PLUGIN_ROOT}/shared/superpowers.md`).
 
 Full ticket-to-implementation workflow: fetch one or more Jira tickets (or **create one** when you have none yet), create a properly-named branch in an isolated worktree, analyse the codebase, write a concrete implementation plan, implement it, ship, open the PR, and tear the worktree down. By default it runs end-to-end without pausing; pass `--no-auto` to confirm the plan first or `--no-worktree` to work in the current tree.
 
@@ -22,7 +22,7 @@ Examples:
 - `/implement add a CSV export to the reports page` — creates a Task, then implements it
 - `/implement login page 500s on submit --bug` — creates a Bug, then implements it
 - `/implement "wire up export endpoint" --task --project OPS`
-- `/implement --spec docs/specs/csv-export.md` — implements a written spec (under `TRACKER=jira` it creates a Task named after the spec)
+- `/implement --spec docs/specs/csv-export.md` — spec-only: implements the spec and nothing else — no Jira, no browser, no upfront question
 - `/implement PROJ-135 --spec docs/specs/csv-export.md` — the ticket plus a spec that refines it
 - `/implement --spec docs/specs/auth.md --review-plan` — stops at the plan for approve / edit / stop, then runs on to the PR
 - `/implement --spec docs/specs/auth.md --checkpoints` — pauses after every phase
@@ -41,7 +41,7 @@ By **default** `/implement` runs in **worktree mode** and **auto mode**: it crea
 - `--resume [<branch>]` — continue a run that stopped (a checkpoint's Stop, a pause file, an interrupt) from the phase its progress file names, with the flags, tickets, base and PR it recorded. Skips steps 1–4; the plan file is re-read, so edits made while it was stopped count. `--from "<phase>"` (a name from the progress file, as the bond-cockpit ↻ button sends it) starts at that phase instead and marks it and every later phase `todo` first. Outside bypass mode, allow the progress folder once — `Edit(~/.local/state/bond-flow/**)` in `permissions.allow` — or every phase boundary asks.
 - `--subagents` — build through `superpowers:subagent-driven-development`: a fresh implementer and a task reviewer per plan task, with per-task commits. Slower — several minutes per task — but every task gets an independent gate. Default: inline TDD in this context.
 - `--thorough` — run the read-only plan-review agent (**Review the plan**) before the plan is printed. Default: off; the final review pair is the gate.
-- `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive the **Build** slices and the **Verify** map. A path that does not exist aborts the run before anything is written.
+- `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive the **Build** slices and the **Verify** map. A path that does not exist aborts the run before anything is written. With no ticket key beside it the run is **spec-only** (see **Spec-only runs**).
 - `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
 
 Flags that only apply when **creating** a ticket (no key given — see step 1):
@@ -51,12 +51,32 @@ Flags that only apply when **creating** a ticket (no key given — see step 1):
 
 Strip all flags from `$ARGUMENTS` before parsing the remaining tokens.
 
+### Spec-only runs
+
+`--spec` with no ticket key sets `SPEC_ONLY`. The spec, the repo and the files
+it names are the whole input; the run reaches for nothing else:
+
+- **No tracker.** `TRACKER=none` for this run whatever the project profile
+  says: no ticket is created, read, claimed or transitioned. Leftover free text
+  is a note on the spec, not a ticket summary.
+- **No upfront question.** Flags left out take their defaults — worktree on,
+  base from the profile, auto mode — and `superpowers:brainstorming` never
+  runs: the spec already settled the design. **Check for blockers** reads the
+  spec only; an open question in it is decided and logged under `## Decisions`,
+  never asked, unless no option is viable.
+- **No browser.** No Chrome, no Playwright MCP, no screenshots — the e2e suite
+  the repo already has is the only browser that runs, inside **Verify**.
+- **No web lookups by default.** A third-party API is confirmed from what is
+  installed — the package's types and README under `node_modules/` (or the
+  stack's equivalent) — and the spec's own decisions. `bond:docs-explorer`
+  runs only when the installed code cannot settle the question.
+
 ## Steps
 
 ### 1. Parse ticket IDs — or create a ticket
 
 Resolve the **project profile** first
-(`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Under `TRACKER=none` there
+(`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Under `TRACKER=none` or `SPEC_ONLY` there
 is no Jira to read, create in, or transition: treat **all** of `$ARGUMENTS` as
 the free-text description of the work (with `--spec` and no text left, the
 spec's first heading is the description), set `TICKET_IDS` empty, run the shared
@@ -72,7 +92,7 @@ the remaining tokens:
   1. Treat the remaining text as the new issue **summary**. Type = `Bug` if `--bug`, else `Task` (default, or `--task`). Project = `--project <KEY>`, else inferred per the **create** procedure in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md`.
   2. Run that **create** procedure (assignee defaults to you). Capture the new key.
   3. Report the created issue (key + browse URL). Set `TICKET_IDS` = the single new key and continue.
-- **No tokens at all** → with `--spec`, take the create path with the spec's first heading as the summary and the spec path in the description; without it, ask the user for a ticket ID or a summary to create, and stop.
+- **No tokens at all** → with `--spec`, the run is `SPEC_ONLY` (handled above); without it, ask the user for a ticket ID or a summary to create, and stop.
 
 ### 2. Resolve tickets, claim them, and move them to In Progress
 
