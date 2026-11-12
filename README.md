@@ -31,7 +31,7 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | `/worktree`       | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
 | `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
 
-## bond-cockpit (job, prompt-cache status line and pane)
+## bond-cockpit (job, implement-flow status line, strip and pane)
 
 `plugins/bond-cockpit/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
 `modules`) that runs inside Claude Code rather than as spawned `node` processes,
@@ -42,7 +42,10 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 { "enabledPlugins": { "bond-cockpit@devmaxxx": true } }
 ```
 
-- **Status line** — `cache <hit>% ⏱<left>` for the last main-thread request.
+- **Status line** — the `/bond:implement` flow while a run reports progress:
+  `feat/x ▰▰▰▱▱▱▱▱▱▱ 3/10 · Build`, `⏸` before the phase while it is stopped;
+  empty with no run and once every phase is done. The cache hit rate and
+  countdown live in the strip and the pane, not here.
 - **Pane** — docks to the right of the transcript in the fullscreen layout from
   110 columns, inline above the prompt otherwise; it opens only on `/bond-cockpit`.
   Three tabs, main first and in front (ctrl+x tab cycles them;
@@ -86,24 +89,21 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   without opening a pane. `/bond-cockpit collapse` folds it to one line (state,
   flow, cache, 5h and context, cost), `hide` takes it away, `expand` / `show`
   bring it back; the mode is kept across sessions, and there is no close.
-- **Flow band and controls** — while a `/bond:implement` run reports progress,
-  the band above the prompt carries its line and buttons (ctrl+x tab to focus):
-  `⏸ pause` (`p`, stops at the next phase boundary), `■ stop` (`x`, aborts the
-  turn now), `▶ resume` (`r`, once it stands still) and `↻ rerun <phase>`; the
-  job tab's phase list has a ↻ beside every phase reached, which runs
-  `/bond:implement --resume <branch> --from "<phase>"`. The line, on every tab: branch, phase bar, count and
-  the current phase, yellow with `⏸` and the reason while a checkpoint waits;
-  gone once every phase is done.
-- **Cache toast** — `cache expires in 10s: send a message now`, once per cache
-  entry and never mid-turn, so a reply sent in time is read from cache instead
-  of written again.
+- **Band above the prompt** — on every tab. While a `/bond:implement` run
+  reports progress: its line (branch, phase bar, count and the current phase,
+  yellow with `⏸` and the reason while a checkpoint waits or after a stop; gone
+  once every phase is done) and its buttons (ctrl+x tab to focus): `⏸ pause`
+  (`p`, stops at the next phase boundary), `■ stop` (`x`, aborts the turn now),
+  `▶ resume` (`r`, once it stands still) and `↻ rerun <phase>`; the job tab's
+  phase list has a ↻ beside every phase reached, which runs
+  `/bond:implement --resume <branch> --from "<phase>"`. While the strip is
+  hidden, a **show cockpit** button (`c`) brings it back.
 
 No request reports its cache TTL, so `cacheTtl` (default `auto`) infers it on
 every request: a subscription past a rate-limit window is in overage and drops
 to 5m; otherwise the last model switch's report; otherwise 1h on a subscription
 and 5m on an API key. `5m` or `1h` fixes it. The card badge says `overage`,
-`set` or `API` when the TTL came from one of those. `cacheWarnSeconds` (default
-10, `0` off) sets when the toast fires.
+`set` or `API` when the TTL came from one of those.
 
 ## bond-beauty-crm (beauty-crm-only companion)
 
@@ -243,7 +243,7 @@ node --test 'tests/**/*.test.mjs'
 ```
 
 `bond-cockpit` is tested by Claude Code's own plugin runner — the cache view
-directly, and the status line and pane on the terminal and desktop surfaces:
+directly, and the status line, strip, band and pane on the terminal and desktop surfaces:
 
 ```sh
 claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-cockpit
@@ -318,7 +318,7 @@ bond/
 │   ├── photo-jpeg-exiftool/  # JPEG via sips, metadata via exiftool, local only
 │   ├── authorship-conventions/  # branch/commit/PR/doc naming, attribution, gh account
 │   ├── routing-model-and-effort/  # (model, effort) pair per task phase
-│   ├── routing-code-review/  # /code-review level, target and flags per diff
+│   └── routing-code-review/  # /code-review level, target and flags per diff
 ├── agents/
 │   ├── docs-explorer.md     # look up official docs before using a third-party API
 │   ├── test-runner.md       # run one check, return only the failures
@@ -373,7 +373,7 @@ bond/
 │   ├── context-mode-guard.test.mjs
 │   ├── skill-size.test.mjs
 │   ├── shell.test.mjs
-├── plugins/bond-cockpit/   # prompt-cache status line + pane mod (function hooks)
+├── plugins/bond-cockpit/   # implement-flow status line, strip + pane mod (function hooks)
 ├── plugins/bond-oss/       # open-source library create/audit/demo/release (enable globally)
 │   └── .claude-plugin/plugin.json  # depends on bond
 ├── LICENSE

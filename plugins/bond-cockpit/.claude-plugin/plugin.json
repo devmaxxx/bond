@@ -1,7 +1,7 @@
 {
   "name": "bond-cockpit",
   "version": "0.49.0",
-  "description": "Cockpit for bond: the current job (task, tool in flight, agent and workflow progress), prompt-cache hit rate and time to expiry in the status line and a docked pane that also lists the session's models and the rate-limit, context and cost usage, with a toast before the cache expires. A mod of function hooks; needs a Claude Code build with plugin hooks modules.",
+  "description": "Cockpit for bond: the current job (task, tool in flight, agent and workflow progress), the /bond:implement flow's progress in the status line, a strip under the prompt, and a docked pane that also lists the prompt-cache hit rate and time to expiry, the session's models and the rate-limit, context and cost usage. A mod of function hooks; needs a Claude Code build with plugin hooks modules.",
   "author": {
     "name": "Max Synenko",
     "email": "syn.max.13@gmail.com"
@@ -29,12 +29,6 @@
         "5m",
         "1h"
       ]
-    },
-    "cacheWarnSeconds": {
-      "type": "number",
-      "title": "Cache expiry warning (seconds)",
-      "description": "How long before the cache expires the toast fires; 0 turns it off",
-      "default": 10
     }
   }
 }

@@ -14,7 +14,7 @@
     {
       "name": "bond-cockpit",
       "source": "./plugins/bond-cockpit",
-      "description": "Status line and docked pane: the current job and its agents, prompt-cache hit rate, time to expiry and an expiry toast",
+      "description": "The /bond:implement flow in the status line, a strip under the prompt and a docked pane: the current job and its agents, prompt-cache hit rate and time to expiry",
       "version": "0.49.0"
     },
     {

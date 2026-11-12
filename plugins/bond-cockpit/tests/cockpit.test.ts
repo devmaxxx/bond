@@ -150,3 +150,99 @@ test('the cockpit sits under the prompt expanded, collapses to one line and hide
   await shown.unmount()
   expect(opened).toEqual([])
 })
+
+const FLOW_FILE = '/Users/x/.local/state/bond-flow/repo--feat-auth.json'
+const flowContent = (phases: [string, string][], paused = '') => JSON.stringify({ branch: 'feat/auth', paused, phases: phases.map(([name, status]) => ({ name, status })) })
+const ABOVE = { component: 'AbovePrompt', requestId: 'above', props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 100, scroll: { offset: 0, bodyRows: 10 }, view: {} }, viewport: { columns: 100, rows: 40 } } as const
+
+function stubStore(on: On): void {
+  const stored = new Map<string, unknown>()
+  on('store.get', (_, e) => ({ value: stored.get(e.key) }))
+  on('store.set', (_, e) => {
+    stored.set(e.key, e.value)
+    return { value: undefined }
+  })
+}
+
+test('the status line carries the implement flow while it runs, holds still on a denied write, and clears once done', async ($, on) => {
+  const statuses = stubHost(on)
+  let isDenied = false
+  on('tool.call', (_, e) => (isDenied ? { deny: 'not allowed' } : { result: { type: 'create', filePath: String((e as { file_path?: unknown }).file_path), content: '', structuredPatch: [], originalFile: null } }))
+  const write = (content: string) => $.tool.call({ tool: 'Write', file_path: FLOW_FILE, content } as never)
+
+  await write(flowContent([['Setup', 'done'], ['Plan', 'active'], ['Build', 'todo']]))
+  expect(statuses.at(-1)).toBe('feat/auth ▰▱▱ 1/3 · Plan')
+
+  isDenied = true
+  await write(flowContent([['Setup', 'done'], ['Plan', 'done'], ['Build', 'paused']], 'crafted'))
+  expect(statuses.at(-1)).toBe('feat/auth ▰▱▱ 1/3 · Plan')
+
+  isDenied = false
+  await write(flowContent([['Setup', 'done'], ['Plan', 'done'], ['Build', 'done']]))
+  expect(statuses.at(-1)).toBe(undefined)
+  expect(statuses.some(text => text?.startsWith('cache'))).toBe(false)
+})
+
+test('with the strip hidden a button above the prompt brings it back; shown and with no flow, the band is left to others', async ($, on) => {
+  stubHost(on)
+  stubStore(on)
+
+  for (const surface of SURFACES) {
+    await $.command.run(strip('expand'))
+    const shown = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...ABOVE })
+    expect(await shown.find({ type: 'Button', key: 'cockpit:show' })).toBe(undefined)
+    await shown.unmount()
+
+    await $.command.run(strip('hide'))
+    const above = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...ABOVE })
+    await above.press({ key: 'cockpit:show' })
+    await above.unmount()
+
+    const hint = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...HINT })
+    expect(await hint.find({ type: 'Text', text: 'Cockpit' })).toBeDefined()
+    await hint.unmount()
+  }
+})
+
+test('a running flow keeps its buttons above the prompt with the strip shown, and hiding the strip adds the way back', async ($, on) => {
+  stubHost(on)
+  stubStore(on)
+  on('tool.call', (_, e) => ({ result: { type: 'create', filePath: String((e as { file_path?: unknown }).file_path), content: '', structuredPatch: [], originalFile: null } }))
+  await $.tool.call({ tool: 'Write', file_path: FLOW_FILE, content: flowContent([['Plan', 'done'], ['Build', 'paused']], 'stopped') } as never)
+
+  for (const surface of SURFACES) {
+    await $.command.run(strip('expand'))
+    const shown = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...ABOVE })
+    expect(await shown.find({ type: 'Button', key: 'flow:rerun' })).toBeDefined()
+    expect(await shown.find({ type: 'Button', key: 'cockpit:show' })).toBe(undefined)
+    await shown.unmount()
+
+    await $.command.run(strip('hide'))
+    const hidden = await $.ui.mount({ plugin: 'bond-cockpit', surface, ...ABOVE })
+    expect(await hidden.find({ type: 'Button', key: 'flow:rerun' })).toBeDefined()
+    expect(await hidden.find({ type: 'Button', key: 'cockpit:show' })).toBeDefined()
+    await hidden.unmount()
+  }
+})
+
+test('the strip keeps the engine hint line in every mode, and a session start opens no pane', async ($, on) => {
+  const opened: string[] = []
+  stubHost(on, opened)
+  stubStore(on)
+  on('ui.render', { component: 'PromptHint' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return h(Text, {}, e.props.hint) as never
+  })
+
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: undefined }) as never)
+  on('clock.every', () => ({ value: { cancel: () => undefined } }) as never)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  for (const mode of ['expand', 'collapse', 'hide']) {
+    await $.command.run(strip(mode))
+    const hint = await $.ui.mount({ plugin: 'bond-cockpit', surface: 'terminal', ...HINT })
+    expect(await hint.find({ type: 'Text', text: '? for shortcuts' })).toBeDefined()
+    await hint.unmount()
+  }
+  expect(opened).toEqual([])
+})

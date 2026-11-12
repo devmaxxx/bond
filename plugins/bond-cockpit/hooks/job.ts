@@ -23,7 +23,7 @@ const VALUE_FLAGS = new Set(['-C', '--dir', '--prefix', '--cwd', '--filter', '-F
 // Only a checker reports in errors; a test runner's output may name them in a test title.
 const COUNTS_ERRORS = /^(tsc|eslint|biome|lint|typecheck|check)$/
 // The implement flow reports its progress by writing this file; the write is the event, the file is never read.
-const FLOW_FILE = /\/bond-flow\/[^/]+\.json$/
+const FLOW_FILE = /\/\.local\/state\/bond-flow\/[^/]+\.json$/
 const FLOW_STATUS = new Set<FlowPhase['status']>(['done', 'active', 'paused', 'todo', 'skipped'])
 const FLOW_MARK: Record<FlowPhase['status'], string> = { done: '✓', active: '●', paused: '⏸', todo: '○', skipped: '–' }
 
@@ -103,8 +103,7 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
   if (agentId === undefined) {
     // The Workflow call returns once the run is launched; its agents report through their own loops.
     const workflow = tool === 'Workflow' ? { at: now, name: null, runId: null, started: 0, done: 0 } : job.workflow
-    const flow = (tool === 'Write' ? flowWritten(args, now) : null) ?? job.flow ?? null
-    return { ...job, tools: job.tools + 1, inFlight: [...job.inFlight, { id, label, at: now, asked: false }], workflow, flow }
+    return { ...job, tools: job.tools + 1, inFlight: [...job.inFlight, { id, label, at: now, asked: false }], workflow }
   }
   const loop = withDefaults(job.loops[agentId] ?? newLoop(now))
   const pushed = loop.pushed || (tool === 'Bash' && String(args.command ?? '').split(/&&|\|\||;|\||\n/).some(part => PUSH.test(part.trim())))
@@ -112,6 +111,13 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
   const history = [...loop.history, { label, at: now }].slice(-HISTORY)
 
   return { ...job, tools: job.tools + 1, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false, pushed, history } } }
+}
+
+/** A main-thread Write that went through moves the flow; a denied or failed one never reached the file, so it does not. */
+export function flowRecorded(job: JobState, tool: string, args: Record<string, unknown>, hasFailed: boolean, now: number): JobState {
+  const flow = tool === 'Write' && !hasFailed ? flowWritten(args, now) : null
+
+  return flow === null ? job : { ...job, flow }
 }
 
 /** The flow state a Write of the implement flow's progress file carries, or null for any other write or a malformed one. */
@@ -467,15 +473,31 @@ export function flowBand(job: JobState, now: number, columns: number): { text: s
   if (flow === null || flow.current === -1) {
     return null
   }
+  const { bar, finished, total, phase } = flowProgress(flow)
+  const state = flow.paused !== null ? `⏸ ${phase} · ${flow.paused}` : `${phase} · ${elapsed(now - flow.at)}`
+  const text = `flow ${flow.branch}  ${bar} ${finished}/${total} · ${state}`
+
+  return { text: clip(text, Math.max(20, columns)), tone: flow.paused !== null ? 'warn' : 'ok' }
+}
+
+/** The flow for the status line: branch, bar, count and the phase. No clock in it, so the line changes only at a boundary. */
+export function flowStatus(job: JobState): string | null {
+  const flow = job.flow ?? null
+  if (flow === null || flow.current === -1) {
+    return null
+  }
+  const { bar, finished, total, phase } = flowProgress(flow)
+
+  return `${flow.branch} ${bar} ${finished}/${total} · ${flow.paused !== null ? `⏸ ${phase}` : phase}`
+}
+
+function flowProgress(flow: FlowState): { bar: string; finished: number; total: number; phase: string } {
   const total = flow.phases.length
   const finished = flow.phases.filter(phase => phase.status === 'done' || phase.status === 'skipped').length
   const width = Math.min(total, 12)
   const filled = Math.round((finished / total) * width)
-  const phase = flow.phases[flow.current]?.name ?? ''
-  const state = flow.paused !== null ? `⏸ ${phase} · ${flow.paused} · reply to continue` : `${phase} · ${elapsed(now - flow.at)}`
-  const text = `flow ${flow.branch}  ${'▰'.repeat(filled)}${'▱'.repeat(width - filled)} ${finished}/${total} · ${state}`
 
-  return { text: clip(text, Math.max(20, columns)), tone: flow.paused !== null ? 'warn' : 'ok' }
+  return { bar: `${'▰'.repeat(filled)}${'▱'.repeat(width - filled)}`, finished, total, phase: flow.phases[flow.current]?.name ?? '' }
 }
 
 /** The flow's section: its branch, a gauge of finished phases, then one mark per phase. */

@@ -209,16 +209,6 @@ export function cacheStatus(cache: CacheSnapshot | null, now: number, warnMs: nu
   return `cache ${view.hit}% ⏱${view.countdown}`
 }
 
-/** True once per cache window: the first tick inside the warning that has not warned yet. */
-export function shouldWarn(cache: CacheSnapshot | null, now: number, warnMs: number, warnedAt: number | null): boolean {
-  if (cache === null || warnMs <= 0 || warnedAt === cache.at) {
-    return false
-  }
-  const remainingMs = cache.at + cache.ttlMs - now
-
-  return remainingMs > 0 && remainingMs <= warnMs
-}
-
 function hitRate(read: number, total: number): number {
   return total > 0 ? Math.round((read / total) * 100) : 0
 }

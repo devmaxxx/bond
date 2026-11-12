@@ -82,7 +82,7 @@ export type JobState = {
 /** One phase of a bond implement run. */
 export type FlowPhase = { name: string; status: 'done' | 'active' | 'paused' | 'todo' | 'skipped' }
 
-/** A bond implement run's progress: the flow writes it to `…/bond-flow/<branch>.json` at every phase boundary. */
+/** A bond implement run's progress: the flow writes it to `~/.local/state/bond-flow/<repo>--<branch>.json` at every phase boundary. */
 export type FlowState = {
   branch: string
   // The progress file the run wrote; its `.pause` sibling stops the run at the next boundary. Absent in state saved before it.
@@ -107,6 +107,8 @@ declare module 'claude-code' {
       beat: number
       // The agent the agent tab shows.
       watched: string | null
+      // The strip under the prompt; null until session.start reads it from $.store.
+      strip: 'expanded' | 'collapsed' | 'hidden' | null
     }
   }
 }
