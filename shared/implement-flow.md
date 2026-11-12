@@ -21,7 +21,7 @@ upfront answer settled them — never a second time. The upfront question is
 phrased, and its answers recorded as owner rulings apart from your own
 decisions, per `${CLAUDE_PLUGIN_ROOT}/shared/owner-questions.md`.
 
-Three things still stop the flow: a genuine blocker where no option is viable
+These still stop the flow: a genuine blocker where no option is viable
 (missing type, error response, no branch found) — surface it and abort/pause as
 the procedure says; a blocker found in the ticket or its comments (see **Check
 for blockers**), which is asked once; the explicit `--no-auto` flag, which
@@ -364,24 +364,37 @@ small plan". The review runs once; the revised plan is not reviewed again.
 ## Procedure: Progress and checkpoints
 
 **Inputs:** `PHASES` (ordered names), `CHECKPOINTS` (`none` / `plan` / `all`),
-the branch.
+the branch, `TICKET_IDS`, `BASE_BRANCH`.
 
-**Progress file.** `FLOW_FILE=~/.claude/bond-flow/<repo>--<branch with / as ->.json`.
+**Progress file.** `FLOW_FILE=~/.local/state/bond-flow/<repo>--<branch with / as ->.json`,
+where `<repo>` is the name of the repo's main checkout — the folder holding
+`git rev-parse --path-format=absolute --git-common-dir` — so a worktree and the
+main checkout name the same file. Never under `~/.claude/`: Claude Code
+protects that folder and asks before every write there, whatever the allow
+rules say. Outside bypass mode the user allows the folder once with
+`Edit(~/.local/state/bond-flow/**)` in `permissions.allow`; without that rule
+each write is a prompt.
+
 Write it with the `Write` tool — never a shell redirect, so the bond-cockpit
-pane sees each write and draws the flow's gauge and phase list — when the run
+status line sees each write and shows the flow's progress — when the run
 starts, at every phase boundary and at every stop:
 
 ```json
 { "branch": "feat/x", "repo": "/abs/checkout", "plan": "docs/plans/x.md",
+  "tickets": ["ERP-135"], "base": "main", "pr": "",
   "flags": ["--spec", "docs/specs/x.md", "--checkpoints"],
   "paused": "",
   "phases": [{ "name": "Setup", "status": "done" }, { "name": "Analyse", "status": "active" }] }
 ```
 
 `status` is `done`, `active`, `paused`, `todo` or `skipped`; `paused` holds the
-reason while the run waits, empty otherwise. At each boundary also print one
-line: `▰▰▰▱▱▱▱▱▱▱ 3/10 · Plan review`. After the last phase every status is
-`done` or `skipped`.
+reason while the run waits, empty otherwise; `pr` is the PR's number or URL
+once **Ship + PR** opened it. A phase the run will not do — by its mode, or
+**Tests first** with two or more tickets — is `skipped` from the first write,
+never left `todo`. At each boundary also print one line:
+`▰▰▰▱▱▱▱▱▱▱ 3/10 · Plan review`. After the last phase every status is `done` or
+`skipped`. Mark **Audit** `done` before spawning the `bond:pr-audit` agent, so
+a resume never spawns a second one.
 
 **Pause file.** Before each phase starts, check for `FLOW_FILE` with `.json`
 replaced by `.pause` (`touch` it from another terminal to stop the run). When it
@@ -393,21 +406,30 @@ set `paused` to why, write `FLOW_FILE`, then ask in one `AskUserQuestion`:
 
 - after the plan: **Approve**, **Edit** (the user names the changes, or edits
   `PLAN_FILE` and replies `approved` — re-read the file then, never the copy in
-  context), **Stop**;
+  context), **Stop**. The plan's stop comes once **Review the plan** has run,
+  so under `all` there is no separate stop between Plan and Plan review;
 - elsewhere: **Continue**, **Stop**; free text is a note — apply it (record it
   under `## Decisions` as an owner ruling), then ask again.
 
-**Stop** ends the turn with the worktree, plan and progress file kept, and the
-resume command printed: `/bond:implement --resume <branch>`. An interrupt
-(Esc) leaves the file at the last boundary; `--resume` restarts that phase.
+**Stop** sets `paused` to `stopped · /bond:implement --resume <branch>`, writes
+`FLOW_FILE`, and ends the turn with the worktree, plan and progress file kept,
+the same resume command printed. **Teardown** does not run. An interrupt (Esc)
+leaves the file at the last boundary.
 
-**Resume.** Read `FLOW_FILE` for the branch (the current one when none is
-named), `cd` to its `repo`, re-read `plan` and the spec, restore `flags`, and
-continue at the first phase not `done` or `skipped` — or, with `--from "<phase>"`,
-at that phase, after marking it and every later phase `todo` (a name the file
-does not list aborts, naming the phases it does). Rerunning a build or test
-phase re-runs it over the whole plan; work it already committed stays and is
-checked, not redone. A missing file aborts: "no stopped run for <branch>".
+**Resume.** Read `FLOW_FILE` for the branch named, else the current branch;
+when the current checkout has none (the main checkout, while the run lived in a
+worktree), the repo's one progress file — several ⇒ list their branches and
+abort. Abort with "no stopped run for <branch>" when there is none, and —
+without `--from` — with "<branch> already finished" when every phase is `done`
+or `skipped`. Otherwise `cd` to its `repo`, re-read `plan` and the spec,
+restore `flags`, `TICKET_IDS` from `tickets`, `BASE_BRANCH` from `base` and
+`PR_REF` from `pr`, and continue at the first phase not `done` or `skipped` —
+or, with `--from "<phase>"`, at that phase, after marking it and every later
+phase `todo` (a name the file does not list aborts, naming the phases it
+does). The phase starts again from what is already there: rerunning a build or
+test phase re-runs it over the whole plan, work it already committed stays and
+is checked, not redone, and a PR in `pr` is updated, never opened a second
+time.
 
 **From the cockpit.** bond-cockpit's buttons drive the same mechanisms: pause
 leaves the `.pause` file, stop aborts the running turn (the file stays at the
