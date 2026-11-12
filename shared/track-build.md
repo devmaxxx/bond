@@ -89,6 +89,10 @@ code.
 - Work only in your worktree; never touch the main checkout or another track's.
 - The plan is the contract: read the owner's rulings (R), the lead's decisions
   (L) and your own items before the first edit.
+- Work through `superpowers:test-driven-development`, an unexplained failure
+  through `superpowers:systematic-debugging`, and claim nothing green without
+  a fresh run (`superpowers:verification-before-completion`) — when the
+  superpowers plugin is installed (`shared/superpowers.md`).
 - A failing test first; at the end the cheap slice — lint, typecheck, the unit
   sets of the touched packages, the integration specs of this step. End-to-end
   runs are the forge's. Keep the slice small (see **The cheap slice** below):

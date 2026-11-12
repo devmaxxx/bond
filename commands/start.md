@@ -30,7 +30,8 @@ mode) pauses or aborts.
 
 `$ARGUMENTS` — a free-text summary of the work to start, plus optional flags. An
 existing ticket key is **not** expected here — to branch off a ticket you already
-have, use `/bond:implement <KEY> --no-auto`.
+have, use `/bond:branch <KEY>`, or `/bond:implement <KEY>` to plan and build it
+too.
 
 Examples:
 - `/bond:start add a CSV export to the reports page`
@@ -103,6 +104,6 @@ implement, commit, push, or open a PR.
 
 - Do not write or run an implementation plan — this command stops at the branch.
 - Do not branch off an existing ticket key passed in `$ARGUMENTS`; that's
-  `/bond:implement <KEY>`. Treat the text as a new-issue summary.
+  `/bond:branch <KEY>` or `/bond:implement <KEY>`. Treat the text as a new-issue summary.
 - Do not auto-stash or branch over a dirty tree in in-place mode — abort and tell
   the user to commit or stash (per the shared procedure).
