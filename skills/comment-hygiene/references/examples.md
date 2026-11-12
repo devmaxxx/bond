@@ -66,14 +66,14 @@ A public doc comment that only repeats the signature (`/** Returns the user by i
 
 ```ts
 // before
-/** Whether the bathroom is shared (ERP-587). NULL on legacy rows = unanswered. */
+/** Whether the bathroom is shared (PROJ-587). NULL on legacy rows = unanswered. */
 // after — tag gone, invariant kept
 /** Whether the bathroom is shared. NULL on legacy rows = unanswered. */
 ```
 
 ```ts
 // before
-// takes the stale lock and re-sends from the top (CRMDEV-7305)
+// takes the stale lock and re-sends from the top (OPS-7305)
 // after
 // takes the stale lock and re-sends from the top
 ```
@@ -83,4 +83,4 @@ A public doc comment that only repeats the signature (`/** Returns the user by i
 /** Money in grosze; see FR-PAY-03 and INV-11 for the rounding rule. */
 ```
 
-Where a work-item key does belong: test titles (`it("persists the ERP-587 fields", …)`), commit messages, PR descriptions, and a migration or ADR header when the ticket is genuinely the only record of *why* — rare; prefer summarising the reason.
+Where a work-item key does belong: test titles (`it("persists the PROJ-587 fields", …)`), commit messages, PR descriptions, and a migration or ADR header when the ticket is genuinely the only record of *why* — rare; prefer summarising the reason.

@@ -15,15 +15,15 @@ Everything except the four decisions unique to this command — creating a ticke
 `$ARGUMENTS` — **either** one or more existing Jira ticket IDs (space-separated), **or** a free-text summary of work that has no ticket yet — plus optional flags.
 
 Examples:
-- `/implement ERP-135`
-- `/implement ERP-135 ERP-136`
-- `/implement ERP-135 --no-auto`
-- `/implement ERP-135 --no-worktree`
+- `/implement PROJ-135`
+- `/implement PROJ-135 PROJ-136`
+- `/implement PROJ-135 --no-auto`
+- `/implement PROJ-135 --no-worktree`
 - `/implement add a CSV export to the reports page` — creates a Task, then implements it
 - `/implement login page 500s on submit --bug` — creates a Bug, then implements it
-- `/implement "wire up export endpoint" --task --project CRMDEV`
+- `/implement "wire up export endpoint" --task --project OPS`
 - `/implement --spec docs/specs/csv-export.md` — implements a written spec (under `TRACKER=jira` it creates a Task named after the spec)
-- `/implement ERP-135 --spec docs/specs/csv-export.md` — the ticket plus a spec that refines it
+- `/implement PROJ-135 --spec docs/specs/csv-export.md` — the ticket plus a spec that refines it
 - `/implement --spec docs/specs/auth.md --review-plan` — stops at the plan for approve / edit / stop, then runs on to the PR
 - `/implement --spec docs/specs/auth.md --checkpoints` — pauses after every phase
 - `/implement --resume` — continues the stopped run of the current branch from its next phase
@@ -80,7 +80,7 @@ Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs 
 ### 3. Determine the branch name
 
 - Prefix: all tickets type `Bug` → `fix`; any `Story`/`Task`/other → `feat`.
-- Single ticket → `<prefix>/ERP-135`; multiple → `<prefix>/ERP-135_ERP-136` (underscore-separated, in the order given).
+- Single ticket → `<prefix>/PROJ-135`; multiple → `<prefix>/PROJ-135_PROJ-136` (underscore-separated, in the order given).
 - **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because the Jira tooling looks a branch up by its key, so it applies under `TRACKER=jira` only.
 
 ### 4. Set up the branch

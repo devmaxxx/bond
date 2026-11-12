@@ -95,6 +95,37 @@ export type FlowState = {
   at: number
 }
 
+/** One plugin or user skill on the plugins tab. */
+export type CatalogEntry = {
+  kind: 'plugin' | 'skill'
+  // A plugin's `name@marketplace`, a skill's name.
+  id: string
+  label: string
+  isOn: boolean
+  // What the entry adds to every request: its skills' listing, and for a plugin its MCP tools' schemas.
+  tokens: number
+  uses: number
+}
+
+/** What the plugins tab lists: the active profile, every plugin and skill, and the listing's total tokens. */
+export type Catalog = {
+  profile: string | null
+  plugins: CatalogEntry[]
+  skills: CatalogEntry[]
+  skillTokens: number
+  mcpTokens: number
+  // The settings tab: built-in features, MCP servers and the skill description cap, as the settings hold them.
+  features: FeatureRow[]
+  servers: ServerRow[]
+  descCap: number | null
+}
+
+/** A built-in feature a settings key turns off, with what it costs every request where the listing shows it. */
+export type FeatureRow = { key: string; label: string; isOn: boolean; tokens: number }
+
+/** One MCP server, with its loaded tools' cost and how many tools it has. */
+export type ServerRow = { name: string; isOn: boolean; tokens: number; tools: number }
+
 declare module 'claude-code' {
   interface PluginState {
     'bond-cockpit': {
@@ -109,6 +140,9 @@ declare module 'claude-code' {
       watched: string | null
       // The strip under the prompt; null until session.start reads it from $.store.
       strip: 'expanded' | 'collapsed' | 'hidden' | null
+      // The plugins tab: what it lists, null until it first opens; and the profile it edits, null for none.
+      catalog: Catalog | null
+      editing: string | null
     }
   }
 }

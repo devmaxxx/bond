@@ -41,7 +41,7 @@ on every command.
 
 Resolve the Atlassian `cloudId` once via
 `mcp__bond-atlassian__getAccessibleAtlassianResources` (the resource matching
-`bonliva.atlassian.net`). For each ticket ID, run the **get** procedure in
+`JIRA_SITE`, `shared/project-profile.md`). For each ticket ID, run the **get** procedure in
 `${CLAUDE_PLUGIN_ROOT}/shared/jira.md` — the single place issues are read —
 requesting these fields:
 
@@ -195,8 +195,8 @@ Before creating it, check whether `BRANCH_NAME` already exists **locally**
 origin`. If either exists, append `-2` to `BRANCH_NAME`; if that also exists,
 `-3`, and so on, until a name free both locally and on `origin` is found. Use
 that resolved name for everything below (branch ref, slug, worktree path), and
-log the rename under `## Decisions` (e.g. *"branch `feat/ERP-135` existed; used
-`feat/ERP-135-2`"*). This makes name collisions a non-event — the flow never
+log the rename under `## Decisions` (e.g. *"branch `feat/PROJ-135` existed; used
+`feat/PROJ-135-2`"*). This makes name collisions a non-event — the flow never
 stops for one.
 
 ### Worktree mode (default)
@@ -377,7 +377,7 @@ starts, at every phase boundary and at every stop:
 
 ```json
 { "branch": "feat/x", "repo": "/abs/checkout", "plan": "docs/plans/x.md",
-  "tickets": ["ERP-135"], "base": "main", "pr": "",
+  "tickets": ["PROJ-135"], "base": "main", "pr": "",
   "flags": ["--spec", "docs/specs/x.md", "--checkpoints"],
   "paused": "",
   "phases": [{ "name": "Setup", "status": "done" }, { "name": "Analyse", "status": "active" }] }

@@ -17,6 +17,9 @@ import {
 } from "../hooks/pr-template.mjs";
 import { scrubShell } from "../hooks/shell.mjs";
 
+// No keys are built in; these tests run under a repo that tracks PROJ and OPS.
+process.env.BOND_JIRA_PROJECTS = "PROJ,OPS";
+
 /** A throwaway git repo with an origin and an optional manifest. */
 function repo(manifest) {
   const origin = "https://github.com/devmaxxx/repograph.git";
@@ -48,7 +51,7 @@ const BODY_WITH_JIRA = [
   "",
   "## Jira",
   "",
-  "- ERP-135: https://example.atlassian.net/browse/ERP-135",
+  "- PROJ-135: https://example.atlassian.net/browse/PROJ-135",
   "",
   "## Test plan",
   "",
@@ -254,13 +257,13 @@ describe("resolving whether a repo opens drafts", () => {
 
 describe("deciding that a ticket is in play", () => {
   it("matches a Jira project key", () => {
-    assert.equal(hasTicket("feat/ERP-135"), true);
-    assert.equal(hasTicket("CRMDEV-6335: export fix"), true);
+    assert.equal(hasTicket("feat/PROJ-135"), true);
+    assert.equal(hasTicket("OPS-6335: export fix"), true);
   });
 
   it("matches every key on a multi-ticket branch", () => {
     // `\b` would refuse this: an underscore is a word character.
-    assert.equal(hasTicket("feat/ERP-135_ERP-136"), true);
+    assert.equal(hasTicket("feat/PROJ-135_PROJ-136"), true);
   });
 
   it("does not match encoding and standard names", () => {
@@ -285,7 +288,7 @@ describe("deciding that a ticket is in play", () => {
   });
 
   it("does not match a project key that is the tail of a longer word", () => {
-    assert.equal(hasTicket("SUPERP-1"), false);
+    assert.equal(hasTicket("SUPERPROJ-1"), false);
   });
 
   it("does not match a key outside the configured projects", () => {
@@ -293,44 +296,45 @@ describe("deciding that a ticket is in play", () => {
   });
 
   it("takes its project keys from BOND_JIRA_PROJECTS when it is set", () => {
-    withProjects("ACME, ERP", () => {
+    withProjects("ACME, PROJ", () => {
       assert.equal(hasTicket("ACME-7"), true);
-      assert.equal(hasTicket("ERP-135"), true);
+      assert.equal(hasTicket("PROJ-135"), true);
     });
   });
 
-  it("replaces the built-in keys rather than adding to them", () => {
+  it("finds only the keys the setting names", () => {
     withProjects("ACME", () => {
-      assert.equal(hasTicket("CRMDEV-6335"), false);
+      assert.equal(hasTicket("OPS-6335"), false);
     });
   });
 
-  it("falls back to the built-in keys when the setting names none", () => {
+  it("finds no ticket when the setting names none", () => {
     withProjects("  ", () => {
-      assert.equal(hasTicket("ERP-135"), true);
+      assert.equal(hasTicket("PROJ-135"), false);
+      assert.equal(hasTicket("release v-2"), false);
     });
   });
 });
 
 describe("requiring the `## Jira` section", () => {
   it("demands it when the title carries a ticket id", () => {
-    const cmd = create("", GOOD_BODY, "ERP-135: tidy the export");
+    const cmd = create("", GOOD_BODY, "PROJ-135: tidy the export");
     assert.deepEqual(checkBash(cmd), [JIRA_MISSING]);
   });
 
   it("demands it when the head branch carries a ticket id", () => {
-    assert.deepEqual(checkBash(create("--head feat/CRMDEV-6335")), [
+    assert.deepEqual(checkBash(create("--head feat/OPS-6335")), [
       JIRA_MISSING,
     ]);
   });
 
   it("demands it when the description carries a ticket id", () => {
-    const body = GOOD_BODY.replace("tidied", "tidied for ERP-135:");
+    const body = GOOD_BODY.replace("tidied", "tidied for PROJ-135:");
     assert.deepEqual(checkBash(create("", body)), [JIRA_MISSING]);
   });
 
   it("is satisfied by a description that has the section", () => {
-    const cmd = create("", BODY_WITH_JIRA, "ERP-135: tidy the export");
+    const cmd = create("", BODY_WITH_JIRA, "PROJ-135: tidy the export");
     assert.deepEqual(checkBash(cmd), []);
   });
 
@@ -343,7 +347,7 @@ describe("requiring the `## Jira` section", () => {
   });
 
   it("does not demand it where the repo tracks no Jira", () => {
-    const cmd = create("--head feat/ERP-135", GOOD_BODY, "ERP-135: tidy the export");
+    const cmd = create("--head feat/PROJ-135", GOOD_BODY, "PROJ-135: tidy the export");
     assert.deepEqual(checkBash(cmd, { jiraTracked: () => false }), []);
   });
 });
@@ -389,7 +393,7 @@ describe("the title", () => {
   });
 
   it("takes a plain sentence, with or without an issue in front", () => {
-    for (const title of ["Default the reranker to haiku", "#164: Index full ADR bodies", "ERP-135: Tidy the export"]) {
+    for (const title of ["Default the reranker to haiku", "#164: Index full ADR bodies", "PROJ-135: Tidy the export"]) {
       assert.deepEqual(titleProblems(title), [], title);
     }
   });

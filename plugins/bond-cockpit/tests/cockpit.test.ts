@@ -53,13 +53,13 @@ test('before the first request the status line is empty and the pane says so', a
   }
 })
 
-test('main opens first, so its tab leads, and again last, so it is the one shown', async ($, on) => {
+test('main opens first, so its tab leads, then job, session, plugins and settings, and again last, so it is the one shown', async ($, on) => {
   const opened: string[] = []
   stubHost(on, opened)
 
   await $.command.run(RUN_COCKPIT)
 
-  expect(opened).toEqual(['bond-cockpit-main', 'bond-cockpit', 'bond-cockpit-session', 'bond-cockpit-main'])
+  expect(opened).toEqual(['bond-cockpit-main', 'bond-cockpit', 'bond-cockpit-session', 'bond-cockpit-plugins', 'bond-cockpit-settings', 'bond-cockpit-main'])
 })
 
 test('the main and session tabs draw before the first request, main with a button per tab', async ($, on) => {

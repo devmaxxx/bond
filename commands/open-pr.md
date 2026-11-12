@@ -11,7 +11,7 @@ Creates a pull request from the current branch into a base branch (`main` by def
 Usage: `/open-pr [base-branch] [--issue <ID>…]`
 
 `$ARGUMENTS` — an optional **base branch** to target the PR at, and optional
-`--issue` IDs (`ERP-123`, or `#42` for a GitHub issue) the title must lead with. If omitted, the base is resolved **per repo** (step 2). Examples: `/open-pr`, `/open-pr develop`, `/open-pr release/2.0`. Call this base `<base>` throughout the steps below.
+`--issue` IDs (`PROJ-123`, or `#42` for a GitHub issue) the title must lead with. If omitted, the base is resolved **per repo** (step 2). Examples: `/open-pr`, `/open-pr develop`, `/open-pr release/2.0`. Call this base `<base>` throughout the steps below.
 
 Where the project profile resolves `DRAFT` (`"draft": true` in `.bond/project.json`) PRs are created as drafts; the author publishes the draft when it is ready for review. Anywhere else the PR opens ready for review.
 

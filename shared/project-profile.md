@@ -25,6 +25,7 @@ the repo's own statement about itself beats a guess made from its URL.
 ```json
 {
   "tracker": "none",
+  "jiraSite": "example.atlassian.net",
   "baseBranch": "main",
   "reviewers": [],
   "draft": false,
@@ -91,6 +92,12 @@ subject, and `hooks/check-pr.mjs` enforces whichever the profile says.
   `<type>/<short-hyphenated-description>` per the `authorship-conventions` skill,
   not the `<type>/<KEY>` shape bond uses under `TRACKER=jira`.
 - A plan file is named after the branch description rather than the ticket.
+
+### `JIRA_SITE` — which Atlassian site, under `TRACKER=jira`
+
+`jiraSite` in the manifest (`<name>.atlassian.net`), else the only site
+`getAccessibleAtlassianResources` returns. Several sites and no `jiraSite` ⇒
+ask which one, and offer to write it into `.bond/project.json`.
 
 `TICKET_KEYS` under `TRACKER=jira` are the configured Jira project keys — see
 `BOND_JIRA_PROJECTS` in `shared/pr-template.md`. A token that is not one of

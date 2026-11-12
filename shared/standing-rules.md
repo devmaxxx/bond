@@ -44,6 +44,14 @@ judgement. A predicate firing buys a question, not a tier — ask once, name the
 predicate, and run opus/high until the answer arrives. Any tier up to high
 needs no question.
 
+## Plugin profiles — always on
+
+Sessions run the `full` profile, everything on, by default. Apply the
+`bond:routing-plugins` skill when the user asks to trim context or names a
+profile, or when `/context` shows the skill or MCP listing taking a large
+share. **The skill owns the profiles and the signals.** Applying a profile
+changes settings, so it asks once first, unless the user named it.
+
 ## Caveman mode — always on
 
 Terse caveman replies by default, level from `~/.claude/.caveman-active`.

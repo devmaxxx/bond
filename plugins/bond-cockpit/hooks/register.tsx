@@ -8,9 +8,12 @@ import { FLOW_HOTKEY, FLOW_LABEL, drawCards } from './pane'
 import type { FlowAction } from './cache'
 import { isStripMode, stripLine, summaryCard } from './summary'
 import type { StripMode } from './summary'
+import { PLUGINS_PANE, PLUGINS_TITLE, applyNamed, isCatalogShown, listProfiles, loadProfiles, recordUse, refreshCatalog, renderPage } from './plugins-page'
+import { RESET } from './profiles'
+import { SETTINGS_PANE, SETTINGS_TITLE, renderSettings } from './settings-page'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
-// Three tabs in open order: main, job, session. The agent tab opens beside them on a press.
+// Five tabs in open order: main, job, session, plugins, settings. The agent tab opens beside them on a press.
 const MAIN = 'bond-cockpit-main'
 const MAIN_TITLE = 'main'
 const PANE = 'bond-cockpit'
@@ -41,6 +44,8 @@ const beat = atom({ plugin: 'bond-cockpit', key: 'beat' } as const, 0)
 const watched = atom({ plugin: 'bond-cockpit', key: 'watched' } as const, null)
 // The strip's mode as the drawings read it, so a change redraws them; $.store keeps it across sessions.
 const strip = atom({ plugin: 'bond-cockpit', key: 'strip' } as const, null)
+// The plugins and settings tabs' listing; plugins-page.tsx writes it.
+const catalog = atom({ plugin: 'bond-cockpit', key: 'catalog' } as const, null)
 
 // session.start fires again after /clear; a tick left running would stack with the new one.
 let tick: Timer | null = null
@@ -58,7 +63,18 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit panes (`job` / `session` for one tab), or set the strip under the prompt: `expand`, `collapse`, `hide`, `show`' })
+    await $.command.register({
+      name: 'bond-cockpit',
+      description:
+        'Open the bond cockpit panes (`job` / `session` / `plugins` / `settings` for one tab), set the strip under the prompt (`expand`, `collapse`, `hide`, `show`), or `profile [<name>|reset]` to list or apply a plugin profile',
+    })
+    const names = (await loadProfiles($)).map(profile => profile.name)
+    await $.tool.register({
+      name: 'profile',
+      description:
+        "Lists the bond cockpit's plugin and skill profiles, or applies one to this checkout's .claude/settings.local.json (`reset` hands every managed entry back to the user settings). Applying takes effect after /reload-plugins.",
+      inputSchema: { type: 'object', properties: { name: { type: 'string', enum: ['list', RESET, ...names] } }, required: ['name'] },
+    })
     await measure($).catch(() => undefined)
     const stored = await $.store.get(STRIP_KEY).catch(() => undefined)
     await update($, strip, () => (isStripMode(stored) ? stored : 'expanded'))
@@ -72,6 +88,14 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'bond-cockpit' }, async ($, e) => {
     const tab = e.args.trim()
+    const [verb, name] = tab.split(/\s+/)
+    if (verb === 'profile') {
+      return { text: name === undefined ? await listProfiles($) : await applyNamed($, name) }
+    }
+    if (tab === 'plugins' || tab === 'settings') {
+      await openPlugins($, tab)
+      return { text: `bond cockpit: ${tab} tab opened.` }
+    }
     const mode = STRIP_MODES[tab]
     if (mode !== undefined) {
       await setStrip($, mode)
@@ -81,6 +105,12 @@ export const register: Register = (on, options) => {
     await (isTab ? openTab($, tab) : openPanes($))
 
     return { text: isTab ? `bond cockpit: ${tab} tab opened.` : 'bond cockpit opened; ctrl+x tab cycles main, job and session.' }
+  })
+
+  on('tool.call', { tool: 'mcp__bond-cockpit__profile' }, async ($, e) => {
+    const name = String((e as unknown as { name?: unknown }).name ?? 'list')
+
+    return { result: name === 'list' ? await listProfiles($) : await applyNamed($, name) }
   })
 
   on('session.end', async ($, e, next) => {
@@ -123,6 +153,10 @@ export const register: Register = (on, options) => {
       const now = await $.clock.now()
       await update($, job, current => (agentId === undefined ? endJob(current, now) : loopEnded(current, agentId, now)))
     })
+    // The plugins tab's token counts follow the listing as the turn left it.
+    if (agentId === undefined) {
+      await guard(async () => ((await isCatalogShown($)) ? refreshCatalog($) : undefined))
+    }
 
     return completed
   })
@@ -135,6 +169,7 @@ export const register: Register = (on, options) => {
     const id = e.tool_use_id ?? `${tool}-${startedAt}`
     const args = e as unknown as Record<string, unknown>
     await guard(() => update($, job, current => toolStarted(current, id, tool, args, agentId, startedAt)))
+    await guard(() => recordUse($, tool, args))
     const ran = await next(e)
     await guard(async () => {
       const result = (ran.result ?? {}) as { stdout?: unknown; stderr?: unknown; workflowName?: string; runId?: string }
@@ -356,6 +391,10 @@ export const register: Register = (on, options) => {
     return drawCards($.ui.resolve(e), shown, e.props.bodyColumns)
   })
 
+  on('ui.render', { component: 'Pane', requestId: 'bond-cockpit-settings' }, async ($, e) => renderSettings($, $.ui.resolve(e), await read($, catalog), e.props.bodyColumns))
+
+  on('ui.render', { component: 'Pane', requestId: 'bond-cockpit-plugins' }, async ($, e) => renderPage($, $.ui.resolve(e), e.props.bodyColumns))
+
   on('ui.render', { component: 'Pane', requestId: MAIN }, async ($, e) => {
     const [cacheNow, now, usageNow, jobNow, modelsNow] = await Promise.all([
       read($, cache),
@@ -388,8 +427,17 @@ async function openPanes($: EngineInterface) {
   await $.ui.open({ id: MAIN, title: MAIN_TITLE, columns: PANE_COLUMNS })
   await openTab($, 'job')
   await openTab($, 'session')
+  await $.ui.open({ id: PLUGINS_PANE, title: PLUGINS_TITLE, columns: PANE_COLUMNS })
+  await $.ui.open({ id: SETTINGS_PANE, title: SETTINGS_TITLE, columns: PANE_COLUMNS })
 
   return $.ui.open({ id: MAIN, title: MAIN_TITLE, columns: PANE_COLUMNS })
+}
+
+async function openPlugins($: EngineInterface, tab: 'plugins' | 'settings') {
+  await refreshCatalog($).catch(() => undefined)
+  const [id, title] = tab === 'plugins' ? [PLUGINS_PANE, PLUGINS_TITLE] : [SETTINGS_PANE, SETTINGS_TITLE]
+
+  return $.ui.open({ id, title, columns: PANE_COLUMNS, focus: true })
 }
 
 async function openAgent($: EngineInterface, agentId: string, agents: readonly { id: string; description: string }[]) {
