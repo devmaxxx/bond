@@ -16,3 +16,7 @@ This file is the repo's only agent instructions file — Claude Code reads it to
    asking — with an explicit refspec (`git push origin HEAD:<branch>`) and as
    the account `bond:authorship-conventions` names for this repo. Work that is
    unfinished, failing or waiting on the user stays local.
+4. Do only what the task asks. No extra steps, features, refactors, files,
+   lookups, browser runs or tracker updates beyond what it needs — the
+   smallest change that meets the request is the right one. Something worth
+   doing beyond it gets one line in the reply, not an action.
