@@ -77,6 +77,9 @@ continues instead of redoing:
 ```json
 { "source": "…", "base": "main", "max": 3, "notes": "…-notes.md",
   "integration": { "branch": "feat/…", "worktree": "…", "pr": "…" },
+  "agents": [ { "id": "…", "type": "bond:track-implementer", "item": "PROJ-41",
+                "phase": "build", "status": "queued | running | done | failed",
+                "started": "…", "result": "…" } ],
   "items": [ { "keys": ["PROJ-41", "PROJ-44"], "files": ["apps/api/src/x.ts"],
                "after": ["PROJ-39"], "status": "pending | running | pr-open | merged | blocked | failed | skipped",
                "branch": "feat/PROJ-41_PROJ-44", "worktree": "…", "pr": "…", "ci": "…",
@@ -86,6 +89,39 @@ continues instead of redoing:
 Another session may have moved things since, so resume never trusts the ledger
 alone: step 1 also reads the remote, and an issue with a branch or PR already
 there is not started again.
+
+## Agents
+
+Every agent the batch starts, by phase. The lead runs no code itself beyond
+the merges and the ledger.
+
+| Phase | Agent | Model / effort | How many | Does |
+| --- | --- | --- | --- | --- |
+| 3. Conflict map | `bond:batch-scout` | haiku / medium | 1 per ~5 issues, all at once | reads issues + code, returns verdict, files, shared kinds, questions |
+| 5. Run | `general-purpose` running `/bond:implement` | opus / per routing | 1 per item, ≤ `--max` at once | claim → branch → plan → build → review pair → PR; starts its own `bond:test-runner` and `bond:security-review` inside |
+| 5i.3 Build | `bond:track-implementer` | opus / high | 1 per item, ≤ `--max` at once | builds the item test first in its worktree, merges the integration tip, commits |
+| 5i.4 Merge | `bond:track-implementer` | opus / high | only on a merge conflict | resolves it in the integration worktree |
+| 5i.5 Verify | `bond:test-runner` | haiku / low | 1 per check command | returns failures only |
+| 5i.5 Review | `/code-review` + `bond:security-review` | per `bond:routing-code-review` / opus high | 1 pair | reviews the whole integration diff once |
+| 5i.5 Fix | `bond:track-implementer` | opus / high | at most 1 | fixes the findings that pass the scope gate |
+| 6. Report | `bond:pr-status` | haiku / low | 1 per PR, all at once | CI verdict |
+
+**Show them.** Before the first agent starts, print the fleet: this table cut
+to the batch's mode, with each row's real count (`batch-scout ×3`,
+`track-implementer ×9 + ≤1 fix`, …) and the total. Then, after every start
+and every result, print one board — one line per agent that has run or is
+running, never a running summary in prose:
+
+```
+#  agent               item               phase   status    since   result
+1  batch-scout         PROJ-39…PROJ-44    recon   done      2m      5 ready, 1 blocked
+4  track-implementer   PROJ-41            build   running   6m      —
+5  track-implementer   PROJ-47            build   queued    —       after PROJ-41
+6  track-implementer   PROJ-39            build   done      9m      merged ff, 3 commits
+```
+
+The board is the ledger's `agents` list, so a resumed session prints the same
+board.
 
 ## Steps
 
@@ -191,7 +227,8 @@ stays small and the run skips exploration recon already did.
    cut from the integration tip — no predecessor branches, no rebase after a
    squash.
 3. Print the schedule: items in start order, each with its keys, predicted
-   files, `after`, and group. `--dry-run` ⇒ stop here.
+   files, `after`, and group — then the fleet (**Agents**). `--dry-run` ⇒
+   stop here.
 4. **Ask once.** One `AskUserQuestion`, per `owner-questions.md`, with only
    what is still open: the ask-class points from step 3 (per issue, its options
    with the recommendation first, and "set it aside" among them), the `--group`
