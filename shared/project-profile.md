@@ -30,9 +30,7 @@ the repo's own statement about itself beats a guess made from its URL.
   "baseBranch": "main",
   "reviewers": [],
   "draft": false,
-  "prTitle": "plain",
-  "teamsChannel": null,
-  "clockifyProject": null
+  "prTitle": "plain"
 }
 ```
 
@@ -124,13 +122,6 @@ those keys is free text, not a ticket.
    the configured reviewers or `CODEOWNERS` on GitHub.
 
 Nothing resolved ⇒ open the PR with no reviewers. Never invent one.
-
-### `TEAMS_CHANNEL` / `CLOCKIFY_PROJECT`
-
-`BONLIVA` only, unless the manifest names one. `/request-review`,
-`/teams-post` and `/publish-timelog` report that the profile has no channel or
-project and stop, rather than posting a personal repo's work into a work
-channel.
 
 ## Procedure: Resolve PR coordinates
 

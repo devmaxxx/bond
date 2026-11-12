@@ -1,12 +1,12 @@
 ---
-description: After /bond:implement or /bond-bonliva:fix-qa — open the PR if there is none, review it, test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
+description: After /bond:implement — open the PR if there is none, review it, test the change in a real browser, tick the PR's test plan, mark it ready, then loop review → fix → CI → conflicts until only a human approval is left
 ---
 
 # /bond:ship-pr
 
 **Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
 
-The step after the code is written. `/bond:implement` and `/bond-bonliva:fix-qa`
+The step after the code is written. `/bond:implement`
 end with a pushed branch and an open PR; this command takes that PR the rest of
 the way to *waiting only on a human's approval*:
 
@@ -89,7 +89,8 @@ re-review in the same area arrives under a new id with a new finding.
 6. The local head must equal the PR's head commit. Behind ⇒ `git pull
    --ff-only`. Ahead or diverged ⇒ **stop**: unpushed local work is the user's.
 7. Read what defines *done*: the PR body's `## Test plan`, the plan file
-   (`docs/plans/<KEY>.md`, or the branch slug), and under `TRACKER=jira` the
+   (`docs/plans/<KEY>.md`, or the branch slug) with the spec its `## Spec`
+   names and its `## Coverage`, and under `TRACKER=jira` the
    ticket's acceptance criteria and any Figma link. Read the ticket; do not
    transition it.
 8. The PR conflicts with its base ⇒ run **Resolve merge conflicts** now, before

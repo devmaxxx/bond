@@ -9,6 +9,6 @@ The rule is not Bitbucket-specific. It binds equally on:
   `create_pull_request` outside Bonliva), whether called by `/bond:open-pr` or
   by hand.
 - **Commands** — `/bond:open-pr`, and the Ship + PR step that `/bond:implement`
-  and `/bond-bonliva:fix-qa` run.
+  runs.
 
 Resolve the host from `git remote get-url origin` before building the call.

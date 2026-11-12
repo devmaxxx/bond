@@ -7,7 +7,6 @@ import { describe, it } from "node:test";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILL_ROOTS = [
   join(ROOT, "skills"),
-  join(ROOT, "plugins", "bond-bonliva", "skills"),
   join(ROOT, "plugins", "bond-oss", "skills"),
 ];
 

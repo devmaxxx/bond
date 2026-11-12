@@ -4,7 +4,7 @@ description: >-
   Use whenever opening or creating a pull request in a Bonliva repo, on any
   host — `gh pr create` against GitHub, the `create_pull_request` /
   `create_draft_pull_request` Bitbucket MCP calls, the `/bond:open-pr` command,
-  the Ship + PR step of `/bond:implement` and `/bond-bonliva:fix-qa`, or any time you
+  the Ship + PR step of `/bond:implement`, or any time you
   write a PR title and description. Enforces the one shared PR template so every
   PR has the same Summary / Jira / Test plan shape, opens as a draft in Bonliva, and
   carries the same default reviewers. Trigger on "open a PR", "create a pull

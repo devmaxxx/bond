@@ -53,7 +53,7 @@ consumes it — lowercase it: `feat/erp-587-export`).
 # Bonliva branches
 
 `/bond:start` and `/bond:implement` cut the branch themselves and impose their
-own shape. **Do not override them** — the Jira tooling and `/bond-bonliva:fix-qa` find
+own shape. **Do not override them** — the Jira tooling finds
 the branch by that shape:
 
 - Prefix from the issue type: `Bug` → `fix`, everything else → `feat`.
@@ -68,7 +68,6 @@ is no key at all — use the `<type>/<description>` shape of §1.
 Naming a branch by hand in a Bonliva repo? Match bond: `<feat|fix>/<KEY>` and
 **stop at the key**. `feat/ERP-587-export-timesheet-to-csv` is the natural thing
 to write and it is wrong here — no slug after the key, no lowercasing the key.
-`/bond-bonliva:fix-qa` looks the branch up by that shape.
 
 # Renaming a branch
 

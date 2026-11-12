@@ -8,7 +8,7 @@ description: Fetch (or create) a Jira ticket — or take a free-text task in a r
 
 Full ticket-to-implementation workflow: fetch one or more Jira tickets (or **create one** when you have none yet), create a properly-named branch in an isolated worktree, analyse the codebase, write a concrete implementation plan, implement it, ship, open the PR, and tear the worktree down. By default it runs end-to-end without pausing; pass `--no-auto` to confirm the plan first or `--no-worktree` to work in the current tree.
 
-Everything except the four decisions unique to this command — creating a ticket when none is given, parsing multiple ticket IDs, the branch-prefix rule, and writing a fresh plan — is delegated to the shared procedures in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md` (the same flow `/bond-bonliva:fix-qa` uses). Read that file; the steps below name the procedures to run and the inputs to set.
+Everything except the four decisions unique to this command — creating a ticket when none is given, parsing multiple ticket IDs, the branch-prefix rule, and writing a fresh plan — is delegated to the shared procedures in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`. Read that file; the steps below name the procedures to run and the inputs to set.
 
 ## Arguments
 
@@ -22,6 +22,8 @@ Examples:
 - `/implement add a CSV export to the reports page` — creates a Task, then implements it
 - `/implement login page 500s on submit --bug` — creates a Bug, then implements it
 - `/implement "wire up export endpoint" --task --project CRMDEV`
+- `/implement --spec docs/specs/csv-export.md` — implements a written spec (under `TRACKER=jira` it creates a Task named after the spec)
+- `/implement ERP-135 --spec docs/specs/csv-export.md` — the ticket plus a spec that refines it
 
 ### Flags
 
@@ -29,6 +31,7 @@ By **default** `/implement` runs in **worktree mode** and **auto mode**: it crea
 
 - `--no-worktree` — switch branches in the current working tree instead of a worktree (requires a clean tree).
 - `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR and Teardown procedures are skipped; the worktree is left in place).
+- `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive **Tests first** and **Converge**. A path that does not exist aborts the run before anything is written.
 - `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, the Bonliva slug table inside Bonliva, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
 
 Flags that only apply when **creating** a ticket (no key given — see step 1):
@@ -45,7 +48,8 @@ Strip all flags from `$ARGUMENTS` before parsing the remaining tokens.
 Resolve the **project profile** first
 (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`). Under `TRACKER=none` there
 is no Jira to read, create in, or transition: treat **all** of `$ARGUMENTS` as
-the free-text description of the work, set `TICKET_IDS` empty, run the shared
+the free-text description of the work (with `--spec` and no text left, the
+spec's first heading is the description), set `TICKET_IDS` empty, run the shared
 **Check for blockers** procedure on that text, skip the rest of step 2, and
 continue at step 3. Report `--project` / `--task` / `--bug` as
 ignored rather than silently dropping them.
@@ -58,7 +62,7 @@ the remaining tokens:
   1. Treat the remaining text as the new issue **summary**. Type = `Bug` if `--bug`, else `Task` (default, or `--task`). Project = `--project <KEY>`, else inferred per the **create** procedure in `${CLAUDE_PLUGIN_ROOT}/commands/jira.md`.
   2. Run that **create** procedure (assignee defaults to you). Capture the new key.
   3. Report the created issue (key + browse URL). Set `TICKET_IDS` = the single new key and continue.
-- **No tokens at all** → ask the user for a ticket ID or a summary to create, and stop.
+- **No tokens at all** → with `--spec`, take the create path with the spec's first heading as the summary and the spec path in the description; without it, ask the user for a ticket ID or a summary to create, and stop.
 
 ### 2. Resolve tickets, claim them, and move them to In Progress
 
@@ -70,7 +74,7 @@ Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs 
 
 - Prefix: all tickets type `Bug` → `fix`; any `Story`/`Task`/other → `feat`.
 - Single ticket → `<prefix>/ERP-135`; multiple → `<prefix>/ERP-135_ERP-136` (underscore-separated, in the order given).
-- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because `/bond-bonliva:fix-qa` looks a branch up by its Jira key, and outside Bonliva nothing does.
+- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because Bonliva's Jira tooling looks a branch up by its key, and outside Bonliva nothing does.
 
 ### 4. Set up the branch
 
@@ -80,15 +84,18 @@ Run the shared **Set up the branch** procedure with `BRANCH_NAME` from step 3, `
 
 Run these shared procedures in order:
 
-1. **Analyse the codebase** — `FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed.
-2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."*
-3. **Implement** then **Test** — `SCOPE` = the whole plan — when the plan names three or more files, build through `superpowers:subagent-driven-development` (available when the superpowers plugin is installed; otherwise in-thread): the main thread keeps the plan and the verdicts, test output stays in the subagent. With two or more tickets, each ticket is instead a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — without that file's review and fix pass — the run's one review comes at the end.
-4. **Review and fix** — skipped in auto mode, where the audit runs the code and security review pair once over the PR; under `--no-auto`, the pair runs here once over the work, then the tests re-run.
-5. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Hand off the audit**, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
+1. **Analyse the codebase** — `FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed, plus the `--spec` file when given (`SPEC_FILE`).
+2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `SPEC_FILE` = the `--spec` path or empty, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."* The plan is checked by **Review the plan** before it is printed or confirmed.
+3. **Tests first** — `SCOPE` = the whole plan.
+4. **Implement** then **Test** — `SCOPE` = the whole plan — when the plan names three or more files, build through `superpowers:subagent-driven-development` (available when the superpowers plugin is installed; otherwise in-thread): the main thread keeps the plan and the verdicts, test output stays in the subagent. Build slice by slice, in the plan's order. With two or more tickets, each ticket is instead a step of one track in `${CLAUDE_PLUGIN_ROOT}/shared/track-build.md` — steps in order, one implementer per step — without that file's review and fix pass — the run's one review comes at the end.
+5. **Converge** — every acceptance criterion mapped to the test that proves it.
+6. **Review and fix** — skipped in auto mode, where the audit runs the code and security review pair once over the PR; under `--no-auto`, the pair runs here once over the work, then the tests re-run.
+7. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Hand off the audit**, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
 
 Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 
 ## Do NOT
 
 - Do not skip the codebase analysis — surface relevant context before writing the plan.
+- Do not let the code drift from `--spec` silently: when the build shows the spec is wrong, record it under the plan's `## Decisions` and in the completion report — the spec file is the user's, the run does not rewrite it.
 - The shared flow's own **Do NOT** list (commit/push/ship/PR/teardown rules) applies — do not restate or diverge from it here.

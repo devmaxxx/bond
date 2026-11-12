@@ -4,12 +4,11 @@ description: Release the bond plugin — bump the version in plugin.json + marke
 
 # /release
 
-Cut a new release of the **bond**, **bond-bonliva**, **bond-cockpit**, **bond-beauty-crm** and **bond-oss** plugins, which ship together from this marketplace. This bumps the version in every manifest, commits any pending changes together with the bump, creates an annotated `vX.Y.Z` tag, and pushes `main` + the tag. After the tag lands, users pick up the new version via `/plugin` update.
+Cut a new release of the **bond**, **bond-cockpit**, **bond-beauty-crm** and **bond-oss** plugins, which ship together from this marketplace. This bumps the version in every manifest, commits any pending changes together with the bump, creates an annotated `vX.Y.Z` tag, and pushes `main` + the tag. After the tag lands, users pick up the new version via `/plugin` update.
 
 Every manifest **must always carry the same version**:
 
 - `.claude-plugin/plugin.json` → `version`
-- `plugins/bond-bonliva/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-cockpit/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-beauty-crm/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-oss/.claude-plugin/plugin.json` → `version`
@@ -51,7 +50,6 @@ Read the current version from `.claude-plugin/plugin.json`. Derive the next vers
 Write the new version into **every** manifest, preserving all other keys and formatting:
 
 - `.claude-plugin/plugin.json` → `version`
-- `plugins/bond-bonliva/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-cockpit/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-beauty-crm/.claude-plugin/plugin.json` → `version`
 - `plugins/bond-oss/.claude-plugin/plugin.json` → `version`
@@ -102,7 +100,6 @@ Print:
   ```sh
   /plugin marketplace update devmaxxx
   /plugin update bond@devmaxxx
-  /plugin update bond-bonliva@devmaxxx
   /plugin update bond-cockpit@devmaxxx
   /plugin update bond-beauty-crm@devmaxxx
   /plugin update bond-oss@devmaxxx

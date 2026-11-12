@@ -1,7 +1,7 @@
 # Shared implementation flow
 
-> **Not an invocable command.** Shared include used by `/bond:implement` and
-> `/bond-bonliva:fix-qa`. Each command owns only its unique decisions — which tickets,
+> **Not an invocable command.** Shared include used by `/bond:implement` (and,
+> for single procedures, `/bond:ship-pr` and `/bond:fix-ci`). Each command owns only its unique decisions — which tickets,
 > how the branch is chosen, how the plan is built — and calls the procedures
 > below for everything they have in common, so the shared logic lives in exactly
 > one place. A command lists which procedures it runs, in what order, and the
@@ -186,7 +186,7 @@ not exist, so the profile falls through to `refs/remotes/origin/HEAD` instead.
 or `existing` (attach to an already-pushed branch); `BASE_BRANCH` (the branch a
 `new` branch is cut from — when the caller leaves it unset, resolve it via the
 **Default base branch** procedure above); `WORKTREE_SUFFIX` (empty for
-`/implement`, `-qa` for `/fix-qa`); mode = worktree (default) or in-place
+`/implement`, a short suffix for a caller that reopens a branch); mode = worktree (default) or in-place
 (`--no-worktree`).
 
 ### Ensure a fresh branch name (`BRANCH_SOURCE=new` only)
@@ -226,8 +226,8 @@ Do **not** require a clean working tree.
 6. `cd` into the worktree. All later procedures run inside it.
    Local-scope MCP servers follow a worktree to its main repo, but
    `.claude/settings.local.json` is an untracked file and does not: `cp
-   <original>/.claude/settings.local.json .claude/` when it exists, or a Bonliva
-   worktree opens without `bond-bonliva` enabled.
+   <original>/.claude/settings.local.json .claude/` when it exists, or the
+   worktree opens without the plugins and permissions enabled there.
 7. `BRANCH_SOURCE=existing` only: `git pull --ff-only origin <BRANCH_NAME>` to
    fast-forward. Abort on failure — do not auto-merge or rebase. (`new` is
    already at the `origin/<BASE_BRANCH>` tip.)
@@ -249,7 +249,9 @@ Do **not** require a clean working tree.
 ## Procedure: Analyse the codebase
 
 **Inputs:** `FOCUS` — the ticket descriptions/acceptance criteria
-(`/implement`) or the selected QA feedback items (`/fix-qa`).
+(`/implement`) or the items a caller selects; `SPEC_FILE` when
+the caller has one — read it whole first, it outranks a ticket's description
+where the two disagree (record the disagreement under **Open questions**).
 
 Explore the code relevant to `FOCUS`:
 
@@ -265,7 +267,8 @@ Explore the code relevant to `FOCUS`:
 
 **Inputs:** `PLAN_FILE` = `docs/plans/<TICKET_IDS>.md` (create `docs/plans/` if
 absent); `PLAN_MODE` = `write` or `append`; for `append`, the dated section the
-caller supplies; `MODE` (`auto`/`no-auto`); `CONFIRM_PROMPT`.
+caller supplies; `MODE` (`auto`/`no-auto`); `CONFIRM_PROMPT`; `SPEC_FILE`
+(optional).
 
 Base structure — used to create a fresh plan, and when an `append` target file
 is missing:
@@ -285,15 +288,28 @@ For each ticket:
   - Links: <blocking/blocked-by/subtasks with status; omit if none>
   - Open questions: <ambiguities or decisions flagged>
 
+## Spec
+<only with SPEC_FILE: its path, then every acceptance criterion it states,
+numbered AC1, AC2, … in the spec's order and worded as it words them. Without a
+spec, number the tickets' acceptance criteria here the same way; with neither,
+write the criteria the task implies and mark them `(inferred)`.>
+
 ## Files to change
 - `<path/to/file>` — <one-line reason>
 
 ## Implementation steps
+Contract first — shared types, schemas, DTOs or the API shape both sides
+use — then one vertical slice per behaviour (schema → service/API → UI), each
+slice small enough to test on its own.
 1. <Concrete step>
 2. ...
 
 ## Tests
-- `<test file path>` — `<describe> > <it>` — <what it asserts>
+- `<test file path>` — `<describe> > <it>` — <what it asserts> — <AC ids>
+
+## Coverage
+<filled by **Converge**: one line per AC — `AC1` → `<file> › <test>`, or
+`not covered` with the reason>
 
 ## Decisions
 Choices made autonomously during the flow (see **Autonomy**):
@@ -311,16 +327,60 @@ As the flow proceeds, log every autonomous choice point under `## Decisions`
 choice already made before this procedure runs (e.g. branch selection). Leave
 the section empty (or omit the bullet) if nothing was chosen.
 
+Under `PLAN_MODE=write`, run **Review the plan** before the plan is printed.
+
 Print the full plan (write) or the appended section (append) to the user.
 
 In `auto` mode, skip confirmation and note that auto-confirm is enabled. In
 `no-auto` mode, ask `CONFIRM_PROMPT` and wait for explicit confirmation; if the
 user requests changes, update the plan and ask again before proceeding.
 
+## Procedure: Review the plan
+
+**Inputs:** `PLAN_FILE`; `SPEC_FILE` or the tickets.
+
+The context that wrote the plan does not grade it. Spawn one read-only `Plan`
+agent (no `Edit`/`Write`) with the absolute paths of `PLAN_FILE`, `SPEC_FILE`
+and the checkout, and the tickets' text when there is no spec. It returns
+findings only, most severe first, against this list:
+
+- an acceptance criterion with no test in **Tests**, or a test tied to none;
+- a step that names no file, or a file in **Files to change** no step touches;
+- a contract (types, DTO, API shape) changed after the code that uses it, or
+  frontend and backend disagreeing on it;
+- a migration with no way back, or one that rewrites an applied migration;
+- an endpoint, query or action that reads or writes user data with no
+  authorisation step;
+- a requirement in the spec or tickets that no step delivers.
+
+Apply the findings to `PLAN_FILE` without asking (see **Autonomy**); log one
+you reject under `## Decisions` with the reason. An empty answer is a pass —
+say so. A plan of one or two files skips the agent: say "plan review: skipped,
+small plan". The review runs once; the revised plan is not reviewed again.
+
+## Procedure: Tests first
+
+**Inputs:** `SCOPE` (as in **Implement**).
+
+Before any production code in `SCOPE`, write the tests the plan's **Tests**
+section lists for it — through `superpowers:test-driven-development` when the
+superpowers plugin is installed — following the rules of **Test** (co-located,
+the module's own style, `bond:testing-behavior`). Run them through
+`bond:test-runner` and read why each fails:
+
+- failing because the behaviour is missing ⇒ correct, go on;
+- failing on an import, a typo or the test setup ⇒ fix the test, run again;
+- **passing** ⇒ the behaviour already exists or the test proves nothing: tighten
+  the test, or record under `## Decisions` that the criterion was already met.
+
+Tests that need code to exist before they compile (a new module's types) get
+the bare contract first — signatures and types, no behaviour — then the red run.
+No commit here: tests and code ship together.
+
 ## Procedure: Implement
 
 **Inputs:** `SCOPE` — what to implement: the whole plan (`/implement`) or only
-the newest `## QA fix round` section (`/fix-qa`).
+the newest appended section (`PLAN_MODE=append`).
 
 Execute the implementation steps within `SCOPE` in order. After each logical
 group of changes, briefly say what was done and which files were modified.
@@ -336,7 +396,8 @@ group of changes, briefly say what was done and which files were modified.
 
 **Inputs:** `SCOPE` (as above).
 
-Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
+Write the tests listed in the plan's **Tests** section that fall within `SCOPE`
+and that **Tests first** has not already written:
 
 - Co-locate tests with the code they test (e.g. `*.spec.ts` next to the
   service/controller, `*.test.tsx` next to the component).
@@ -347,6 +408,18 @@ Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
 
 Run them, and the module's existing tests, through the `bond:test-runner` agent —
 one command per call — so only the failures come back.
+
+## Procedure: Converge
+
+**Inputs:** `PLAN_FILE`, `SCOPE`.
+
+After **Test** is green, fill the plan's `## Coverage`: for each AC in
+`## Spec`, the test that proves it (`<file> › <test>`), found by reading the
+tests, not by trusting the plan. An AC with no test gets one written now and
+run through `bond:test-runner`; an AC that cannot be tested automatically
+(visual, third-party, manual) is marked `manual: <how to check>` and becomes an
+item of the PR's **Test plan**. A requirement the build changed or dropped is
+recorded under `## Decisions`, never quietly left out.
 
 ## Procedure: Review and fix
 
@@ -393,7 +466,8 @@ Tell the user:
 - Branch and where it was cut from / attached to.
 - Worktree path, unless `WORKTREE` is `none`.
 - Tickets handled: `<ID>: <summary>` for each.
-- Plan file: `PLAN_FILE`.
+- Plan file: `PLAN_FILE`, and the spec when there was one.
+- Coverage: `<covered>/<total>` acceptance criteria, each `manual:` one named.
 - Files changed: brief list.
 - Next step: in `auto` mode Ship + PR, Hand off the audit and Teardown run
   automatically — once the audit is handed off, its agent removes the
@@ -429,8 +503,7 @@ again.
      `gh pr list --head <branch> --state open --json number,url` on GitHub. If
      one exists, print its URL and do **not** invoke `/bond:open-pr`. If none
      exists, invoke `/bond:open-pr` to create it. Do **not** re-ping reviewers on
-     a QA round — just tell the user they can run `/bond-bonliva:request-review` if the
-     project has a channel for it.
+     a follow-up round.
 
 If either step fails, surface the error and stop — do not retry blindly, and do
 **not** proceed to Teardown (leave the worktree in place so the user can fix and

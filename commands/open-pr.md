@@ -66,7 +66,7 @@ Then produce the title and description exactly as the template defines them.
 ### 4. Resolve reviewers
 
 Follow the **Reviewers** section of `${CLAUDE_PLUGIN_ROOT}/shared/pr-template.md`:
-`$HOME/.bond/pr-reviewers.json` first (managed by `/bond-bonliva:set-reviewers`), falling
+`$HOME/.bond/pr-reviewers.json` first (a per-user file, kept by hand), falling
 back to the host's own defaults — `mcp__bond-bitbucket__get_effective_default_reviewers`
 for the workspace and repo slug on Bitbucket, the repo's configured reviewers or
 `CODEOWNERS` on GitHub. Carry them into step 6 as `uuid` values (Bitbucket) or

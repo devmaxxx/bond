@@ -3,7 +3,7 @@
 > **Not an invocable command.** Single source of truth for the title and
 > description of every pull request opened in a Bonliva repo, on GitHub and on
 > Bitbucket alike. Used by `/bond:open-pr`, by the Ship + PR step of
-> `/bond:implement` and `/bond-bonliva:fix-qa`, and by the `pr-template` skill. Edit the
+> `/bond:implement`, and by the `pr-template` skill. Edit the
 > format here and every PR path picks it up — do not copy this format into
 > individual commands.
 
@@ -62,7 +62,13 @@ refusing it. The issue goes into the body (`Closes #<n>`).
 - [ ] <edge case>
 ```
 
-Omit the `## Jira` section entirely if `<tickets>` is empty. The description
+Omit the `## Jira` section entirely if `<tickets>` is empty.
+
+When the branch's plan file (`docs/plans/<KEY>.md` or the branch slug) has a
+`## Coverage` section, the **Test plan** carries one item per acceptance
+criterion, led by its id — `- [ ] AC2: wrong password returns 401
+(auth.test.ts › rejects a wrong password)` — and every `manual:` criterion as
+an item to check by hand. The description
 ends at the test plan: no "generated with" footer, no session link, no AI
 co-author line — the PR is owned by the human who opens it (`authorship-conventions`).
 
@@ -105,7 +111,7 @@ Every PR is created with default reviewers attached. Resolve them in this order:
 
 1. **The project profile** — `shared/project-profile.md`, the `REVIEWERS` field:
    a repo's own `.bond/project.json` first, then
-   `$HOME/.bond/pr-reviewers.json` (managed by `/bond-bonliva:set-reviewers`) **when the
+   `$HOME/.bond/pr-reviewers.json` (a per-user file, kept by hand) **when the
    profile says the repo is Bonliva's**. Entries there carry a Bitbucket `uuid`;
    a `login` on the entry is the GitHub handle for the same person. That file
    lists Bonliva colleagues, so a personal repo never draws from it — a review

@@ -134,7 +134,7 @@ is open costs the PR.
 
 ## Commands ask first — always on
 
-Every bond command — `bond`, `bond-bonliva`, `bond-beauty-crm` — opens with
+Every bond command — `bond`, `bond-beauty-crm`, `bond-oss` — opens with
 **one** `AskUserQuestion` that carries every decision its arguments leave open:
 the target, the scope, an ambiguous argument, which of several candidates, and
 each outward or destructive step it will take (push, PR, merge, Jira, Teams or
@@ -179,8 +179,8 @@ from it.
 
 The opening session does not review its own PR again and runs no wait loop:
 it says the audit is running and relays the agent's report when it returns.
-A push to a PR that was already open is not a new PR, and a `/fix-qa` round
-that opens one is not audited: its flow already ran the review pair once.
+A push to a PR that was already open is not a new PR: its flow already ran the
+review pair once.
 
 ## Pushed worktrees are removed without asking — always on
 
