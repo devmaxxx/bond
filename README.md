@@ -1,7 +1,70 @@
+<div align="center">
+
 # bond
 
-Dev workflow commands and MCP integrations for Claude Code, for GitHub repos.
-Every command resolves a per-repo profile, so they work in any of them.
+**From ticket to merged PR, without leaving Claude Code.**
+
+A Claude Code plugin of dev-workflow commands, skills, agents and guard hooks.
+Each command asks one question up front, then runs to the end, in any GitHub repo.
+
+[![version](https://img.shields.io/github/v/tag/devmaxxx/bond?label=version&sort=semver)](https://github.com/devmaxxx/bond/tags)
+[![license](https://img.shields.io/github/license/devmaxxx/bond)](LICENSE)
+[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757)](https://docs.claude.com/en/docs/claude-code/plugins)
+[![tests](https://img.shields.io/badge/tests-node%20--test-339933)](#tests)
+
+[Quick start](#quick-start) · [Workflow](#the-workflow) · [Commands](#commands) · [Per-repo profile](#project-profile) · [Companion plugins](#companion-plugins) · [Reference](#reference)
+
+</div>
+
+---
+
+## Why bond
+
+- **One question, then done.** A command collects every decision its arguments leave open — target, scope, each push, PR, merge or tracker write — in one question, then runs without stopping.
+- **Works in any repo.** A per-repo profile settles the base branch, trunk or git-flow, Jira or no tracker, drafts and reviewers. Nothing is hardcoded.
+- **Spec to PR, test first.** `/implement` writes a plan, has a fresh context review it, writes failing tests, builds (through subagents when superpowers is installed), and maps every acceptance criterion to the test that proves it.
+- **Fresh eyes on every PR.** A background agent that did not write the code reviews it once for code and security issues, fixes what it confirms and pushes.
+- **Guardrails built in.** Hooks block AI signatures in commits, PRs and docs, keep secrets out of prompts and tracked files, and stop pushes from the wrong `gh` account.
+- **See what runs.** The optional cockpit shows the implement flow, each agent, cache health and rate limits beside the transcript.
+
+## Quick start
+
+```bash
+# In Claude Code
+/plugin marketplace add devmaxxx/bond
+/plugin install bond@devmaxxx
+```
+
+Then, in any GitHub repo:
+
+```text
+/bond:branch add csv export --worktree     # a fresh branch in a ready worktree
+/bond:implement add a CSV export to the reports page
+/bond:ship-pr                              # review, browser-test, mark ready
+/bond:merge-pr                             # squash-merge once green
+```
+
+Every command is namespaced `/bond:<name>`; `/bond:help` lists them.
+
+## The workflow
+
+```mermaid
+flowchart LR
+    A["/branch or /start"] --> B["/implement"]
+    B --> C["PR opened + audit"]
+    C --> D["/ship-pr"]
+    D --> E["/merge-pr"]
+    C -. red CI .-> F["/fix-ci"]
+    D -. behind base .-> G["/rebase"]
+    F --> D
+    G --> D
+```
+
+`/implement` runs ten phases, shown live in the cockpit. You can pause, stop, resume or rerun any phase:
+
+`Setup → Analyse → Plan → Plan review → Tests first → Build → Converge → Review → Ship + PR → Audit`
+
+`--review-plan` stops for approval after the plan, `--checkpoints` after every phase, and `--resume` picks a stopped run back up.
 
 ## Commands
 
@@ -11,28 +74,87 @@ it will make — and none when the arguments settle it all; after the answer it
 runs to the end. The rule is *Commands ask first* in `shared/standing-rules.md`,
 and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 
-| Command           | Purpose                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------- |
-| `/help`           | List all bond plugin commands with their descriptions                                         |
-| `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
-| `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
-| `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
-| `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task or a `--spec` file where there is no tracker — then branch, plan (reviewed in a fresh context), tests first, code, and map every acceptance criterion to its test, each phase through its superpowers skill when that plugin is installed; `--review-plan` / `--checkpoints` stop for approval, `--resume` continues |
-| `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
-| `/linkedin`       | Write a LinkedIn post or article from the source, facts and numbers checked, with an optional cover-image prompt |
-| `/linkedin-draft` | Put an approved post or article into LinkedIn's composer or article editor through Chrome — a draft, never published |
-| `/jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)     |
-| `/open-pr`        | Open a PR for the current branch on GitHub                                                    |
-| `/merge-pr`       | Merge one PR (the current branch's or a named one) once green: push first, squash-merge, remove its branch and worktree |
-| `/sweep-pr`       | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
-| `/review-pr`      | Senior-reviewer PR review as one comment: fresh base merge, vertical + horizontal, claims checked against read-only prod data |
-| `/rebase`         | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
-| `/ship-pr`        | After implement: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
-| `/worktree`       | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
-| `/branch`         | Start a branch — checked out or in a ready worktree — cut from the base trunk or git-flow picks |
-| `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
+### Start work
 
-## bond-cockpit (job, implement-flow status line, strip and pane)
+| Command | What it does |
+| --- | --- |
+| `/branch` | Start a branch — checked out or in a ready worktree — cut from the base trunk or git-flow picks |
+| `/start` | Check out a fresh typed branch — creating the Jira issue first where there is a tracker |
+| `/worktree` | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
+
+### Build
+
+| Command | What it does |
+| --- | --- |
+| `/implement` | Fetch (or create) a Jira ticket — or take a free-text task or a `--spec` file where there is no tracker — then branch, plan (reviewed in a fresh context), tests first, code, and map every acceptance criterion to its test, each phase through its superpowers skill when that plugin is installed; `--review-plan` / `--checkpoints` stop for approval, `--resume` continues |
+| `/implement-batch` | Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
+| `/investigate` | Investigate a deployed failure to a proven root cause and write the investigation doc |
+
+### Ship and review
+
+| Command | What it does |
+| --- | --- |
+| `/open-pr` | Open a PR for the current branch on GitHub |
+| `/ship-pr` | After implement: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
+| `/review-pr` | Senior-reviewer PR review as one comment: fresh base merge, vertical + horizontal, claims checked against read-only prod data |
+| `/merge-pr` | Merge one PR (the current branch's or a named one) once green: push first, squash-merge, remove its branch and worktree |
+
+### Keep PRs green
+
+| Command | What it does |
+| --- | --- |
+| `/fix-ci` | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
+| `/rebase` | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
+| `/sweep-pr` | Sweep open PRs: retarget the base, rebase, restart infra CI once, squash-merge the green ones under `--merge`, clean up |
+
+### Everything else
+
+| Command | What it does |
+| --- | --- |
+| `/jira` | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default) |
+| `/linkedin` | Write a LinkedIn post or article from the source, facts and numbers checked, with an optional cover-image prompt |
+| `/linkedin-draft` | Put an approved post or article into LinkedIn's composer or article editor through Chrome — a draft, never published |
+| `/disk-analyze` | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones |
+| `/help` | List all bond plugin commands with their descriptions |
+
+## Project profile
+
+`shared/project-profile.md` resolves, per repo, the base branch, the branch
+model (`trunk`, or `gitflow` with feature work off `develop` and hotfixes off
+the production branch), whether there is a Jira tracker at all, whether PRs open as drafts, and who the reviewers are.
+A repo can state its own answers in `.bond/project.json`; otherwise they are
+inferred from the `origin` remote. Without a manifest the tracker resolves to
+`none`, and `/implement` takes a free-text task, cuts a
+`<type>/<description>` branch and opens a PR with no `## Jira` section.
+
+Every command reads that profile rather than assuming a base branch or a tracker:
+
+- **CI-flexible** — `/ship-pr` and `/fix-ci` work against GitHub Actions and
+  Woodpecker alike; the profile's *Resolve PR coordinates* and *PR details and
+  CI status* procedures normalise the checks to one vocabulary, so no command
+  branches on a raw status string.
+- **Tracker-flexible** — `/implement` and `/start` take free text or a `--spec`
+  file where there is no Jira.
+- **Guarded, not faked** — `/jira` genuinely needs Jira. It says the
+  prerequisite is missing and stops, rather than pretending to work.
+
+```json
+// .bond/project.json — every field optional
+{
+  "tracker": "jira",
+  "jiraSite": "example.atlassian.net",
+  "baseBranch": "main",
+  "branchModel": "gitflow",
+  "draft": true,
+  "reviewers": ["octocat"]
+}
+```
+
+## Companion plugins
+
+Optional plugins from the same marketplace. Each builds on `bond`.
+
+### bond-cockpit — flow, agents and cache, live
 
 `plugins/bond-cockpit/` is a mod: a plugin of function hooks (`hooks/hooks.json` →
 `modules`) that runs inside Claude Code rather than as spawned `node` processes,
@@ -42,6 +164,9 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
 // ~/.claude/settings.json
 { "enabledPlugins": { "bond-cockpit@devmaxxx": true } }
 ```
+
+<details>
+<summary><b>Everything the cockpit shows</b></summary>
 
 - **Status line** — the `/bond:implement` flow while a run reports progress:
   `feat/x ▰▰▰▱▱▱▱▱▱▱ 3/10 · Build`, `⏸` before the phase while it is stopped;
@@ -122,22 +247,9 @@ to 5m; otherwise the last model switch's report; otherwise 1h on a subscription
 and 5m on an API key. `5m` or `1h` fixes it. The card badge says `overage`,
 `set` or `API` when the TTL came from one of those.
 
-## bond-beauty-crm (beauty-crm-only companion)
+</details>
 
-`plugins/bond-beauty-crm/` drives beauty-crm's own task flow (`pnpm tasks`), which
-bond's Jira/`gh` commands do not know. Enable it in the beauty-crm clone only:
-
-```json
-// beauty-crm/.claude/settings.local.json
-{ "enabledPlugins": { "bond-beauty-crm@devmaxxx": true } }
-```
-
-| Command                  | Purpose                                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| `/bond-beauty-crm:batch` | Close several milestone tasks that share files in one PR: `claim`, `claim --join`, `done` each, one `pr` |
-| `/bond-beauty-crm:implement` | Start a task: claim its card, ask every question before the first edit (`shared/questions-first.md`), build, `done`, `pr` |
-
-## bond-oss (open-source library companion)
+### bond-oss — open-source library companion
 
 `plugins/bond-oss/` creates, audits, demos and releases npm libraries on one stack
 (pnpm, tsdown, Vitest, `@antfu/eslint-config`, ESM-only) and publishes them through
@@ -159,111 +271,20 @@ in the plugin.
 | `/bond-oss:demo` | Examples run in CI, a GitHub Pages or Expo demo, GIFs recorded by committed scripts |
 | `/bond-oss:release` | Milestone, release PR, merge on green, tag, one watched run, npm + GitHub release verified; bootstraps trusted publishing on a first release |
 
-## MCP Servers
+### bond-beauty-crm — beauty-crm only
 
-Under `TRACKER=jira`, bond calls one MCP server by the name `bond-atlassian`
-(the official Atlassian remote server, `https://mcp.atlassian.com/v1/mcp`,
-OAuth). bond does not install it: add it to the project's local scope under that
-name with `claude mcp add`, so its tools appear as `mcp__bond-atlassian__*`.
-Repos with no Jira need no MCP server — `gh` covers GitHub.
+`plugins/bond-beauty-crm/` drives beauty-crm's own task flow (`pnpm tasks`), which
+bond's Jira/`gh` commands do not know. Enable it in the beauty-crm clone only:
 
-## Browser access
-
-Anything in this plugin that needs a browser — reading a Jira attachment
-or opening a failing page in `/investigate` —
-uses **`claude-in-chrome`** whenever it is available. It drives the user's real
-Chrome through the browser extension, so the SSO sessions are already there and
-no profile, LaunchAgent or debug port has to be stood up first. Load the tools
-with `ToolSearch` (`select:mcp__claude-in-chrome__tabs_context_mcp,…`) before
-using them.
-
-If it is not available, skip the step and say so rather than asking the user to
-sign in — never enter credentials on their behalf.
-
-## Standing rules
-
-`SessionStart` prints `shared/standing-rules.md` into every session — the rules
-that used to live in a personal `~/.claude/CLAUDE.md`, so the plugin carries
-them instead of the machine. A plugin has no declarative way to ship always-on
-instructions (skills and agents load on demand, and there is no auto-loaded
-plugin `CLAUDE.md`), so a hook is the mechanism.
-
-Set `BOND_USER_NAME` to the name replies should open with; it falls back to
-`git config user.name`, and the greeting rule is dropped when neither resolves.
-The name is never committed — this repo is public.
-
-`shared/permissions-readonly.json` is a read-only allowlist — the git reads
-(`status`, `log`, `diff`, `show`, `branch`, `rev-parse`), `ls`, `wc`, `jq`,
-`head`, `tail`, `pnpm exec repograph`, `pnpm tasks report`, `pnpm tasks blockers`
-and `node --test`: the calls that look at a tree without changing it. A plugin
-cannot apply permissions, so bond cannot switch them on for you — copy the
-`permissions.allow` entries into a project's `.claude/settings.json` (or the
-uncommitted `.claude/settings.local.json`). Until then every one of those calls
-is approved by hand, one at a time.
-
-## Project profile
-
-`shared/project-profile.md` resolves, per repo, the base branch, the branch
-model (`trunk`, or `gitflow` with feature work off `develop` and hotfixes off
-the production branch), whether there is a Jira tracker at all, whether PRs open as drafts, and who the reviewers are.
-A repo can state its own answers in `.bond/project.json`; otherwise they are
-inferred from the `origin` remote. Without a manifest the tracker resolves to
-`none`, and `/implement` takes a free-text task, cuts a
-`<type>/<description>` branch and opens a PR with no `## Jira` section.
-
-Every command reads that profile rather than assuming a base branch or a tracker:
-
-- **CI-flexible** — `/ship-pr` and `/fix-ci` work against GitHub Actions and
-  Woodpecker alike; the profile's *Resolve PR coordinates* and *PR details and
-  CI status* procedures normalise the checks to one vocabulary, so no command
-  branches on a raw status string.
-- **Tracker-flexible** — `/implement` and `/start` take free text or a `--spec`
-  file where there is no Jira.
-- **Guarded, not faked** — `/jira` genuinely needs Jira. It says the
-  prerequisite is missing and stops, rather than pretending to work.
-
-## Hooks
-
-- `SessionStart` runs `hooks/standing-rules.mjs`: the standing rules above. Registered with no matcher, so it fires on every start reason — startup, resume, clear, compact and fork alike. That is deliberate: rules that do not survive a compaction quietly stop applying halfway through a long session, and a matcher that failed to parse would drop them silently.
-- `SessionStart` and `UserPromptSubmit` run `hooks/branch-guard.mjs`: the branch the session opened on is recorded under `<tmp>/bond/<session_id>.branch`, and the first prompt submitted after the working tree has moved to another branch gets one line of context naming both branches and suggesting `/clear`. Once per recorded baseline — a session that carries two branches pays the first one on every turn of the second, but a reminder repeated every turn costs the tokens it is trying to save, so it is said once and re-armed by the next `SessionStart` (resume and compact reuse the session id, and the drift after one of those deserves a second word). A detached HEAD, a directory that is no git tree or an unwritable tmp means no nudge, never a blocked prompt. The rule is `decide` in that file, unit-tested in `tests/branch-guard.test.mjs`.
-- `SessionStart` runs `hooks/node-guard.mjs`: a tree that pins node in `.nvmrc` (or `.node-version`) gets one line of context when the shell its Bash calls land in runs another version — both versions and the `PATH="$(nvm which <pin> | xargs dirname):$PATH"` prefix every `pnpm`/`node` command then needs. Each Bash call is a fresh shell that does not carry nvm's PATH, so the prefix is per command rather than per session; met mid-session instead of at the start, the same fact costs a failed command per call (`ERR_UNKNOWN_FILE_EXTENSION` on every TypeScript entry point). A shorter pin covers the releases under it — `24` is satisfied by `24.16.0`, `24.1` is not — while an alias only nvm could resolve (`lts/*`) and a tree with neither file say nothing. nvm is never invoked: the line names the prefix, it does not run it. The rule is `check` in that file, unit-tested in `tests/node-guard.test.mjs`.
-- `SessionStart` runs `hooks/context-mode-guard.mjs`: when a running context-mode server (any `…/context-mode/<version>/start.mjs`) was started on another node major than this session, one line names both majors, the plugin root and the heal — only in a session below node 22.5, since from 22.5 context-mode opens its database through `node:sqlite` and the swap cannot reach it. context-mode keeps one active `better_sqlite3.node` per plugin version, shared by every session, and each session's hooks overwrite it with the build for their own node, so a server below 22.5 that opens its database after another session's swap fails every `ctx_*` call with "compiled against a different Node.js version" — and repositories pinning 16 to 24 make that the normal case. The heal is the plugin's own `hooks/ensure-deps.mjs` `ensureNativeCompat`, which copies the cached build back without a rebuild (`npm rebuild better-sqlite3` where a version no longer ships it). The binary each server runs comes from one `lsof` call on macOS and `/proc/<pid>/exe` on Linux; a path that carries no version (`/usr/local/bin/node`) counts as unknown and says nothing. The rule is `check` in that file, unit-tested in `tests/context-mode-guard.test.mjs`.
-- `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
-- `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill. It runs on [agent-base-kit](https://github.com/devmaxxx/agent-base-kit), vendored as `hooks/vendor/agent-base-kit.mjs` (bond has no `package.json`), so it fails closed: a payload it cannot read or a check that throws blocks the command rather than letting it run unchecked. `scripts/vendor-agent-base-kit.sh <version>` refreshes the copy from npm.
-- `PreToolUse` on `Bash` runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where the repo asks for one (`"draft": true` in `.bond/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose; it demands a `## Jira` section only where `.bond/project.json` says `"tracker": "jira"`.
-- `PreToolUse` on `Bash` runs `hooks/bash-budget.mjs`: context only, never a decision — the command always runs. Ten calls in a row that each carry a single command get one line naming the three cheaper forms — chain the next ones with `&&` or `;`, issue them in one message, or hand the loop to a subagent; measured over thirty days in one repo, 6481 Bash calls averaging 1.6 KB of output, where the price is not that output but the whole conversation being re-read on every one of them. Four shapes whose output has no bound get one line naming the bounded form — `git log` without `-n`/`--oneline`, `cat` of one whole file, `ls -R` or `find` without `-maxdepth`, a test run without `--reporter`. At most one line per call and the batch nudge wins; the row is counted in `<tmp>/bond/<session_id>.bash-singles`, whose own mtime says whether the previous call came from a turn of its own — a counter written under a second ago means both calls were dispatched in one message, which is already the batching asked for, so that call does not lengthen the row. An unwritable tmp costs the batch nudge, never the call. Separators are read where the shell would run them, so `"a && b"` and a heredoc body carrying `&&` are each one command. The rule is `judge` in that file, unit-tested in `tests/bash-budget.test.mjs`.
-- `PreToolUse` on the subagent dispatch — `Agent`, or `Task` where the harness still names it that — runs `hooks/recon-router.mjs`: context only, never a decision — the agent is dispatched either way. A prompt handed to the unnamed or the general-purpose agent that asks where something lives, what or who calls it, which file holds it or how it is wired gets one line naming who answers it cheaply — `repo-scout` where the working tree has one under `.claude/agents/`, otherwise `Explore` with a breadth, either on `model: "haiku"`. The general-purpose agent pays that search in full and returns everything it read; the other two return the conclusion. A dispatch to a reader (`Explore`, `repo-scout`, `caveman:cavecrew-investigator`) that names no model gets one line asking for `haiku`; one that names a model has made the choice. So has a prompt that builds — one carrying `implement`, `add`, `write`, `refactor`, `fix`, `update`, `create`, `migrate` or `edit` as a word — since the agent that writes the code reads it on the way there. The rule is `route` in that file, unit-tested in `tests/recon-router.test.mjs`.
-- `PreToolUse` on `Bash` runs `hooks/gh-account-guard.mjs`: a `git push` or a `gh` write (PR, issue, release, label, run, `gh api` with a write method) that would go out under the wrong GitHub account is blocked with the command that would not — a per-command `GH_TOKEN=$(gh auth token -u <account>)`, or for an SSH remote whose key belongs to the other account an HTTPS push with that token plus the `git fetch` that refreshes `origin/<branch>`. Never `gh auth switch`: the active account is machine-global. Configured by `BOND_GH_ACCOUNTS` (`owner=account,…`) and `BOND_GH_SSH_ACCOUNT`; with neither set it blocks nothing. Unit-tested in `tests/gh-account-guard.test.mjs`.
-- `UserPromptSubmit`, and `PreToolUse` on `Bash` / `Write` / `Edit` / `MultiEdit` / `NotebookEdit`, run `hooks/secrets-guard.mjs`: a prompt carrying a live-looking secret — GitHub, Atlassian (API and access tokens), Figma, Slack (tokens and webhook URLs), OpenAI/Anthropic, AWS (key IDs and secret keys), PEM and PGP private keys, Telegram bot tokens, database URIs with an inline password (Postgres, MySQL, MongoDB, Redis, AMQP), JWTs — is blocked before it is stored in the session, naming the kind and never the value and without echoing the prompt back (`suppressOriginalPrompt`); `#allow-secret` sends it anyway. A tool call that would write a literal secret into a file git tracks, a commit, a `gh` body (inline, or in the `--body-file` / `-F` file it sends) or a `curl` line is blocked, unless the file already held that secret; a gitignored file, a lone `echo` / `printf` / `cat` into a gitignored `.env*`, `claude mcp add` outside project scope, a `$VAR` reference, a placeholder and a localhost dev URI pass. It runs on the vendored agent-base-kit, which fails the tool-call check closed (a payload it cannot read blocks the call) and the prompt check open (a fault lets the prompt through). Unit-tested in `tests/secrets-guard.test.mjs`.
-
-- `SessionStart`, `PreCompact` and `SessionEnd` run `hooks/session-memory.mjs`: `save` (PreCompact, SessionEnd) reads the transcript and keeps the last five prompts, each cut to one line, the files the session edited and its branch in `~/.claude/bond/sessions/<repo>-<path>.json`; `restore` (SessionStart) prints that note to the next session in the same directory — on startup or resume only, never after a compaction or a clear (the summary already carries it), never to the session that wrote it, and not once it is a week old. Small on purpose, because whatever SessionStart prints is re-read on every turn: five prompts of at most 160 characters, and a file list cut, with a "+N more" tail, so it never takes the note past 1 KB. An empty session does not overwrite a real one's note. The rules are `digest` and `render`, unit-tested in `tests/session-memory.test.mjs`. Adapted from everything-claude-code's memory-persistence hooks.
-- `SessionStart` (on a resume) and `UserPromptSubmit` run `hooks/resume-work.mjs`: when the last turn was cut off by a usage limit, an API failure (lost connection, sleep, expired login) or a full disk (`No space left on device` / `ENOSPC` in the turn's last tool output), one line names the cause and tells the model to continue the task where it stopped — re-check state, skip finished steps, do not re-ask. A turn stopped with Esc is not resumed, and a disk still under the floor asks for space first. Each pause is announced once per session. The rules are `findPause` and `advise`, unit-tested in `tests/resume-work.test.mjs`.
-- `SessionStart` and `UserPromptSubmit` run `hooks/disk-guard.mjs` async: under 5 GiB free on the home volume (`BOND_DISK_MIN_FREE_GB`), it runs `scripts/disk-analyze.sh clean` on the caches that rebuild themselves — pnpm, npm, yarn, uv, pip, go, gradle, Xcode DerivedData; never the Trash or the Chrome debug profile — at most once an hour across sessions, and reports what it freed on the next turn. Still low after that, it points at `/bond:disk-analyze`. The rule is `report`, unit-tested in `tests/disk-guard.test.mjs`.
-- `PreToolUse` on every tool runs `hooks/suggest-compact.mjs`: context only. At the 50th call since the last compaction, and every 25th after, one line suggests `/compact` if a phase just ended — auto-compaction fires wherever the window fills, a chosen one keeps what the next phase needs. `PreCompact` resets the count in `<tmp>/bond/<session_id>.tool-calls`. The rule is `judge`, unit-tested in `tests/suggest-compact.test.mjs`. Adapted from everything-claude-code's strategic-compact hook.
-
-## Tests
-
-The hook rules are unit-tested with the Node test runner — no dependencies, no
-install step. Covered: the two matchers the commit and PR hooks decide on —
-whether a command really runs `git commit` or `gh pr`, and whether a call really
-opens a pull request — along with the AI-signature patterns they share with
-`check-doc.mjs`; the ticket-key rule; the standing-rules rendering; and the
-context hooks through their decision functions, `decide` (branch-guard), `judge`
-(bash-budget, suggest-compact), `digest`/`render` (session-memory), `route` (recon-router), `check` (node-guard, context-mode-guard), `findPause`/`advise` (resume-work) and `report` (disk-guard), each with its
-wrapper driven over stdin as well. Every `SKILL.md` is held
-to its size limit and to the `references/` files it links, and `check-commit.mjs`
-is driven end to end over stdin:
-
-```sh
-node --test 'tests/**/*.test.mjs'
+```json
+// beauty-crm/.claude/settings.local.json
+{ "enabledPlugins": { "bond-beauty-crm@devmaxxx": true } }
 ```
 
-`bond-cockpit` is tested by Claude Code's own plugin runner — the cache view
-directly, and the status line, strip, band and pane on the terminal and desktop surfaces:
-
-```sh
-claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-cockpit
-```
+| Command                  | Purpose                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| `/bond-beauty-crm:batch` | Close several milestone tasks that share files in one PR: `claim`, `claim --join`, `done` each, one `pr` |
+| `/bond-beauty-crm:implement` | Start a task: claim its card, ask every question before the first edit (`shared/questions-first.md`), build, `done`, `pr` |
 
 ## Skills
 
@@ -293,26 +314,111 @@ claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-c
 - **pr-review** — reviews one open PR's diff on opus at high effort: reads each hunk with its callers, verifies every finding before reporting it, and returns at most 15 ranked findings with `file:line` and the input that breaks it. Read-only — never edits, pushes or comments. Paired with **security-review** through `shared/pr-review-flow.md`; `/ship-pr` runs the pair right after the PR is opened, before the browser check. Bundled under `agents/`.
 - **security-review** — reviews a diff, PR or path for security defects on opus at high effort: access control and IDOR, injection, auth and sessions (verifiers fail closed on malformed input), footgun APIs and insecure defaults, SSRF, XSS, secrets, races on money, data exposure, and an audit when a lockfile changed — triaged, probed and variant-hunted with the vendored Trail of Bits skills. Verifies each finding and returns at most 15 with `file:line`, the attack and the fix. Read-only. Always runs paired with **pr-review** through `shared/pr-review-flow.md` (`/ship-pr`, `/sweep-pr`, `/merge-pr`, `/review-pr`, **pr-audit**), alongside Claude Code's built-in `/security-review` run headless at the PR head with no setting sources; a critical or high finding from any of the three blocks. Bundled under `agents/`.
 
-## Installation
+## Integrations
 
-### From a marketplace (recommended)
+### MCP servers
 
-```bash
-# In Claude Code
-/plugin marketplace add devmaxxx/bond
-/plugin install bond@devmaxxx
+Under `TRACKER=jira`, bond calls one MCP server by the name `bond-atlassian`
+(the official Atlassian remote server, `https://mcp.atlassian.com/v1/mcp`,
+OAuth). bond does not install it: add it to the project's local scope under that
+name with `claude mcp add`, so its tools appear as `mcp__bond-atlassian__*`.
+Repos with no Jira need no MCP server — `gh` covers GitHub.
+
+### Browser access
+
+Anything in this plugin that needs a browser — reading a Jira attachment
+or opening a failing page in `/investigate` —
+uses **`claude-in-chrome`** whenever it is available. It drives the user's real
+Chrome through the browser extension, so the SSO sessions are already there and
+no profile, LaunchAgent or debug port has to be stood up first. Load the tools
+with `ToolSearch` (`select:mcp__claude-in-chrome__tabs_context_mcp,…`) before
+using them.
+
+If it is not available, skip the step and say so rather than asking the user to
+sign in — never enter credentials on their behalf.
+
+## Reference
+
+How bond works under the hood.
+
+### Standing rules
+
+<details>
+<summary><b>What every session is told, and how</b></summary>
+
+`SessionStart` prints `shared/standing-rules.md` into every session — the rules
+that used to live in a personal `~/.claude/CLAUDE.md`, so the plugin carries
+them instead of the machine. A plugin has no declarative way to ship always-on
+instructions (skills and agents load on demand, and there is no auto-loaded
+plugin `CLAUDE.md`), so a hook is the mechanism.
+
+Set `BOND_USER_NAME` to the name replies should open with; it falls back to
+`git config user.name`, and the greeting rule is dropped when neither resolves.
+The name is never committed — this repo is public.
+
+`shared/permissions-readonly.json` is a read-only allowlist — the git reads
+(`status`, `log`, `diff`, `show`, `branch`, `rev-parse`), `ls`, `wc`, `jq`,
+`head`, `tail`, `pnpm exec repograph`, `pnpm tasks report`, `pnpm tasks blockers`
+and `node --test`: the calls that look at a tree without changing it. A plugin
+cannot apply permissions, so bond cannot switch them on for you — copy the
+`permissions.allow` entries into a project's `.claude/settings.json` (or the
+uncommitted `.claude/settings.local.json`). Until then every one of those calls
+is approved by hand, one at a time.
+
+</details>
+
+### Hooks
+
+<details>
+<summary><b>Every hook and the rule it enforces</b></summary>
+
+- `SessionStart` runs `hooks/standing-rules.mjs`: the standing rules above. Registered with no matcher, so it fires on every start reason — startup, resume, clear, compact and fork alike. That is deliberate: rules that do not survive a compaction quietly stop applying halfway through a long session, and a matcher that failed to parse would drop them silently.
+- `SessionStart` and `UserPromptSubmit` run `hooks/branch-guard.mjs`: the branch the session opened on is recorded under `<tmp>/bond/<session_id>.branch`, and the first prompt submitted after the working tree has moved to another branch gets one line of context naming both branches and suggesting `/clear`. Once per recorded baseline — a session that carries two branches pays the first one on every turn of the second, but a reminder repeated every turn costs the tokens it is trying to save, so it is said once and re-armed by the next `SessionStart` (resume and compact reuse the session id, and the drift after one of those deserves a second word). A detached HEAD, a directory that is no git tree or an unwritable tmp means no nudge, never a blocked prompt. The rule is `decide` in that file, unit-tested in `tests/branch-guard.test.mjs`.
+- `SessionStart` runs `hooks/node-guard.mjs`: a tree that pins node in `.nvmrc` (or `.node-version`) gets one line of context when the shell its Bash calls land in runs another version — both versions and the `PATH="$(nvm which <pin> | xargs dirname):$PATH"` prefix every `pnpm`/`node` command then needs. Each Bash call is a fresh shell that does not carry nvm's PATH, so the prefix is per command rather than per session; met mid-session instead of at the start, the same fact costs a failed command per call (`ERR_UNKNOWN_FILE_EXTENSION` on every TypeScript entry point). A shorter pin covers the releases under it — `24` is satisfied by `24.16.0`, `24.1` is not — while an alias only nvm could resolve (`lts/*`) and a tree with neither file say nothing. nvm is never invoked: the line names the prefix, it does not run it. The rule is `check` in that file, unit-tested in `tests/node-guard.test.mjs`.
+- `SessionStart` runs `hooks/context-mode-guard.mjs`: when a running context-mode server (any `…/context-mode/<version>/start.mjs`) was started on another node major than this session, one line names both majors, the plugin root and the heal — only in a session below node 22.5, since from 22.5 context-mode opens its database through `node:sqlite` and the swap cannot reach it. context-mode keeps one active `better_sqlite3.node` per plugin version, shared by every session, and each session's hooks overwrite it with the build for their own node, so a server below 22.5 that opens its database after another session's swap fails every `ctx_*` call with "compiled against a different Node.js version" — and repositories pinning 16 to 24 make that the normal case. The heal is the plugin's own `hooks/ensure-deps.mjs` `ensureNativeCompat`, which copies the cached build back without a rebuild (`npm rebuild better-sqlite3` where a version no longer ships it). The binary each server runs comes from one `lsof` call on macOS and `/proc/<pid>/exe` on Linux; a path that carries no version (`/usr/local/bin/node`) counts as unknown and says nothing. The rule is `check` in that file, unit-tested in `tests/context-mode-guard.test.mjs`.
+- `PostToolUse` runs prettier on any file edited via `Edit`, `Write`, or `MultiEdit` (no-op when prettier is not available in the project), then `hooks/check-doc.mjs` scans a just-written `*.md|mdx|txt` for AI signatures and reports the lines back.
+- `PreToolUse` on `Bash` runs `hooks/check-commit.mjs`: a `git commit` / `gh pr …` whose message carries an AI signature (`Co-Authored-By` naming a tool, `Claude-Session:`, "generated with") or a non-Conventional-Commits subject is blocked with the reasons. Patterns live in `hooks/ai-breadcrumbs.mjs`; see the `authorship-conventions` skill. It runs on [agent-base-kit](https://github.com/devmaxxx/agent-base-kit), vendored as `hooks/vendor/agent-base-kit.mjs` (bond has no `package.json`), so it fails closed: a payload it cannot read or a check that throws blocks the command rather than letting it run unchecked. `scripts/vendor-agent-base-kit.sh <version>` refreshes the copy from npm.
+- `PreToolUse` on `Bash` runs `hooks/check-pr.mjs`: a PR whose title or body misses the shared Summary / Test plan shape, is not opened as a draft where the repo asks for one (`"draft": true` in `.bond/project.json`), or carries an AI signature is blocked with the reasons. See the `pr-template` skill and `shared/pr-template.md`. The rule lives in `hooks/pr-template.mjs`: it recognises the PR command only where the shell would run one — not inside a heredoc body, a quoted string or a comment — and treats only the configured Jira project keys as ticket ids, so `UTF-8` and `SHA-256` are prose; it demands a `## Jira` section only where `.bond/project.json` says `"tracker": "jira"`.
+- `PreToolUse` on `Bash` runs `hooks/bash-budget.mjs`: context only, never a decision — the command always runs. Ten calls in a row that each carry a single command get one line naming the three cheaper forms — chain the next ones with `&&` or `;`, issue them in one message, or hand the loop to a subagent; measured over thirty days in one repo, 6481 Bash calls averaging 1.6 KB of output, where the price is not that output but the whole conversation being re-read on every one of them. Four shapes whose output has no bound get one line naming the bounded form — `git log` without `-n`/`--oneline`, `cat` of one whole file, `ls -R` or `find` without `-maxdepth`, a test run without `--reporter`. At most one line per call and the batch nudge wins; the row is counted in `<tmp>/bond/<session_id>.bash-singles`, whose own mtime says whether the previous call came from a turn of its own — a counter written under a second ago means both calls were dispatched in one message, which is already the batching asked for, so that call does not lengthen the row. An unwritable tmp costs the batch nudge, never the call. Separators are read where the shell would run them, so `"a && b"` and a heredoc body carrying `&&` are each one command. The rule is `judge` in that file, unit-tested in `tests/bash-budget.test.mjs`.
+- `PreToolUse` on the subagent dispatch — `Agent`, or `Task` where the harness still names it that — runs `hooks/recon-router.mjs`: context only, never a decision — the agent is dispatched either way. A prompt handed to the unnamed or the general-purpose agent that asks where something lives, what or who calls it, which file holds it or how it is wired gets one line naming who answers it cheaply — `repo-scout` where the working tree has one under `.claude/agents/`, otherwise `Explore` with a breadth, either on `model: "haiku"`. The general-purpose agent pays that search in full and returns everything it read; the other two return the conclusion. A dispatch to a reader (`Explore`, `repo-scout`, `caveman:cavecrew-investigator`) that names no model gets one line asking for `haiku`; one that names a model has made the choice. So has a prompt that builds — one carrying `implement`, `add`, `write`, `refactor`, `fix`, `update`, `create`, `migrate` or `edit` as a word — since the agent that writes the code reads it on the way there. The rule is `route` in that file, unit-tested in `tests/recon-router.test.mjs`.
+- `PreToolUse` on `Bash` runs `hooks/gh-account-guard.mjs`: a `git push` or a `gh` write (PR, issue, release, label, run, `gh api` with a write method) that would go out under the wrong GitHub account is blocked with the command that would not — a per-command `GH_TOKEN=$(gh auth token -u <account>)`, or for an SSH remote whose key belongs to the other account an HTTPS push with that token plus the `git fetch` that refreshes `origin/<branch>`. Never `gh auth switch`: the active account is machine-global. Configured by `BOND_GH_ACCOUNTS` (`owner=account,…`) and `BOND_GH_SSH_ACCOUNT`; with neither set it blocks nothing. Unit-tested in `tests/gh-account-guard.test.mjs`.
+- `UserPromptSubmit`, and `PreToolUse` on `Bash` / `Write` / `Edit` / `MultiEdit` / `NotebookEdit`, run `hooks/secrets-guard.mjs`: a prompt carrying a live-looking secret — GitHub, Atlassian (API and access tokens), Figma, Slack (tokens and webhook URLs), OpenAI/Anthropic, AWS (key IDs and secret keys), PEM and PGP private keys, Telegram bot tokens, database URIs with an inline password (Postgres, MySQL, MongoDB, Redis, AMQP), JWTs — is blocked before it is stored in the session, naming the kind and never the value and without echoing the prompt back (`suppressOriginalPrompt`); `#allow-secret` sends it anyway. A tool call that would write a literal secret into a file git tracks, a commit, a `gh` body (inline, or in the `--body-file` / `-F` file it sends) or a `curl` line is blocked, unless the file already held that secret; a gitignored file, a lone `echo` / `printf` / `cat` into a gitignored `.env*`, `claude mcp add` outside project scope, a `$VAR` reference, a placeholder and a localhost dev URI pass. It runs on the vendored agent-base-kit, which fails the tool-call check closed (a payload it cannot read blocks the call) and the prompt check open (a fault lets the prompt through). Unit-tested in `tests/secrets-guard.test.mjs`.
+
+- `SessionStart`, `PreCompact` and `SessionEnd` run `hooks/session-memory.mjs`: `save` (PreCompact, SessionEnd) reads the transcript and keeps the last five prompts, each cut to one line, the files the session edited and its branch in `~/.claude/bond/sessions/<repo>-<path>.json`; `restore` (SessionStart) prints that note to the next session in the same directory — on startup or resume only, never after a compaction or a clear (the summary already carries it), never to the session that wrote it, and not once it is a week old. Small on purpose, because whatever SessionStart prints is re-read on every turn: five prompts of at most 160 characters, and a file list cut, with a "+N more" tail, so it never takes the note past 1 KB. An empty session does not overwrite a real one's note. The rules are `digest` and `render`, unit-tested in `tests/session-memory.test.mjs`. Adapted from everything-claude-code's memory-persistence hooks.
+- `SessionStart` (on a resume) and `UserPromptSubmit` run `hooks/resume-work.mjs`: when the last turn was cut off by a usage limit, an API failure (lost connection, sleep, expired login) or a full disk (`No space left on device` / `ENOSPC` in the turn's last tool output), one line names the cause and tells the model to continue the task where it stopped — re-check state, skip finished steps, do not re-ask. A turn stopped with Esc is not resumed, and a disk still under the floor asks for space first. Each pause is announced once per session. The rules are `findPause` and `advise`, unit-tested in `tests/resume-work.test.mjs`.
+- `SessionStart` and `UserPromptSubmit` run `hooks/disk-guard.mjs` async: under 5 GiB free on the home volume (`BOND_DISK_MIN_FREE_GB`), it runs `scripts/disk-analyze.sh clean` on the caches that rebuild themselves — pnpm, npm, yarn, uv, pip, go, gradle, Xcode DerivedData; never the Trash or the Chrome debug profile — at most once an hour across sessions, and reports what it freed on the next turn. Still low after that, it points at `/bond:disk-analyze`. The rule is `report`, unit-tested in `tests/disk-guard.test.mjs`.
+- `PreToolUse` on every tool runs `hooks/suggest-compact.mjs`: context only. At the 50th call since the last compaction, and every 25th after, one line suggests `/compact` if a phase just ended — auto-compaction fires wherever the window fills, a chosen one keeps what the next phase needs. `PreCompact` resets the count in `<tmp>/bond/<session_id>.tool-calls`. The rule is `judge`, unit-tested in `tests/suggest-compact.test.mjs`. Adapted from everything-claude-code's strategic-compact hook.
+
+</details>
+
+### Tests
+
+The hook rules are unit-tested with the Node test runner — no dependencies, no
+install step. Covered: the two matchers the commit and PR hooks decide on —
+whether a command really runs `git commit` or `gh pr`, and whether a call really
+opens a pull request — along with the AI-signature patterns they share with
+`check-doc.mjs`; the ticket-key rule; the standing-rules rendering; and the
+context hooks through their decision functions, `decide` (branch-guard), `judge`
+(bash-budget, suggest-compact), `digest`/`render` (session-memory), `route` (recon-router), `check` (node-guard, context-mode-guard), `findPause`/`advise` (resume-work) and `report` (disk-guard), each with its
+wrapper driven over stdin as well. Every `SKILL.md` is held
+to its size limit and to the `references/` files it links, and `check-commit.mjs`
+is driven end to end over stdin:
+
+```sh
+node --test 'tests/**/*.test.mjs'
 ```
 
-### Local dev
+`bond-cockpit` is tested by Claude Code's own plugin runner — the cache view
+directly, and the status line, strip, band and pane on the terminal and desktop surfaces:
 
-Add this directory as a local marketplace:
-
-```bash
-/plugin marketplace add /Users/max/Documents/projects/bond
-/plugin install bond@devmaxxx
+```sh
+claude plugin validate plugins/bond-cockpit && claude plugin test plugins/bond-cockpit
 ```
 
-## Layout
+### Layout
+
+<details>
+<summary><b>Repository tree</b></summary>
 
 ```
 bond/
@@ -398,6 +504,21 @@ bond/
 ├── LICENSE
 └── README.md
 ```
+
+</details>
+
+## Contributing
+
+Run the plugin from a local checkout:
+
+Add this directory as a local marketplace:
+
+```bash
+/plugin marketplace add /path/to/bond
+/plugin install bond@devmaxxx
+```
+
+Run `node --test 'tests/**/*.test.mjs'` before a PR. Releases bump `plugin.json` and `marketplace.json` and tag through the repo's `/release` command.
 
 ## License
 
