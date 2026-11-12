@@ -33,7 +33,7 @@ matching step here for the rest of the run.
 
 ## Arguments
 
-`$ARGUMENTS` — optional PR number or URL (either host), plus flags. No PR ⇒ the
+`$ARGUMENTS` — optional PR number or GitHub URL, plus flags. No PR ⇒ the
 open PR whose head is the current branch; none found ⇒ open it with the
 `/bond:open-pr` procedure, then continue.
 
@@ -74,7 +74,7 @@ re-review in the same area arrives under a new id with a new finding.
 2. Resolve the project profile, then **Resolve PR coordinates** and **PR
    details and CI status**. Re-read them by PR number whenever this run needs
    them — never reuse a head SHA across a push or rebase.
-3. `MERGED` / `CLOSED` / `DECLINED` ⇒ stop.
+3. `MERGED` / `CLOSED` ⇒ stop.
 4. Before any write, apply `bond:authorship-conventions`: the active `gh`
    account must be the one for this repo, and `git ls-remote origin` must
    succeed — switching `gh` does not switch the SSH key, so "Repository not

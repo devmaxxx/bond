@@ -26,7 +26,7 @@ Examples: `/bond:rebase`, `/bond:rebase main`, `/bond:rebase 381`,
 
 ## Arguments
 
-- **target** — a PR number or URL (either host) or a branch name; several are
+- **target** — a PR number or GitHub URL or a branch name; several are
   run one after another. None ⇒ the current branch.
 - **base** — a branch to rebase onto. With a PR or branch target given, a
   trailing token that is an existing branch on `origin` is the base. A lone
@@ -48,7 +48,7 @@ Examples: `/bond:rebase`, `/bond:rebase main`, `/bond:rebase 381`,
 
 1. Resolve the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`).
 2. A PR ⇒ **Resolve PR coordinates**, then one `bond:pr-status` read for head,
-   base, state and draft. `MERGED` / `CLOSED` / `DECLINED` ⇒ skip it.
+   base, state and draft. `MERGED` / `CLOSED` ⇒ skip it.
 3. **Base**, first match: the `base` argument; the PR's base; the profile's
    `BASE_BRANCH`. On the current branch with no PR and no argument, the
    profile's.

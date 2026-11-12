@@ -22,7 +22,7 @@ Examples: `/bond:review-pr 685`, `/bond:review-pr https://github.com/o/r/pull/68
 
 ## Arguments
 
-- **PR** — a number or URL (either host). None ⇒ the PR of the current branch.
+- **PR** — a number or GitHub URL. None ⇒ the PR of the current branch.
 
 ### Flags
 
@@ -39,7 +39,7 @@ Examples: `/bond:review-pr 685`, `/bond:review-pr https://github.com/o/r/pull/68
 1. Resolve the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`)
    and **Resolve PR coordinates**.
 2. Read title, description, head, base and state (**PR details and CI
-   status**). `MERGED` / `CLOSED` / `DECLINED` ⇒ stop and say so.
+   status**). `MERGED` / `CLOSED` ⇒ stop and say so.
 
 ### 2. Merge the base, in a worktree
 
