@@ -19,6 +19,7 @@ Output the following table verbatim:
 | `/bond:disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones           |
 | `/bond:implement-batch`| Implement many tickets in parallel worktrees, scheduled so no two touch the same files           |
 | `/bond:implement`      | Take a Jira ticket or a free-text task, create a typed branch, plan, and code                    |
+| `/bond:mvp`            | Build an MVP from an idea, spec or tickets: spec, slice tickets, skeleton, parallel build, one PR |
 | `/bond:investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc           |
 | `/bond:linkedin`       | Write a LinkedIn post or article from the source, numbers checked, with an optional cover-image prompt |
 | `/bond:linkedin-draft` | Put an approved post or article into LinkedIn through Chrome as a draft, never published         |

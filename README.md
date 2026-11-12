@@ -92,6 +92,7 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | --- | --- |
 | `/implement` | Fetch (or create) a Jira ticket — or take a free-text task or a `--spec` file where there is no tracker — then branch, plan (reviewed in a fresh context), tests first, code, and map every acceptance criterion to its test, each phase through its superpowers skill when that plugin is installed; `--review-plan` / `--checkpoints` stop for approval, `--resume` continues |
 | `/implement-batch` | Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
+| `/mvp` | Build an MVP from an idea, a spec or tickets: brainstormed spec, vertical-slice tickets with a walking skeleton first, then `implement-batch --integration`, a smoke run of every journey, one PR |
 | `/investigate` | Investigate a deployed failure to a proven root cause and write the investigation doc |
 
 ### Ship and review
