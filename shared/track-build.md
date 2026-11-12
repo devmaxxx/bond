@@ -12,8 +12,10 @@ it writes nowhere else.
 
 ## 1. Recon
 
-One `bond:batch-scout` agent (haiku, read-only) per group of about five
-issues, all launched in one message. Each reads the issue, the spec it cites
+Companion batch commands only — `/bond:implement-batch` reads its issues
+itself (its step 3). One scout agent (haiku, read-only — in beauty-crm
+`bond-beauty-crm:batch-scout`) per group of about five issues, all launched in
+one message. Each reads the issue, the spec it cites
 and what the code already has (the repo's graph or index first, then
 `path:line`), and returns per issue its fixed schema: verdict, estimate,
 dependencies, files, new-file dirs, shared kinds, evidence, confidence, and

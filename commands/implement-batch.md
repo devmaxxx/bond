@@ -97,7 +97,6 @@ the merges and the ledger.
 
 | Phase | Agent | Model / effort | How many | Does |
 | --- | --- | --- | --- | --- |
-| 3. Conflict map | `bond:batch-scout` | haiku / medium | 1 per ~5 issues, all at once | reads issues + code, returns verdict, files, shared kinds, questions |
 | 5. Run | `general-purpose` running `/bond:implement` | opus / per routing | 1 per item, ≤ `--max` at once | claim → branch → plan → build → review pair → PR; starts its own `bond:test-runner` and `bond:security-review` inside |
 | 5i.3 Build | `bond:track-implementer` | opus / high | 1 per item, ≤ `--max` at once | builds the item test first in its worktree, merges the integration tip, commits |
 | 5i.4 Merge | `bond:track-implementer` | opus / high | only on a merge conflict | resolves it in the integration worktree |
@@ -107,14 +106,13 @@ the merges and the ledger.
 | 6. Report | `bond:pr-status` | haiku / low | 1 per PR, all at once | CI verdict |
 
 **Show them.** Before the first agent starts, print the fleet: this table cut
-to the batch's mode, with each row's real count (`batch-scout ×3`,
-`track-implementer ×9 + ≤1 fix`, …) and the total. Then, after every start
+to the batch's mode, with each row's real count (`track-implementer ×9 + ≤1 fix`,
+`pr-status ×9`, …) and the total. Then, after every start
 and every result, print one board — one line per agent that has run or is
 running, never a running summary in prose:
 
 ```
 #  agent               item               phase   status    since   result
-1  batch-scout         PROJ-39…PROJ-44    recon   done      2m      5 ready, 1 blocked
 4  track-implementer   PROJ-41            build   running   6m      —
 5  track-implementer   PROJ-47            build   queued    —       after PROJ-41
 6  track-implementer   PROJ-39            build   done      9m      merged ff, 3 commits
@@ -163,15 +161,22 @@ Jira.
 
 ### 3. Conflict map
 
-One `bond:batch-scout` agent per group of about five selected issues, all
-launched in one message, each given the issues' summary, description and
-comments. Each returns the scout's fixed schema — verdict, files, new-file
-dirs, shared kinds, questions with a recommendation each, confidence.
+The lead reads the selected issues itself — no scout agent. Per issue, from
+its summary, description and comments and from the code (the repo's graph or
+index first, then the `path:line` it names; grep only for literals), it
+settles:
 
-Re-check verdicts against the code per `track-build.md` **Recon** — every
-`mostly-built` and `already-done`, a `ready` only when it is `low` confidence or
-depends on something open. A `blocked` one is set aside
-like a step 2 blocker. A `needs-owner` one, and every `questions:` line, is
+- **verdict** — `ready`, `mostly-built` (name what is missing),
+  `already-done` (the `path:line` proving each requirement), `blocked` (the
+  open dependency) or `needs-owner`;
+- **files** it will edit, **new-file dirs**, **shared kinds** (migrations,
+  contract version, generated client, lockfile, route registry, i18n);
+- **open questions**, each with its class and recommended answer;
+- **confidence** — `low` rather than a guess.
+
+Read the issues in parallel tool calls, not one after another. A `blocked`
+one is set aside like a step 2 blocker. A `needs-owner` one, and every open
+question, is
 sorted per **Ask or decide** in `${CLAUDE_PLUGIN_ROOT}/shared/owner-questions.md`:
 decide-class points become the item's L decisions, passed to its run; an issue
 left with an ask-class point waits for step 4.4.

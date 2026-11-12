@@ -78,7 +78,7 @@ orchestrates and barely codes.
    lawyer is a blocker however the ids read.
 2. **A recon worktree.** Detached, on fresh `origin/main`, read-only:
    `git worktree add --detach .claude/worktrees/recon-<date> origin/main`.
-3. **The recon fleet.** About seven `bond:batch-scout` agents, each with its
+3. **The recon fleet.** About seven `bond-beauty-crm:batch-scout` agents, each with its
    group of cards, per `track-build.md` **Recon**: the task line, the PRD
    references, what the code already has (`pnpm exec repograph ask` / `impact`
    first), spec roots `prd/` and the milestone files. Verdicts

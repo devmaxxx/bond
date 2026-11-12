@@ -6,7 +6,7 @@ description: >
   returns per issue a verdict (ready, mostly-built, already-done, blocked,
   needs-owner), an estimate, dependencies, the files it will edit, the shared
   kinds it touches and its open questions. Use in the recon phase of
-  /bond:implement-batch and companion batch commands, several in one message.
+  /bond-beauty-crm:batch, several in one message.
   Read-only: never claims, edits, commits or comments.
 model: haiku
 effort: medium
