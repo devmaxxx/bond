@@ -13,7 +13,7 @@ bond, bond-cockpit and the built-ins are on in every profile. Every plugin and s
 | design | frontend + taste-skill | credential-handling, emil-design-eng | visual design, styles, palettes |
 | architecture | superpowers, zerograph | dev + domain-driven-design, writing-scope-briefs | boundaries, modules, domain models |
 | review | zerograph, claude-security | credential-handling, security-review, property-based-testing | code and security review |
-| work | dev + atlassian, bonliva-dev | dev | Jira tickets in work repos |
+| work | dev + atlassian | dev | Jira tickets in work repos |
 | authoring | superpowers, skill-creator, claude-md-management | credential-handling, crafting-effective-readmes, writing-scope-briefs, arch-tsdown | plugins, skills, CLAUDE.md, READMEs |
 
 ## Off in every profile

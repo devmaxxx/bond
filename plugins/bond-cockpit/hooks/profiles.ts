@@ -19,7 +19,6 @@ export const MANAGED_PLUGINS = [
   'superpowers@claude-plugins-official',
   'zerograph@zerograph',
   'atlassian@claude-plugins-official',
-  'bonliva-dev@bonliva-dev',
   'frontend-design@claude-plugins-official',
   'chrome-devtools-mcp@claude-plugins-official',
   'ui-ux-pro-max@ui-ux-pro-max-skill',
@@ -78,7 +77,7 @@ export const PROFILES: readonly Profile[] = [
   },
   { name: 'architecture', summary: 'boundaries, modules, domain models', plugins: DEV_PLUGINS, skills: [...DEV_SKILLS, 'domain-driven-design', 'writing-scope-briefs'] },
   { name: 'review', summary: 'code and security review', plugins: ['zerograph@zerograph', 'claude-security@anthropic-plugin-directory'], skills: ['credential-handling', 'security-review', 'property-based-testing'] },
-  { name: 'work', summary: 'Jira tickets in work repos', plugins: [...DEV_PLUGINS, 'atlassian@claude-plugins-official', 'bonliva-dev@bonliva-dev'], skills: DEV_SKILLS },
+  { name: 'work', summary: 'Jira tickets in work repos', plugins: [...DEV_PLUGINS, 'atlassian@claude-plugins-official'], skills: DEV_SKILLS },
   {
     name: 'authoring',
     summary: 'plugins, skills, CLAUDE.md, READMEs',

@@ -41,7 +41,7 @@ on every command.
 
 Resolve the Atlassian `cloudId` once via
 `mcp__bond-atlassian__getAccessibleAtlassianResources` (the resource matching
-`bonliva.atlassian.net`). For each ticket ID, run the **get** procedure in
+`JIRA_SITE`, `shared/project-profile.md`). For each ticket ID, run the **get** procedure in
 `${CLAUDE_PLUGIN_ROOT}/shared/jira.md` — the single place issues are read —
 requesting these fields:
 

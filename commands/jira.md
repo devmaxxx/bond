@@ -57,7 +57,7 @@ Examples:
 
 1. Resolve the Atlassian `cloudId` via
    `mcp__bond-atlassian__getAccessibleAtlassianResources` — the resource matching
-   `bonliva.atlassian.net`.
+   `JIRA_SITE` (`shared/project-profile.md`).
 2. Resolve **your** account: `mcp__bond-atlassian__atlassianUserInfo` → keep
    `account_id` (and display name). This is the default assignee.
 
@@ -104,7 +104,7 @@ key and stop.
    `additional_fields` (e.g. `{ "priority": { "name": "High" }, "labels":
    ["regression"] }`).
 7. Report the new key and its browse URL
-   (`https://bonliva.atlassian.net/browse/<KEY>`).
+   (`https://<JIRA_SITE>/browse/<KEY>`).
 
 ### assign
 
