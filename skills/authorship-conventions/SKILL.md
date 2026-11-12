@@ -20,7 +20,7 @@ One owner per artefact: the human whose `git config user.name` made it. Conventi
 
 ## Branches
 
-`<type>/<description>`, lowercase, hyphens, one slash, no underscores, ticket id first: `feat/` `fix/` `hotfix/` `release/` `chore/` `claude/`; trunk takes no prefix. In a Bonliva repo bond names it `<feat|fix>/<KEY>` — stop at the key. Rename before the PR is open; after it the PR is lost.
+`<type>/<description>`, lowercase, hyphens, one slash, no underscores, ticket id first: `feat/` `fix/` `hotfix/` `release/` `chore/` `claude/`; trunk takes no prefix. Under `TRACKER=jira` bond names it `<feat|fix>/<KEY>` — stop at the key. Rename before the PR is open; after it the PR is lost.
 
 Details: references/branches.md — read before cutting or renaming one.
 
@@ -40,9 +40,9 @@ Details: references/commits-and-enforcement.md — read for the footers, the bod
 
 ## Which account pushes
 
-`gh` has two accounts on github.com: **maxSynEfisco** (Bonliva) and **devmaxxx** (personal). The active one decides which token pushes and is global to this machine, so check `gh auth status --active --hostname github.com` and `git remote -v` before every write.
+`gh` has two accounts on github.com: **maxSynEfisco** (work) and **devmaxxx** (personal). The active one decides which token pushes and is global to this machine, so check `gh auth status --active --hostname github.com` and `git remote -v` before every write.
 
-First match wins: remote owner `devmaxxx` → **devmaxxx**; `.bonliva-dev/project.json` or a `bitbucket.org/bonliva/...` remote → **maxSynEfisco**; anything else → **ask once. Do not guess.**
+First match wins: remote owner `devmaxxx` → **devmaxxx**; an owner `BOND_GH_ACCOUNTS` maps (the work org) → **maxSynEfisco**; anything else → **ask once. Do not guess.**
 
 Details: references/accounts.md — read before switching account or identity.
 

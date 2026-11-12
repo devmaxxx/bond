@@ -2,7 +2,7 @@
 name: ci-diagnose
 description: >
   Diagnoses one failed CI pipeline — a Woodpecker pipeline URL, a GitHub
-  Actions run/job URL, a Bitbucket pipeline URL, or a PR — and returns, per
+  Actions run/job URL, or a PR — and returns, per
   failed step, its classification (flaky, infra, code, pre-existing-on-base),
   the root cause with file:line, and at most five log lines. Also maps the
   pipeline to its branch, commit and PR. Use whenever a red pipeline has to be
@@ -10,7 +10,7 @@ description: >
   main context. Read-only: never fixes, reruns, restarts or pushes.
 model: sonnet
 effort: medium
-tools: Bash, Read, Grep, Skill, mcp__bond-bitbucket__get_pull_request, mcp__bond-bitbucket__get_pull_requests, mcp__bond-bitbucket__get_commit_statuses, mcp__bond-bitbucket__list_pipeline_runs, mcp__bond-bitbucket__get_pipeline_steps, mcp__bond-bitbucket__get_pipeline_step_logs
+tools: Bash, Read, Grep, Skill
 ---
 
 Read one pipeline. Classify every failed step. Stop.
@@ -20,7 +20,6 @@ Read one pipeline. Classify every failed step. Stop.
 - **Target** — exactly one of:
   - Woodpecker: `https://<server>/repos/<repo-id>/pipeline/<n>[/<step>]`;
   - GitHub Actions: `github.com/<owner>/<repo>/actions/runs/<id>[/job/<job-id>]`;
-  - Bitbucket: `bitbucket.org/<ws>/<repo>/pipelines/results/<n>[/steps/<uuid>]`;
   - a PR number or URL — diagnose its head commit's failed checks.
 - **Base** — optional; the branch to compare against. Default: the PR's base,
   else the repo's default branch.
@@ -36,20 +35,18 @@ Read one pipeline. Classify every failed step. Stop.
    per-step state. A `/<step>` in the URL narrows to that step, but read the
    others' states too: a step skipped because an earlier one failed is not
    its own failure. GitHub: `gh run view <id> --json
-   status,conclusion,event,headBranch,headSha,workflowName,jobs`. Bitbucket:
-   `get_pipeline_steps`. A PR: its head's failed checks, each via the matching
-   host above — a check whose link points at a Woodpecker server is
+   status,conclusion,event,headBranch,headSha,workflowName,jobs`. A PR: its head's failed checks, each via the matching
+   CI above — a check whose link points at a Woodpecker server is
    Woodpecker.
 2. **Branch and PR.** Woodpecker `pull_request` event: the PR number is in the
    ref (`refs/pull/<n>/head`) — read the PR for head and base. Otherwise look
    for an open PR whose head is the pipeline's branch (`gh pr list --head
-   <branch> --state open`, `get_pull_requests` on Bitbucket). None ⇒ `PR: none`.
+   <branch> --state open`). None ⇒ `PR: none`.
 3. **Still current?** List the branch's newer pipelines. A newer one on the
    same workflow already passed ⇒ say so on line 1 (`superseded by <n>,
    passed`) and stop.
 4. **Logs.** Failed steps only, step-scoped: `pipeline logs <repo-id> <n>
-   <step>`, `gh run view <id> --log-failed` (or `--job <job-id>`),
-   `get_pipeline_step_logs`. Pipe through `tail -n 300` or a `grep` for the
+   <step>`, `gh run view <id> --log-failed` (or `--job <job-id>`). Pipe through `tail -n 300` or a `grep` for the
    error — never read a whole log in.
 5. **Root cause** per failed step — the concrete thing: failing test name,
    `file:line` + compiler/lint error, the command and its exit code. Resolve a
@@ -59,7 +56,7 @@ Read one pipeline. Classify every failed step. Stop.
    - **pre-existing-on-base** — the same step fails with the same cause on
      the base branch's latest pipeline (Woodpecker `pipeline ls` filtered to
      the base branch; `gh run list --branch <base> --workflow <wf> --limit 3
-     --json conclusion,headSha,databaseId`; `list_pipeline_runs` on Bitbucket).
+     --json conclusion,headSha,databaseId`).
      On a pipeline that *is* on the base branch, compare with the previous
      pipeline on it: failing there too ⇒ this class; first failure ⇒ judge by
      the rules below.

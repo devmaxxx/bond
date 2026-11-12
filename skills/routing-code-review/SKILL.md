@@ -22,7 +22,7 @@ A field the task's own question settled is settled here — granted ⇒ `max`, d
 
 ## Target and flags
 
-Target: the one the user named, else `pr #n` when the PR is pushed and the tree clean, else `branch`, `tree`, `path <p>`; Bitbucket is always `branch`. `files ≥ 20` ⇒ one run per module, each waiting for its report.
+Target: the one the user named, else `pr #n` when the PR is pushed and the tree clean, else `branch`, `tree`, `path <p>`. `files ≥ 20` ⇒ one run per module, each waiting for its report.
 
 `--fix` on this conversation's own work, off on a PR or branch it did not write. `--comment` only on the user's word, once per PR. Never `--post`, never `--fix` with `--comment`.
 

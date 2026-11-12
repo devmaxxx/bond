@@ -174,9 +174,8 @@ the main checkout's files.
 
 1. **Repos** — the current repo, or every repo under `--all-repos`. Per repo:
    resolve the profile, `git fetch origin --prune` once, `git worktree prune`.
-2. **PR states, one call per repo** — GitHub: `gh pr list --state all --limit
-   200 --json number,headRefName,state,headRefOid`; Bitbucket:
-   `mcp__bond-bitbucket__get_pull_requests` for each state. Newest PR per head
+2. **PR states, one call per repo** — `gh pr list --state all --limit
+   200 --json number,headRefName,state,headRefOid`. Newest PR per head
    branch wins.
 3. **Classify every linked worktree** (never the main checkout; skip `locked`
    ones and the one this session is in). It is a **candidate** when any of:
@@ -199,9 +198,9 @@ the main checkout's files.
 
    ```
    repo          worktree                       branch            reason      state            action
-   bonliva-erp   worktrees/bonliva-erp-feat-…   feat/ERP-370      pr-merged   clean            remove + branch
-   bonliva-erp   worktrees/bonliva-erp-fix-…    fix/ERP-402       gone        2 unpushed       keep
-   bonliva-crm   worktrees/bonliva-crm-feat-…   feat/CRMDEV-7037  pr-closed   busy: claude 41m keep
+   erp           worktrees/erp-feat-…           feat/ERP-370      pr-merged   clean            remove + branch
+   erp           worktrees/erp-fix-…            fix/ERP-402       gone        2 unpushed       keep
+   crm           worktrees/crm-feat-…           feat/CRMDEV-7037  pr-closed   busy: claude 41m keep
    ```
 
 6. Remove each `remove` row by close's steps 3–5; a closed-unmerged PR's branch

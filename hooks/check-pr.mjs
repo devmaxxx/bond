@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * PreToolUse hook — enforces skills/pr-template on every path that opens a pull
- * request: `gh pr create` on Bash, and the Bitbucket MCP create calls. The
- * skill alone is advisory and a PR opened without reading it silently skips the
+ * request: `gh pr create` on Bash. The skill alone is advisory and a PR opened without reading it silently skips the
  * shared shape, so the check lives here instead. Exit 2 blocks the call and
  * hands the reasons back to the agent; anything unparseable exits 0, so a hook
  * bug never blocks unrelated shell work. The rule itself lives in
@@ -12,9 +11,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
-import { checkBash, checkMcp, resolveDraft, resolvePrTitle } from "./pr-template.mjs";
-
-const MCP_CREATE = /^mcp__bond-bitbucket__create_(draft_)?pull_request$/;
+import { checkBash, resolveDraft, resolvePrTitle } from "./pr-template.mjs";
 
 let payload;
 try {
@@ -23,16 +20,13 @@ try {
   process.exit(0);
 }
 
-const toolName = payload?.tool_name ?? "";
 const cwd = payload?.cwd ?? process.cwd();
 const at = (dir) => (dir ? resolve(cwd, dir.replace(/^~(?=\/|$)/, homedir())) : cwd);
 const options = {
-  requireDraft: (target, dir) => resolveDraft(at(dir), target),
+  requireDraft: (dir) => resolveDraft(at(dir)),
   titleStyle: (dir) => resolvePrTitle(at(dir)),
 };
-const errors = MCP_CREATE.test(toolName)
-  ? checkMcp(payload?.tool_input ?? {}, toolName, options)
-  : checkBash(payload?.tool_input?.command ?? "", options);
+const errors = checkBash(payload?.tool_input?.command ?? "", options);
 
 if (errors === null || errors.length === 0) {
   process.exit(0);

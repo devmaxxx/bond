@@ -1,19 +1,19 @@
 ---
-description: Open a pull request for the current branch (GitHub or Bitbucket) — a draft in Bonliva repos
+description: Open a pull request for the current branch on GitHub
 ---
 
 # /open-pr
 
 **Ask first.** Before the first write, one `AskUserQuestion` with every decision `$ARGUMENTS` leaves open — none when they settle it all (standing rule *Commands ask first*).
 
-Creates a pull request from the current branch into a base branch (`main` by default). The host is resolved from the `origin` remote: `gh` for a GitHub repo, the Bitbucket MCP server (`bond-bitbucket`) for a Bitbucket one.
+Creates a pull request from the current branch into a base branch (`main` by default). The host is GitHub, through `gh`.
 
 Usage: `/open-pr [base-branch] [--issue <ID>…]`
 
 `$ARGUMENTS` — an optional **base branch** to target the PR at, and optional
 `--issue` IDs (`ERP-123`, or `#42` for a GitHub issue) the title must lead with. If omitted, the base is resolved **per repo** (step 2). Examples: `/open-pr`, `/open-pr develop`, `/open-pr release/2.0`. Call this base `<base>` throughout the steps below.
 
-Where the project profile resolves `DRAFT` (every Bonliva repo, unless `.bond/project.json` sets `draft`) PRs are created as drafts; the author publishes the draft when it is ready for review. Anywhere else the PR opens ready for review.
+Where the project profile resolves `DRAFT` (`"draft": true` in `.bond/project.json`) PRs are created as drafts; the author publishes the draft when it is ready for review. Anywhere else the PR opens ready for review.
 
 ## Steps
 
@@ -25,21 +25,18 @@ git rev-parse --abbrev-ref HEAD
 
 Abort if result is `HEAD` (detached HEAD).
 
-### 2. Resolve host, project and repository
+### 2. Resolve project and repository
 
 ```sh
 git remote get-url origin
 ```
 
-- `git@bitbucket.org:bonliva/bonliva-erp.git` → host **Bitbucket**, workspace `bonliva`, repository `bonliva-erp`
-- `git@github.com:Bonliva/bonliva-erp.git` (or a `github-*` SSH host alias) → host **GitHub**, owner `Bonliva`, repository `bonliva-erp`
-
-Call this `<host>` throughout. Steps 4 and 6 branch on it.
+`git@github.com:devmaxxx/repograph.git` (or a `github-*` SSH host alias) → owner `devmaxxx`, repository `repograph`. A remote that is not on GitHub ⇒ report it and stop.
 
 Resolve the rest — `<base>`, the tracker, and whether this repo has reviewers at
 all — from the **project profile**,
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`. It reads `.bond/project.json`
-when the repo has one, applies the Bonliva slug table only inside Bonliva, and
+when the repo has one, and
 otherwise takes the remote's own default branch. A `$ARGUMENTS` base still wins
 over everything.
 
@@ -56,7 +53,7 @@ PR formatting. Read that file and set its inputs:
   1. `--issue` IDs from `$ARGUMENTS`;
   2. ticket keys in the branch name, per the template's `<tickets>` rule;
   3. the same keys in `<commits>`' subjects and bodies;
-  4. on GitHub, `Closes` / `Fixes` / `Resolves #<n>` in those commit bodies, as `#<n>`.
+  4. `Closes` / `Fixes` / `Resolves #<n>` in those commit bodies, as `#<n>`.
 
   The title always leads with them. None found ⇒ the plain description, and say
   in the report that the PR names no issue.
@@ -66,11 +63,8 @@ Then produce the title and description exactly as the template defines them.
 ### 4. Resolve reviewers
 
 Follow the **Reviewers** section of `${CLAUDE_PLUGIN_ROOT}/shared/pr-template.md`:
-`$HOME/.bond/pr-reviewers.json` first (a per-user file, kept by hand), falling
-back to the host's own defaults — `mcp__bond-bitbucket__get_effective_default_reviewers`
-for the workspace and repo slug on Bitbucket, the repo's configured reviewers or
-`CODEOWNERS` on GitHub. Carry them into step 6 as `uuid` values (Bitbucket) or
-handles (GitHub).
+`reviewers` in `.bond/project.json` first, falling back to the repo's configured
+reviewers or `CODEOWNERS`. Carry them into step 6 as GitHub handles.
 
 ### 5. Push the branch
 
@@ -80,11 +74,9 @@ git push -u origin <branch>
 
 ### 6. Create the PR
 
-First check whether an open PR already exists for this source branch — `gh pr list --head <branch> --state open` on GitHub, `mcp__bond-bitbucket__get_pull_requests` (state `OPEN`) on Bitbucket. If one is found, skip creation, print its URL, and continue to step 7.
+First check whether an open PR already exists for this source branch — `gh pr list --head <branch> --state open`. If one is found, skip creation, print its URL, and continue to step 7.
 
-Otherwise create a new one (this also covers a previously declined PR — Bitbucket cannot reopen those) — as a **draft** when `DRAFT` resolves, ready for review otherwise:
-
-**GitHub.** Write the description from step 3 to a temp file and pass it as `--body-file`, so the body survives quoting intact. Never `--fill`. Drop `--draft` when `DRAFT` does not resolve.
+Otherwise create a new one — as a **draft** when `DRAFT` resolves, ready for review otherwise. Write the description from step 3 to a temp file and pass it as `--body-file`, so the body survives quoting intact. Never `--fill`. Drop `--draft` when `DRAFT` does not resolve.
 
 ```sh
 gh pr create --draft --base <base> --head <branch> \
@@ -92,16 +84,7 @@ gh pr create --draft --base <base> --head <branch> \
   --reviewer <handle>
 ```
 
-**Bitbucket.** Use `mcp__bond-bitbucket__create_draft_pull_request` (`create_pull_request` when `DRAFT` does not resolve):
-- `workspace`: resolved workspace (e.g. `bonliva`)
-- `repo_slug`: resolved repository slug (e.g. `bonliva-erp`)
-- `title`: built in step 3
-- `description`: built in step 3
-- `source_branch`: current branch name
-- `destination_branch`: `<base>` (resolved in step 2)
-- `reviewers`: UUIDs resolved in step 4 (omit if none)
-
-The `check-pr` hook blocks either call if the description lost its `## Summary` / `## Jira` / `## Test plan` shape or a create is not a draft where `DRAFT` resolves — rebuild it from the template rather than working around the hook.
+The `check-pr` hook blocks the call if the description lost its `## Summary` / `## Jira` / `## Test plan` shape or a create is not a draft where `DRAFT` resolves — rebuild it from the template rather than working around the hook.
 
 On success, print the PR URL. On failure, report the error and stop.
 

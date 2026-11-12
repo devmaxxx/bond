@@ -7,8 +7,7 @@
  * that outlives a rotation.
  *
  * Prompt: blocked with the kind named, never the value; `#allow-secret` lets
- * it through. Tool call (Bash / Write / Edit / MultiEdit / NotebookEdit, and the
- * Bitbucket pull-request tools): exit 2 hands the reason back to the agent,
+ * it through. Tool call (Bash / Write / Edit / MultiEdit / NotebookEdit): exit 2 hands the reason back to the agent,
  * unless the value only lands in a file git will never commit (gitignored, or
  * outside any repo), or the file already held it.
  *
@@ -59,7 +58,7 @@ const DETECTORS = [
   {
     kind: "Atlassian API token",
     env: "ATLASSIAN_API_TOKEN",
-    // ATATT3 is a user API token, ATCTT3 a Bitbucket repository or workspace access token.
+    // ATATT3 is a user API token, ATCTT3 a scoped access token.
     re: bounded("AT(?:ATT|CTT)3[A-Za-z0-9_=-]{30,}"),
   },
   {
@@ -378,16 +377,6 @@ const FILE_CHANGES = {
   ],
 };
 
-/** Texts a tool call publishes, by tool: Bonliva opens and comments on its PRs through Bitbucket. */
-const pullRequestText = (input) => [input.title, input.description];
-const PUBLISHED_TEXT = {
-  "mcp__bond-bitbucket__create_pull_request": pullRequestText,
-  "mcp__bond-bitbucket__create_draft_pull_request": pullRequestText,
-  "mcp__bond-bitbucket__update_pull_request": pullRequestText,
-  "mcp__bond-bitbucket__add_pull_request_comment": (input) => [input.content],
-  "mcp__bond-bitbucket__update_pull_request_comment": (input) => [input.content],
-};
-
 /**
  * Reason to block a tool call, or null. `isCommittable(path)` answers whether
  * git could pick the file up, and `readText(path)` returns a file's text or
@@ -404,12 +393,6 @@ export function checkTool(
   }
   if (tool === "Bash") {
     return checkCommand(input.command ?? "", isCommittable, readText);
-  }
-  if (Object.hasOwn(PUBLISHED_TEXT, tool)) {
-    const secrets = PUBLISHED_TEXT[tool](input).flatMap(findSecrets);
-    return secrets.length === 0
-      ? null
-      : `secrets-guard: this pull request text carries a literal ${kindsOf(secrets)}, and it would be published. Reference it as a variable instead${envHint(secrets) || " ($NAME)"}.`;
   }
   if (!Object.hasOwn(FILE_CHANGES, tool)) {
     return null;
@@ -497,8 +480,7 @@ function payloadOf(call) {
 
 export const secretsGuard = defineHook({
   name: "secrets-guard",
-  kinds: ["shell", "write", "edit", "tool"],
-  tools: Object.keys(PUBLISHED_TEXT),
+  kinds: ["shell", "write", "edit"],
   check: (call, { cwd }) => {
     const reason = checkTool(payloadOf(call), gitCommittable(cwd), readFrom(cwd));
     return reason ? { block: true, reason } : { block: false };

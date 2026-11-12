@@ -39,7 +39,7 @@ By **default** `/implement` runs in **worktree mode** and **auto mode**: it crea
 - `--checkpoints` — pause after every phase (see **Progress and checkpoints**) with **Continue**, **Stop** or a note to apply first. Implies `--review-plan`.
 - `--resume [<branch>]` — continue a run that stopped (a checkpoint's Stop, a pause file, an interrupt) from the phase its progress file names, with the flags, tickets, base and PR it recorded. Skips steps 1–4; the plan file is re-read, so edits made while it was stopped count. `--from "<phase>"` (a name from the progress file, as the bond-cockpit ↻ button sends it) starts at that phase instead and marks it and every later phase `todo` first. Outside bypass mode, allow the progress folder once — `Edit(~/.local/state/bond-flow/**)` in `permissions.allow` — or every phase boundary asks.
 - `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive **Tests first** and **Converge**. A path that does not exist aborts the run before anything is written.
-- `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, the Bonliva slug table inside Bonliva, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
+- `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
 
 Flags that only apply when **creating** a ticket (no key given — see step 1):
 - `--task` — create the new issue as a **Task** (this is the default type).
@@ -81,7 +81,7 @@ Run the shared **Resolve Jira ticket(s)** procedure with `TICKET_IDS` = the IDs 
 
 - Prefix: all tickets type `Bug` → `fix`; any `Story`/`Task`/other → `feat`.
 - Single ticket → `<prefix>/ERP-135`; multiple → `<prefix>/ERP-135_ERP-136` (underscore-separated, in the order given).
-- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because Bonliva's Jira tooling looks a branch up by its key, and outside Bonliva nothing does.
+- **`TRACKER=none`** — there is no key to name the branch after. Prefix from the work (`fix` for a bug, else `feat`), then three to five hyphenated lowercase words from the description: `feat/add-a-rename-cache`. That is the `bond:authorship-conventions` shape; the `<prefix>/<KEY>` shape exists only because the Jira tooling looks a branch up by its key, so it applies under `TRACKER=jira` only.
 
 ### 4. Set up the branch
 

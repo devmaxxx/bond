@@ -23,7 +23,7 @@ Output the following table verbatim:
 | `/bond:linkedin`       | Write a LinkedIn post or article from the source, numbers checked, with an optional cover-image prompt |
 | `/bond:linkedin-draft` | Put an approved post or article into LinkedIn through Chrome as a draft, never published         |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
-| `/bond:open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                   |
+| `/bond:open-pr`        | Open a PR for the current branch on GitHub                                                       |
 | `/bond:merge-pr`       | Merge one PR once it is green: push first, squash-merge, remove its branch and worktree         |
 | `/bond:sweep-pr`       | Sweep open PRs: retarget, rebase, restart infra CI, merge the green ones under `--merge`          |
 | `/bond:review-pr`      | Review a PR like a senior reviewer and write it up as one comment, figures from read-only prod data |

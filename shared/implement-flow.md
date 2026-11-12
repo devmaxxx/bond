@@ -174,12 +174,8 @@ fails, surface the error but **do not abort**.
 The base branch a feature branch is cut from / a PR targets differs per repo.
 Resolve `BASE_BRANCH` off the **project profile** —
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`, the `BASE_BRANCH` field —
-which walks the explicit argument, the repo's own `.bond/project.json`, the
-Bonliva slug table, and finally the remote's default branch.
-
-The slug table (`erp` → `main`, `crm` → `dev`, `async` → `master`, else `dev`)
-applies **only inside Bonliva**. Outside it, `dev` is a branch that usually does
-not exist, so the profile falls through to `refs/remotes/origin/HEAD` instead.
+which walks the explicit argument, the repo's own `.bond/project.json`, and
+finally the remote's default branch (`refs/remotes/origin/HEAD`).
 
 ## Procedure: Set up the branch
 
@@ -464,7 +460,7 @@ Execute the implementation steps within `SCOPE` in order. After each logical
 group of changes, briefly say what was done and which files were modified.
 
 - Do **not** commit — leave staging and committing to the user or
-  `/bonliva-dev:ship`.
+  the **Ship + PR** step.
 - If something blocks a step (missing type, unexpected API shape, etc.), pause
   and ask the user rather than guessing. An unexpected shape from a
   third-party library is a `bond:docs-explorer` lookup first, a question only if
@@ -549,8 +545,8 @@ Tell the user:
 - Files changed: brief list.
 - Next step: in `auto` mode Ship + PR, Hand off the audit and Teardown run
   automatically — once the audit is handed off, its agent removes the
-  worktree; in `no-auto` mode, tell the user to run `/bonliva-dev:ship` to
-  validate, commit, and push.
+  worktree; in `no-auto` mode, tell the user to validate, commit, and push
+  (**Ship + PR** does that in `auto` mode).
 
 ## Procedure: Ship + PR  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
 
@@ -561,10 +557,9 @@ branch** procedure resolves it).
 Commit and push happen here as the upfront question settled them — do not ask
 again.
 
-1. Validate, commit, and push the branch. Inside Bonliva that is
-   `/bonliva-dev:ship`; where the profile is not Bonliva that command belongs to
-   a plugin the repo does not have, so run the repo's own checks (its test and
-   lint scripts, each through `bond:test-runner`) and then commit and push directly. Every
+1. Validate, commit, and push the branch: run the repo's own checks (its test
+   and lint scripts, each through `bond:test-runner`) and then commit and push
+   directly. Every
    commit message follows the `authorship-conventions` skill: Conventional Commits
    subject, prose *why* body, and no AI signature — no `Co-Authored-By`
    naming a tool, no `Claude-Session:` link, no "generated with" footer. The
@@ -573,12 +568,11 @@ again.
 2. Then, by `PR_HANDLING`:
    - `create` → invoke `/bond:open-pr <BASE_BRANCH> --issue <TICKET_IDS>`
      (no `--issue` when `TICKET_IDS` is empty) to create the PR on
-     whichever host the profile resolved, targeting the base branch (pass the
+     GitHub, targeting the base branch (pass the
      resolved `BASE_BRANCH` explicitly so it matches the branch the work was cut
      from).
    - `update` → the push updates the existing PR. Look for an open PR on this
-     source branch — `mcp__bond-bitbucket__get_pull_requests` on Bitbucket,
-     `gh pr list --head <branch> --state open --json number,url` on GitHub. If
+     source branch — `gh pr list --head <branch> --state open --json number,url`. If
      one exists, print its URL and do **not** invoke `/bond:open-pr`. If none
      exists, invoke `/bond:open-pr` to create it. Do **not** re-ping reviewers on
      a follow-up round.
@@ -644,13 +638,13 @@ surface it, never force.
 ## Do NOT
 
 - Do not commit anything yourself in `no-auto` mode. In `auto` mode, committing
-  is delegated to `/bonliva-dev:ship`.
+  belongs to the **Ship + PR** step.
 - Do not commit before **Review and fix** has run, where it runs — the review's
   fixes belong in the same commit as the work they correct, not in a follow-up.
 - Do not review twice: no review during the build, none in the session when
   the audit takes the PR, no re-review after the fixes.
-- Do not push the branch yourself in `no-auto` mode — tell the user to run
-  `/bonliva-dev:ship`.
+- Do not push the branch yourself in `no-auto` mode — tell the user to validate,
+  commit and push.
 - Do not move a ticket to In Review on a red or still-running pipeline, and do
   not move it at all once the autofix rounds are exhausted.
 - Do not autofix a third time on the same PR, and do not widen a CI fix

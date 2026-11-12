@@ -158,8 +158,8 @@ missed one costs a merge conflict.
    two PRs cut from the same base still conflict when the second merges — so a
    chained item is cut from its predecessor's pushed branch (`--base
    <predecessor branch>`): its PR stacks on the earlier one and must merge after
-   it. On GitHub, merging the predecessor with branch deletion retargets the
-   stacked PR to the base; on Bitbucket it does not — say so in the report.
+   it. Merging the predecessor with branch deletion retargets the
+   stacked PR to the base.
    A squash merge rewrites the predecessor into one new commit, so the
    retargeted PR goes `DIRTY` even when nothing truly conflicts: rebase it with
    `git rebase --onto origin/<base> <predecessor's last head sha>`, re-run the

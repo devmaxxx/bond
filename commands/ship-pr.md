@@ -197,7 +197,7 @@ on the same item ⇒ stop and report.
 
 **f. Update the test plan.** Rewrite only the `## Test plan` section of a
 **freshly read** PR body (a bot may have appended since) — `gh pr edit <n>
---body-file` on GitHub, the update-PR call on Bitbucket. Items stay plain UI
+--body-file`. Items stay plain UI
 steps a QA tester can follow — never a CLI or test command:
 
 - `- [x]` passed, with how: `(checked 1440 + 375, en + sv)`, `(API: POST /x → 201)`;
@@ -211,9 +211,7 @@ An unticked item on the golden path blocks step 2; elsewhere it does not.
 Skip under `--no-ready`, or when the PR is already not a draft. Marking ready is
 what triggers the review bot on repos that review on `ready_for_review`.
 
-- GitHub: `gh pr ready <n>`.
-- Bitbucket: the MCP's publish-draft / update-PR call. None available ⇒ tell the
-  user to publish it by hand and continue.
+`gh pr ready <n>`.
 
 Re-check the draft state after any later force-push — a rebase can flip it.
 
@@ -221,8 +219,7 @@ Re-check the draft state after any later force-push — a rebase can flip it.
 
 Each iteration is one **round**; stop after `--rounds`, counted in the ledger.
 
-**a. Wait** — first, if the base moved and the PR now conflicts (GitHub
-`mergeable: CONFLICTING`; on Bitbucket the local trial merge below), run
+**a. Wait** — first, if the base moved and the PR now conflicts (`mergeable: CONFLICTING`), run
 **Resolve merge conflicts** and push before waiting: CI does not run, and bots
 do not review, a PR that cannot merge. Then hand the wait to a background subagent — the session runs no wait loop
 of its own (standing rule «Waiting goes to an agent») — until **both** settle:
@@ -235,8 +232,7 @@ of its own (standing rule «Waiting goes to an agent») — until **both** settl
 - **Review** — skipped under `--skip-review`. A review, review thread, or
   conversation comment whose id is not in the ledger, from anyone but the PR
   author — or `--review-timeout` minutes. The bot seen in practice is Qodo /
-  PR-Agent (`github-actions[bot]`, "PR Reviewer Guide", or a
-  `codiumai/pr-agent` pipeline step on Bitbucket); it re-reviews on its own a
+  PR-Agent (`github-actions[bot]`, "PR Reviewer Guide"); it re-reviews on its own a
   few minutes after every push, so do not ping it. A human may take days: the
   timeout is an exit, not a failure.
 
@@ -261,8 +257,7 @@ poll's payload: once settled, hand the PR and the ledger's
 `handledCommentIds` to the `bond:pr-status` agent — one read returns the CI
 verdict with each failed check's root cause and every unhandled thread, review
 body and conversation comment with its id, without the raw `gh` output landing
-here. On Bitbucket, poll at the same 5s cadence through **PR details and CI
-status** and **Review threads**, then read the settled state the same way.
+here.
 
 **b. Triage the review.** Per the `superpowers:receiving-code-review` skill:
 verify each claim against the code — bot reviews are routinely half right, so

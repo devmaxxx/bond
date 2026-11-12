@@ -13,9 +13,6 @@ import { quotedRanges, runsCommand, scrubShell } from "./shell.mjs";
 
 const DEFAULT_JIRA_PROJECTS = ["ERP", "CRMDEV"];
 
-const BONLIVA_REMOTE = /(?:bitbucket\.org|github(?:\.com|-[\w.-]+))[:/]bonliva\//i;
-const BONLIVA_REPO_FLAG = /^(?:(?:https?:\/\/)?[^/]+\/)?bonliva\//i;
-
 const WEB = /(?:^|\s)(?:-w|--web)(?:\s|$)/;
 const FILL = /(?:^|\s)--fill(?:-first|-verbose)?(?:\s|$)/;
 const DRAFT = /(?:^|\s)(?:-d|--draft)(?:\s|=|$)/;
@@ -59,7 +56,7 @@ export function resolvePrTitle(cwd) {
  * SHA-256, ISO-8601 and RFC-822, and a PR was once rejected for the word
  * "UTF-8" in its description. The keys are enumerable, so they are enumerated;
  * `BOND_JIRA_PROJECTS` (comma- or space-separated) replaces the list when
- * Bonliva adds a project. An unlisted key means no `## Jira` section is
+ * a project is added. An unlisted key means no `## Jira` section is
  * demanded — a missed reminder, never a blocked PR.
  */
 export function jiraProjects() {
@@ -71,27 +68,15 @@ export function jiraProjects() {
 }
 
 /**
- * Drafts are a Bonliva convention, detected the way `BONLIVA` is in
- * shared/project-profile.md. Anywhere else a PR may open ready for review.
+ * A PR opens ready for review unless the repo's own `draft: true` in
+ * `.bond/project.json` says otherwise.
  */
-export function isBonlivaRemote(url) {
-  return BONLIVA_REMOTE.test(url);
-}
-
-/**
- * Resolution order mirrors the project profile: the repo's own `draft` in
- * `.bond/project.json` wins, then the PR's explicit target (`--repo`, the
- * Bitbucket workspace), then the checkout's remote.
- */
-export function resolveDraft(cwd, target) {
+export function resolveDraft(cwd) {
   const root = gitOutput(cwd, "rev-parse", "--show-toplevel");
-  if (root !== null) {
-    const manifest = readManifest(join(root, ".bond", "project.json"));
-    if (typeof manifest?.draft === "boolean") {
-      return manifest.draft;
-    }
+  if (root === null) {
+    return false;
   }
-  return target ?? isBonlivaRepo(cwd, root);
+  return readManifest(join(root, ".bond", "project.json"))?.draft === true;
 }
 
 function readManifest(path) {
@@ -114,14 +99,6 @@ function gitOutput(cwd, ...args) {
   }
 }
 
-export function isBonlivaRepo(cwd, root = gitOutput(cwd, "rev-parse", "--show-toplevel")) {
-  if (root !== null && existsSync(join(root, ".bonliva-dev", "project.json"))) {
-    return true;
-  }
-  const origin = gitOutput(cwd, "remote", "get-url", "origin");
-  return origin !== null && isBonlivaRemote(origin);
-}
-
 /**
  * The boundaries are hand-rolled because `\b` gets both ends wrong here: it
  * refuses the `ERP-135_ERP-136` a multi-ticket branch carries, and it accepts
@@ -134,7 +111,7 @@ export function hasTicket(text) {
 
 /**
  * The directory a `cd` earlier in the command moves `gh pr create` into — the
- * hook's own cwd is where the Bash call started, which `cd ~/bonliva-erp && gh
+ * hook's own cwd is where the Bash call started, which `cd ~/repo && gh
  * pr create` leaves behind. Null when there is no `cd`, or its target is only
  * known at run time (`cd -`, `cd "$DIR"`).
  *
@@ -176,13 +153,9 @@ export function isGhPrCreate(scrubbed) {
  * Returns null when the command is not a PR creation, or when the body cannot
  * be read out of it — an unreadable body is not evidence of a missing template.
  * `requireDraft` is lazy because resolving it shells out to git, and this runs
- * on every Bash call. It receives the PR's explicit target — true/false when
- * `--repo` names one, null otherwise — and the `cd` target, if any.
+ * on every Bash call. It receives the `cd` target, if any.
  */
-export function checkBash(
-  cmd,
-  { requireDraft = (target) => target ?? true, titleStyle = () => "plain" } = {},
-) {
+export function checkBash(cmd, { requireDraft = () => false, titleStyle = () => "plain" } = {}) {
   const scrubbed = scrubShell(cmd);
   if (!isGhPrCreate(scrubbed)) {
     return null;
@@ -199,14 +172,10 @@ export function checkBash(
       "--fill builds the body from commit messages and skips the template; pass --body-file with the built description instead",
     );
   }
-  if (!DRAFT.test(scrubbed)) {
-    const repo = flagValue(cmd, "-R|--repo");
-    const target = repo !== null ? BONLIVA_REPO_FLAG.test(repo) : null;
-    if (requireDraft(target, dir)) {
-      problems.push(
-        "this repo opens PRs as drafts — add --draft (the author publishes when ready)",
-      );
-    }
+  if (!DRAFT.test(scrubbed) && requireDraft(dir)) {
+    problems.push(
+      "this repo opens PRs as drafts (`draft: true` in .bond/project.json) — add --draft (the author publishes when ready)",
+    );
   }
 
   problems.push(...titleProblems(flagValue(cmd, "-t|--title"), titleStyle(dir)));
@@ -224,33 +193,6 @@ export function checkBash(
     .filter((value) => value !== null)
     .join("\n");
   return [...problems, ...missingSections(body, haystack)];
-}
-
-export function checkMcp(
-  input,
-  toolName,
-  { requireDraft = (target) => target ?? true, titleStyle = () => "plain" } = {},
-) {
-  if (toolName === "mcp__bond-bitbucket__create_pull_request") {
-    const target =
-      typeof input.workspace === "string"
-        ? input.workspace.toLowerCase() === "bonliva"
-        : null;
-    if (requireDraft(target)) {
-      return [
-        "this repo opens PRs as drafts — use create_draft_pull_request (the author publishes when ready)",
-      ];
-    }
-  }
-  const titled = titleProblems(input.title, titleStyle());
-  const body = typeof input.description === "string" ? input.description : null;
-  if (body === null) {
-    return titled.length > 0 ? titled : null;
-  }
-  const haystack = [input.title, input.source_branch, body]
-    .filter((value) => typeof value === "string")
-    .join("\n");
-  return [...titled, ...missingSections(body, haystack)];
 }
 
 /**

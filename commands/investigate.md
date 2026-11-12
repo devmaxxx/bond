@@ -146,7 +146,7 @@ Structure, in this order:
 
 Keep it in the environment's language for the operator-facing strings and in
 English for the technical text. Save it under a path the repo's docs sync
-excludes (in Bonliva repos: `docs/plans/`), or in the scratchpad if it should
+excludes (e.g. `docs/plans/`), or in the scratchpad if it should
 not land in the repo at all.
 
 ### 7. Hand it over

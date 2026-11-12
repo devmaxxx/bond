@@ -46,10 +46,8 @@ No argument ⇒ the open PR whose head is the current branch.
    of sweep-pr's step 5 holds — not a draft, CI passed on this head (`none` only
    in a repo with no CI), mergeable and not behind, the review decision, no
    unhandled comments, no blocking review finding, no standing instruction
-   against it. GitHub: `gh pr merge <n> --squash --match-head-commit <sha just
-   read>`. Bitbucket: `merge_pull_request` with squash and
-   `close_source_branch` as step 5 sets it; the tool missing ⇒ report *merge
-   by hand*. A refused merge is reported with the host's reason, never retried
+   against it. `gh pr merge <n> --squash --match-head-commit <sha just
+   read>`. A refused merge is reported with the host's reason, never retried
    around.
 7. **Clean up** by sweep-pr's step 6: the worktree through `/bond:worktree
    close`, the remote and local branch, a dependent PR retargeted.

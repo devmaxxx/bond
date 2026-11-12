@@ -64,7 +64,7 @@ see `shared/project-profile.md`.
 
 ## GitHub account — always on
 
-Two accounts are logged into `gh`: Bonliva work pushes as one, everything else
+Two accounts are logged into `gh`: work pushes as one, everything else
 as the other. Apply the `bond:authorship-conventions` skill before any push or
 `gh` write, and ask when the repo matches neither side of the rule. Pick the
 account per command — `GH_TOKEN=$(gh auth token -u <account>) gh …` — never
@@ -129,7 +129,7 @@ what was skipped.
 Branches are Conventional Branch: `<type>/<description>`, lowercase and
 hyphenated. Apply the `bond:authorship-conventions` skill before any
 `checkout -b` and before opening a PR — it covers branch, commit, PR and doc
-alike. Bonliva repos keep the shape bond gives them, and a rename after the PR
+alike. Jira-tracked repos keep the shape bond gives them, and a rename after the PR
 is open costs the PR.
 
 ## Commands ask first — always on
