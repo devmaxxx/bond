@@ -20,8 +20,7 @@ ships as one PR (**5i**).
 Everything per issue — claim, In Progress, branch, plan, implement, test,
 review, ship, PR, In Review, teardown — is `${CLAUDE_PLUGIN_ROOT}/commands/implement.md`
 and the procedures it names in `${CLAUDE_PLUGIN_ROOT}/shared/implement-flow.md`.
-This command owns only selection, the conflict map, the schedule and the ledger
-— and, under `--integration`, the merges and the one closing review.
+This command owns only selection, the conflict map and the schedule — and, under `--integration`, the merges and the one closing review.
 Read both files.
 
 A repository that owns its task flow names its own batch command in the
@@ -67,32 +66,10 @@ following `nextPageToken` until the result is exhausted.
 | `--base <branch>` | Passed to every `/bond:implement` run. Default: the profile's `BASE_BRANCH`. |
 | `--dry-run` | Stop after printing the schedule — nothing claimed, transitioned, branched or pushed. |
 
-## The ledger
-
-`~/.claude/bond/implement-batch-<OWNER>-<REPO_SLUG>-<source-slug>.json` —
-outside the repo, like ship-pr's, so a later session can resume. Written after every state change, so a re-run with the same source
-continues instead of redoing:
-
-```json
-{ "source": "…", "base": "main", "max": 3, "notes": "…-notes.md",
-  "integration": { "branch": "feat/…", "worktree": "…", "pr": "…" },
-  "agents": [ { "id": "…", "type": "bond:track-implementer", "item": "PROJ-41",
-                "phase": "build", "status": "queued | running | done | failed",
-                "started": "…", "result": "…" } ],
-  "items": [ { "keys": ["PROJ-41", "PROJ-44"], "files": ["apps/api/src/x.ts"],
-               "after": ["PROJ-39"], "status": "pending | running | pr-open | merged | blocked | failed | skipped",
-               "branch": "feat/PROJ-41_PROJ-44", "worktree": "…", "pr": "…", "ci": "…",
-               "agent": "<agent id>", "note": "…" } ] }
-```
-
-Another session may have moved things since, so resume never trusts the ledger
-alone: step 1 also reads the remote, and an issue with a branch or PR already
-there is not started again.
-
 ## Agents
 
 Every agent the batch starts, by phase. The lead runs no code itself beyond
-the merges and the ledger.
+the merges.
 
 | Phase | Agent | Model / effort | How many | Does |
 | --- | --- | --- | --- | --- |
@@ -117,24 +94,19 @@ running, never a running summary in prose:
 6  track-implementer   PROJ-39            build   done      9m      merged ff, 3 commits
 ```
 
-The board is the ledger's `agents` list, so a resumed session prints the same
-board.
-
 ## Steps
 
-### 1. Load or resume
+### 1. Preflight
 
-1. Resolve the project profile. Before any subagent can push, apply
-   `bond:authorship-conventions` once: the active `gh` account must be the one
-   for this repo, and `git ls-remote origin` must succeed. Every subagent pushes
-   with whatever account is active, so a wrong one here is wrong N times.
-2. Ledger exists ⇒ load it. Per `running` item: its agent still alive ⇒ leave
-   it; otherwise read the remote (`git ls-remote --heads origin | grep -iE '(^|[^0-9A-Za-z])<KEY>([^0-9]|$)'`,
-   the host's PR list for that branch). PR open ⇒ `pr-open`. Worktree kept with
-   commits ⇒ `pending`, resumed in that worktree (step 5). Neither ⇒ `pending`.
-   Under `--integration`, an item whose branch tip is already on the
-   integration branch (`git merge-base --is-ancestor`) ⇒ `merged`.
-   Jump to step 5 (**5i** under `--integration`).
+Resolve the project profile. Before any subagent can push, apply
+`bond:authorship-conventions` once: the active `gh` account must be the one
+for this repo, and `git ls-remote origin` must succeed. Every subagent pushes
+with whatever account is active, so a wrong one here is wrong N times.
+
+The batch keeps its state in the session, no file. A re-run of the same source
+starts over from the remote: step 2 drops every issue that already has a
+branch or PR, and under `--integration` an issue whose commits are already on
+the integration branch (`git merge-base --is-ancestor`) counts as `merged`.
 
 ### 2. Select
 
@@ -189,8 +161,9 @@ the same base number theirs the same. `confidence: low` ⇒ conflict with every
 issue sharing its top-level module: a wrong guess costs some parallelism, a
 missed one costs a merge conflict.
 
-**Shared notes.** Write what recon found to the ledger's `notes` file, beside
-the ledger: per issue its verdict, files, the code it builds on (`path:line`)
+**Shared notes.** Write what recon found to
+`~/.claude/bond/implement-batch-<OWNER>-<REPO_SLUG>-<source-slug>-notes.md`,
+outside the repo: per issue its verdict, files, the code it builds on (`path:line`)
 and its decisions. Two issues that each add the same kind of thing — a
 user-facing string key, a type or field, a config entry, a column — get the
 exact name each one uses pinned there, so parallel runs that never see each
@@ -221,8 +194,8 @@ stays small and the run skips exploration recon already did.
    A squash merge rewrites the predecessor into one new commit, so the
    retargeted PR goes `DIRTY` even when nothing truly conflicts: rebase it with
    `git rebase --onto origin/<base> <predecessor's last head sha>`, re-run the
-   cheap slice and push `--force-with-lease`. Record that sha in the ledger
-   when the predecessor returns `pr-open`, since its branch is deleted on merge.
+   cheap slice and push `--force-with-lease`. Note that sha when the
+   predecessor returns `pr-open`, since its branch is deleted on merge.
    When most selected issues conflict through one shared kind (a contract
    version, a generated client, migrations), chaining yields a stack as deep
    as the batch: offer `--group` or `--integration` instead, in step 4.4.
@@ -264,8 +237,6 @@ model per `bond:routing-model-and-effort` — `opus` to build). Do **not** pass
 - after **Set up the branch**, run **Prepare the worktree** from
   `<plugin root>/commands/worktree.md` — a bare worktree has no env files or
   dependencies, and its tests fail on that, not on the code;
-- a kept worktree from step 1 ⇒ work in it (`BRANCH_SOURCE=existing`) instead of
-  cutting a new branch;
 - the item's owner rulings and L decisions from steps 3 and 4.4, to go into its
   plan file's `## Decisions` as given — the run does not re-open them;
 - the rules: write only inside its own worktree, never `git checkout` or commit
@@ -276,7 +247,7 @@ model per `bond:routing-model-and-effort` — `opus` to build). Do **not** pass
 - the return contract, one line:
   `RESULT <keys> status=pr-open|blocked|failed branch=<b> pr=<url> worktree=<path|none> files=<changed files> note=<why, if not pr-open>`.
 
-On each result: update the ledger. Compare `files=` with the predictions of
+On each result: update the item's status. Compare `files=` with the predictions of
 every `pending` item — a new overlap ⇒ chain that item onto this one (step 4.2)
 before it starts. `failed` / `blocked` ⇒ its chained successors become
 `skipped` (their base never landed). Each run already ran its own review pair
@@ -286,14 +257,14 @@ before its PR opened, so nothing reviews it again here. Then fill the freed slot
 
 The batch is a task graph: `after` edges are its blocking edges, and every
 `pending` item whose `after` items are all `merged` is on the **frontier**. The
-frontier comes from the ledger, never from the tracker — a Jira or GitHub
+frontier comes from the batch's own item states, never from the tracker — a Jira or GitHub
 blocked-by link clears only when its blocker closes, which here is the end of
 the run.
 
 1. **Open the integration branch.** Cut it from `origin/<base>` into its own
    worktree per **Set up the branch** (`BRANCH_SOURCE=new`; a named branch
    already on `origin` is reused with `BRANCH_SOURCE=existing`), run
-   **Prepare the worktree**, push it. Record both in the ledger. All merges happen there,
+   **Prepare the worktree**, push it. All merges happen there,
    never in the main checkout. Write the batch's `PLAN_FILE` there per
    **Implementation plan** — every selected issue under `## Tickets` and
    `## Spec`, one step per item, the R and L decisions — and commit it: it is
@@ -360,8 +331,7 @@ Under `--integration`: one row per issue with the shared branch and PR, status
 `merged` or why not, then the review's follow-ups from `## Decisions`.
 
 Then: merge order for stacked PRs, every `blocked` issue with its quoted
-blocker, failed items with their worktree path (kept for inspection), and the
-ledger path.
+blocker, and failed items with their worktree path (kept for inspection).
 
 ## Do NOT
 
