@@ -24,9 +24,10 @@ decisions, per `${CLAUDE_PLUGIN_ROOT}/shared/owner-questions.md`.
 Three things still stop the flow: a genuine blocker where no option is viable
 (missing type, error response, no branch found) — surface it and abort/pause as
 the procedure says; a blocker found in the ticket or its comments (see **Check
-for blockers**), which is asked once; and the explicit `--no-auto` flag, which
-pauses once for plan confirmation (see the Implementation plan procedure). None
-is a "choose between options" prompt.
+for blockers**), which is asked once; the explicit `--no-auto` flag, which
+pauses once for plan confirmation (see the Implementation plan procedure); and
+the checkpoints the caller asked for (`CHECKPOINTS`, see **Progress and
+checkpoints**) or a pause file. None is a "choose between options" prompt.
 
 ## Procedure: Resolve Jira ticket(s)  *(`TRACKER=jira` only)*
 
@@ -331,7 +332,9 @@ Under `PLAN_MODE=write`, run **Review the plan** before the plan is printed.
 
 Print the full plan (write) or the appended section (append) to the user.
 
-In `auto` mode, skip confirmation and note that auto-confirm is enabled. In
+With `CHECKPOINTS` = `plan` or `all`, stop here through **Progress and
+checkpoints** with the plan's options (Approve / Edit / Stop) instead. Otherwise
+in `auto` mode, skip confirmation and note that auto-confirm is enabled. In
 `no-auto` mode, ask `CONFIRM_PROMPT` and wait for explicit confirmation; if the
 user requests changes, update the plan and ask again before proceeding.
 
@@ -357,6 +360,51 @@ Apply the findings to `PLAN_FILE` without asking (see **Autonomy**); log one
 you reject under `## Decisions` with the reason. An empty answer is a pass —
 say so. A plan of one or two files skips the agent: say "plan review: skipped,
 small plan". The review runs once; the revised plan is not reviewed again.
+
+## Procedure: Progress and checkpoints
+
+**Inputs:** `PHASES` (ordered names), `CHECKPOINTS` (`none` / `plan` / `all`),
+the branch.
+
+**Progress file.** `FLOW_FILE=~/.claude/bond-flow/<repo>--<branch with / as ->.json`.
+Write it with the `Write` tool — never a shell redirect, so the bond-cockpit
+pane sees each write and draws the flow's gauge and phase list — when the run
+starts, at every phase boundary and at every stop:
+
+```json
+{ "branch": "feat/x", "repo": "/abs/checkout", "plan": "docs/plans/x.md",
+  "flags": ["--spec", "docs/specs/x.md", "--checkpoints"],
+  "paused": "",
+  "phases": [{ "name": "Setup", "status": "done" }, { "name": "Analyse", "status": "active" }] }
+```
+
+`status` is `done`, `active`, `paused`, `todo` or `skipped`; `paused` holds the
+reason while the run waits, empty otherwise. At each boundary also print one
+line: `▰▰▰▱▱▱▱▱▱▱ 3/10 · Plan review`. After the last phase every status is
+`done` or `skipped`.
+
+**Pause file.** Before each phase starts, check for `FLOW_FILE` with `.json`
+replaced by `.pause` (`touch` it from another terminal to stop the run). When it
+exists, delete it and stop as a checkpoint would.
+
+**Stop.** At a checkpoint — after the plan when `CHECKPOINTS` is `plan`, after
+every phase when it is `all`, or on a pause file — mark the next phase `paused`,
+set `paused` to why, write `FLOW_FILE`, then ask in one `AskUserQuestion`:
+
+- after the plan: **Approve**, **Edit** (the user names the changes, or edits
+  `PLAN_FILE` and replies `approved` — re-read the file then, never the copy in
+  context), **Stop**;
+- elsewhere: **Continue**, **Stop**; free text is a note — apply it (record it
+  under `## Decisions` as an owner ruling), then ask again.
+
+**Stop** ends the turn with the worktree, plan and progress file kept, and the
+resume command printed: `/bond:implement --resume <branch>`. An interrupt
+(Esc) leaves the file at the last boundary; `--resume` restarts that phase.
+
+**Resume.** Read `FLOW_FILE` for the branch (the current one when none is
+named), `cd` to its `repo`, re-read `plan` and the spec, restore `flags`, and
+continue at the first phase not `done` or `skipped`. A missing file aborts:
+"no stopped run for <branch>".
 
 ## Procedure: Tests first
 
@@ -578,5 +626,7 @@ surface it, never force.
 - Do not autofix a third time on the same PR, and do not widen a CI fix
   into unrelated work to get the pipeline green.
 - Do not force-remove a dirty worktree — surface the warning instead.
+- Do not skip a checkpoint the caller asked for, and do not treat silence or an
+  unrelated reply as Approve or Continue.
 - When `PR_HANDLING` is `update`, do not open a second PR and do not auto-ping
   reviewers.

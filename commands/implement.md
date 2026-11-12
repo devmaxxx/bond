@@ -24,6 +24,9 @@ Examples:
 - `/implement "wire up export endpoint" --task --project CRMDEV`
 - `/implement --spec docs/specs/csv-export.md` — implements a written spec (under `TRACKER=jira` it creates a Task named after the spec)
 - `/implement ERP-135 --spec docs/specs/csv-export.md` — the ticket plus a spec that refines it
+- `/implement --spec docs/specs/auth.md --review-plan` — stops at the plan for approve / edit / stop, then runs on to the PR
+- `/implement --spec docs/specs/auth.md --checkpoints` — pauses after every phase
+- `/implement --resume` — continues the stopped run of the current branch from its next phase
 
 ### Flags
 
@@ -31,6 +34,9 @@ By **default** `/implement` runs in **worktree mode** and **auto mode**: it crea
 
 - `--no-worktree` — switch branches in the current working tree instead of a worktree (requires a clean tree).
 - `--no-auto` — confirm the plan before implementing, and stop after implementation (the shared Ship + PR and Teardown procedures are skipped; the worktree is left in place).
+- `--review-plan` — stop once the plan is written and reviewed: **Approve**, **Edit** (say what to change, or edit `PLAN_FILE` yourself and reply `approved`) or **Stop**. After approval the run goes on as in auto mode — build, PR, audit. Differs from `--no-auto`, which also stops after implementation.
+- `--checkpoints` — pause after every phase (see **Progress and checkpoints**) with **Continue**, **Stop** or a note to apply first. Implies `--review-plan`.
+- `--resume [<branch>]` — continue a run that stopped (a checkpoint's Stop, a pause file, an interrupt) from the phase its progress file names, with the flags it started with. Skips steps 1–4; the plan file is re-read, so edits made while it was stopped count.
 - `--spec <path>` — a Markdown spec in the repo (goal, requirements, acceptance criteria, Definition of Done). It is read whole as the source of the requirements, the plan links it, and its acceptance criteria drive **Tests first** and **Converge**. A path that does not exist aborts the run before anything is written.
 - `--base <branch>` — cut the new branch off `origin/<branch>` and target the PR at it. When omitted, the base comes from the project profile (`${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`): the repo's `.bond/project.json`, the Bonliva slug table inside Bonliva, otherwise the remote's own default branch. Use the flag to override, e.g. `--base develop`.
 
@@ -82,7 +88,7 @@ Run the shared **Set up the branch** procedure with `BRANCH_NAME` from step 3, `
 
 ### 5. Analyse, plan, and implement
 
-Run these shared procedures in order:
+Run these shared procedures in order, reporting each phase through **Progress and checkpoints** (`PHASES` = Setup, Analyse, Plan, Plan review, Tests first, Build, Converge, Review, Ship + PR, Audit — a phase the mode skips is marked `skipped`; `CHECKPOINTS` = `all` under `--checkpoints`, `plan` under `--review-plan`, otherwise `none`):
 
 1. **Analyse the codebase** — `FOCUS` = the ticket descriptions, acceptance criteria, and what the comments changed, plus the `--spec` file when given (`SPEC_FILE`).
 2. **Implementation plan** — `PLAN_FILE=docs/plans/<TICKET_IDS>.md`, or `docs/plans/<branch-description>.md` under `TRACKER=none`; `PLAN_MODE=write`, `SPEC_FILE` = the `--spec` path or empty, `CONFIRM_PROMPT` = *"Does this plan look correct? Reply with changes, or say **yes** to start implementing."* The plan is checked by **Review the plan** before it is printed or confirmed.
@@ -92,7 +98,7 @@ Run these shared procedures in order:
 6. **Review and fix** — skipped in auto mode, where the audit runs the code and security review pair once over the PR; under `--no-auto`, the pair runs here once over the work, then the tests re-run.
 7. **Report completion**, then **Ship + PR** with `PR_HANDLING=create`, then **Hand off the audit**, then **Transition to In Review** (skipped under `TRACKER=none`, where there is no issue to transition), then **Teardown** (skipped once the audit was handed off — the agent removes the worktree).
 
-Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto`; `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
+Shared inputs for the tail: `MODE` = `no-auto` if `--no-auto` was passed else `auto` (`--review-plan` and `--checkpoints` keep `auto`; their stops come from `CHECKPOINTS`); `BASE_BRANCH` = the same value resolved in step 4; `WORKTREE` = the path + original repo dir recorded in step 4, or `none` under `--no-worktree`.
 
 ## Do NOT
 

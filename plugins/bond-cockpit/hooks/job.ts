@@ -1,4 +1,4 @@
-import type { JobLoop, JobState } from '../types'
+import type { FlowPhase, FlowState, JobLoop, JobState } from '../types'
 import type { Card, Row, Tone } from './cache'
 
 const RECENT_TOOLS = 3
@@ -22,6 +22,10 @@ const SUBCOMMANDS = new Set(['exec', 'run', 'x', 'dlx'])
 const VALUE_FLAGS = new Set(['-C', '--dir', '--prefix', '--cwd', '--filter', '-F', '--workspace'])
 // Only a checker reports in errors; a test runner's output may name them in a test title.
 const COUNTS_ERRORS = /^(tsc|eslint|biome|lint|typecheck|check)$/
+// The implement flow reports its progress by writing this file; the write is the event, the file is never read.
+const FLOW_FILE = /\/bond-flow\/[^/]+\.json$/
+const FLOW_STATUS = new Set<FlowPhase['status']>(['done', 'active', 'paused', 'todo', 'skipped'])
+const FLOW_MARK: Record<FlowPhase['status'], string> = { done: '✓', active: '●', paused: '⏸', todo: '○', skipped: '–' }
 
 export const EMPTY_JOB: JobState = {
   task: null,
@@ -33,6 +37,7 @@ export const EMPTY_JOB: JobState = {
   recent: [],
   loops: {},
   workflow: null,
+  flow: null,
 }
 
 export type AgentName = { id: string; description: string; type: string }
@@ -50,7 +55,8 @@ export function startJob(job: JobState, text: string, now: number): JobState {
   }
   const workflow = job.workflow !== null && !isFinished(job.workflow) ? job.workflow : null
 
-  return { ...EMPTY_JOB, task, startedAt: now, loops: keptLoops(job.loops, now), workflow }
+  // A flow outlives the prompt that started it: "continue" after a checkpoint is a new prompt in the same run.
+  return { ...EMPTY_JOB, task, startedAt: now, loops: keptLoops(job.loops, now), workflow, flow: job.flow ?? null }
 }
 
 export function endJob(job: JobState, now: number): JobState {
@@ -97,7 +103,8 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
   if (agentId === undefined) {
     // The Workflow call returns once the run is launched; its agents report through their own loops.
     const workflow = tool === 'Workflow' ? { at: now, name: null, runId: null, started: 0, done: 0 } : job.workflow
-    return { ...job, tools: job.tools + 1, inFlight: [...job.inFlight, { id, label, at: now, asked: false }], workflow }
+    const flow = (tool === 'Write' ? flowWritten(args, now) : null) ?? job.flow ?? null
+    return { ...job, tools: job.tools + 1, inFlight: [...job.inFlight, { id, label, at: now, asked: false }], workflow, flow }
   }
   const loop = withDefaults(job.loops[agentId] ?? newLoop(now))
   const pushed = loop.pushed || (tool === 'Bash' && String(args.command ?? '').split(/&&|\|\||;|\||\n/).some(part => PUSH.test(part.trim())))
@@ -105,6 +112,30 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
   const history = [...loop.history, { label, at: now }].slice(-HISTORY)
 
   return { ...job, tools: job.tools + 1, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false, pushed, history } } }
+}
+
+/** The flow state a Write of the implement flow's progress file carries, or null for any other write or a malformed one. */
+export function flowWritten(args: Record<string, unknown>, now: number): FlowState | null {
+  if (typeof args.file_path !== 'string' || !FLOW_FILE.test(args.file_path) || typeof args.content !== 'string') {
+    return null
+  }
+  try {
+    const raw = JSON.parse(args.content) as { branch?: unknown; phases?: unknown; paused?: unknown }
+    if (typeof raw.branch !== 'string' || !Array.isArray(raw.phases) || raw.phases.length === 0) {
+      return null
+    }
+    const phases = raw.phases.flatMap((phase: { name?: unknown; status?: unknown }) =>
+      typeof phase?.name === 'string' && FLOW_STATUS.has(phase.status as FlowPhase['status']) ? [{ name: phase.name, status: phase.status as FlowPhase['status'] }] : [],
+    )
+    if (phases.length !== raw.phases.length) {
+      return null
+    }
+    const current = phases.findIndex(phase => phase.status === 'active' || phase.status === 'paused' || phase.status === 'todo')
+
+    return { branch: raw.branch, phases, current, paused: typeof raw.paused === 'string' && raw.paused !== '' ? raw.paused : null, at: now }
+  } catch {
+    return null
+  }
 }
 
 /** A test, typecheck or lint run's counts, when the command names a runner and its output reports any. */
@@ -182,6 +213,10 @@ export function jobCard(job: JobState, agents: readonly AgentName[], now: number
     rows.push({ kind: 'section', title: ['workflow', job.workflow.name, shortRun(job.workflow.runId)].filter(Boolean).join(' · '), tone: 'dim' })
     rows.push({ kind: 'gauge', label: 'finished', value: `${done}/${started}`, ratio: started === 0 ? 0 : done / started, note: isDone ? 'done' : elapsed(now - at), tone: isDone ? 'plain' : 'ok' })
   }
+  const flow = job.flow ?? null
+  if (flow !== null) {
+    rows.push(...flowRows(flow, now))
+  }
   if (loops.length > 0) {
     const red = loops.filter(isRed).length
     rows.push({ kind: 'section', title: `agents · ${working} working${red > 0 ? ` · ${red} red` : ''}`, tone: 'dim' })
@@ -237,6 +272,10 @@ export function jobBrief(job: JobState, now: number): { rows: Row[]; isActive: b
   const rows: Row[] = []
   if (job.task !== null || working > 0) {
     rows.push(nowRow(job, isRunning, now))
+  }
+  const flow = job.flow ?? null
+  if (flow !== null) {
+    rows.push(flowGauge(flow, now))
   }
   if (working > 0 || job.workflow !== null) {
     const loops = Object.values(keptLoops(job.loops, now))
@@ -417,6 +456,26 @@ function withDefaults(loop: JobLoop): JobLoop {
 
 function isWorking(loop: Pick<JobLoop, 'done' | 'at'>, now: number): boolean {
   return !loop.done && now - loop.at < STALE_MS
+}
+
+/** The flow's section: its branch, a gauge of finished phases, then one mark per phase. */
+function flowRows(flow: FlowState, now: number): Row[] {
+  const marks = flow.phases.map(phase => `${FLOW_MARK[phase.status]} ${phase.name}`)
+
+  return [
+    { kind: 'section', title: `flow · ${flow.branch}`, tone: 'dim' },
+    flowGauge(flow, now),
+    ...marks.map(text => ({ kind: 'line' as const, text, tone: 'dim' as const })),
+  ]
+}
+
+function flowGauge(flow: FlowState, now: number): Row {
+  const finished = flow.phases.filter(phase => phase.status === 'done' || phase.status === 'skipped').length
+  const total = flow.phases.length
+  const phase = flow.current === -1 ? 'done' : (flow.phases[flow.current]?.name ?? '')
+  const note = flow.paused !== null ? `⏸ ${phase} · ${flow.paused}` : flow.current === -1 ? 'done' : `${phase} · ${elapsed(now - flow.at)}`
+
+  return { kind: 'gauge', label: 'flow', value: `${finished}/${total}`, ratio: total === 0 ? 0 : finished / total, note, tone: flow.paused !== null ? 'warn' : flow.current === -1 ? 'plain' : 'ok' }
 }
 
 function isFinished(workflow: NonNullable<JobState['workflow']>): boolean {

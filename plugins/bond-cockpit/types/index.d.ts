@@ -75,6 +75,22 @@ export type JobState = {
   loops: Record<string, JobLoop>
   // The latest Workflow run: when it was launched, its script's name, and its agents started and finished since.
   workflow: { at: number; name: string | null; runId: string | null; started: number; done: number } | null
+  // The bond implement flow this session drives, as its latest state file write reported it.
+  flow?: FlowState | null
+}
+
+/** One phase of a bond implement run. */
+export type FlowPhase = { name: string; status: 'done' | 'active' | 'paused' | 'todo' | 'skipped' }
+
+/** A bond implement run's progress: the flow writes it to `…/bond-flow/<branch>.json` at every phase boundary. */
+export type FlowState = {
+  branch: string
+  phases: FlowPhase[]
+  // The phase the run is in or stopped at; -1 once every phase is done.
+  current: number
+  // Set while the run waits at a checkpoint for the person.
+  paused: string | null
+  at: number
 }
 
 declare module 'claude-code' {

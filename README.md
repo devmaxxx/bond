@@ -17,7 +17,7 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | `/fix-ci`         | Fix a failed pipeline from its URL (Woodpecker, GitHub Actions, Bitbucket), a PR, or `--mine`: diagnose, fix, push, watch the re-run |
 | `/disk-analyze`   | Analyze disk usage: runaway logs, deleted-but-open files, caches; clean the safe ones          |
 | `/implement-batch`| Implement many tickets (Jira version/epic/JQL, GitHub milestone) in parallel worktrees, scheduled so no two touch the same files |
-| `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task or a `--spec` file where there is no tracker — then branch, plan (reviewed in a fresh context), tests first, code, and map every acceptance criterion to its test |
+| `/implement`      | Fetch (or create) a Jira ticket — or take a free-text task or a `--spec` file where there is no tracker — then branch, plan (reviewed in a fresh context), tests first, code, and map every acceptance criterion to its test; `--review-plan` / `--checkpoints` stop for approval, `--resume` continues |
 | `/investigate`    | Investigate a deployed failure to a proven root cause and write the investigation doc         |
 | `/linkedin`       | Write a LinkedIn post or article from the source, facts and numbers checked, with an optional cover-image prompt |
 | `/linkedin-draft` | Put an approved post or article into LinkedIn's composer or article editor through Chrome — a draft, never published |
@@ -59,7 +59,7 @@ so it needs a build with plugin hook modules. It is opt-in and depends on `bond`
   what it works on and for how long, `approve?` when the permission check
   asked, `thinking`, or `waiting for you` — the tool count with failures and
   the last tool, a `workflow` gauge of the run's finished over started agents
-  with the script's name and run id, and two lines per agent loop (subagent,
+  with the script's name and run id, a `flow` gauge and phase list while a `/bond:implement` run reports progress (`⏸` and the reason at a checkpoint), and two lines per agent loop (subagent,
   teammate or workflow agent): its name and model from the spawn, calls and run
   time, then its latest tool and last test, typecheck or lint counts — red when
   any failed, with a warning when it ran `git push` or `gh pr create`. Working
