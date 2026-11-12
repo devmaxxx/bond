@@ -50,7 +50,7 @@ that only surfaces during a run sets that issue aside for the report.
 | one key whose type is `Epic` | JQL `parent = <KEY> OR "Epic Link" = <KEY>` — team- and company-managed projects store the link differently |
 | JQL (contains `=`, ` AND `, ` IN ` or `ORDER BY`) | as given |
 | keys `PROJ-1 PROJ-2 …` (or a single non-epic key) | those keys |
-| a tickets file (Markdown, one `## <KEY>: <title>` section per ticket with `Status:` and `Blocked by:` lines — `/bond:mvp` writes them) | its sections whose `Status` is not `done`; `Blocked by:` keys are `is blocked by` links. Worked without a tracker: nothing is claimed or transitioned, and outside `--integration` each runs as a free-text task like a GitHub issue |
+| a tickets file (Markdown, one `## <KEY>: <title>` section per ticket with `Status:` and `Blocked by:` lines) | its sections whose `Status` is not `done`; `Blocked by:` keys are `is blocked by` links. Worked without a tracker: nothing is claimed or transitioned, and outside `--integration` each runs as a free-text task like a GitHub issue |
 | GitHub milestone URL, `milestone:<name>`, `label:<name>` | `gh issue list --state open --limit 1000 --milestone/--label … --json number,title,body,labels,assignees` (the default limit is 30) |
 
 Jira search: `mcp__bond-atlassian__searchJiraIssuesUsingJql` with the `cloudId`
