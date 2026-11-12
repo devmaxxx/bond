@@ -179,7 +179,10 @@ The base branch a feature branch is cut from / a PR targets differs per repo.
 Resolve `BASE_BRANCH` off the **project profile** —
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`, the `BASE_BRANCH` field —
 which walks the explicit argument, the repo's own `.bond/project.json`, and
-finally the remote's default branch (`refs/remotes/origin/HEAD`).
+finally the remote's default branch (`refs/remotes/origin/HEAD`). Under
+`BRANCH_MODEL=gitflow` the branch's type picks the base instead (the
+profile's `BRANCH_MODEL` field): a `feat` or `fix` branch is cut from, and
+targets, the develop branch.
 
 ## Procedure: Set up the branch
 

@@ -30,6 +30,7 @@ Output the following table verbatim:
 | `/bond:rebase`         | Rebase (or merge) a branch on its base, resolve conflicts, re-test, push with lease               |
 | `/bond:ship-pr`        | After implement: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/bond:worktree`       | Open a worktree for a branch, ticket or PR; close it; prune merged and stale ones                  |
+| `/bond:branch`         | Start a branch — checked out or in a ready worktree — off the base trunk or git-flow picks          |
 | `/bond:start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker          |
 
 Then output this second table verbatim — these need `bond-oss@devmaxxx` enabled (globally, or in each library repo):

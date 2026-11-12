@@ -29,6 +29,7 @@ and `tests/commands-ask-first.test.mjs` fails a command that lacks the step.
 | `/rebase`         | Rebase (or merge, for a shared branch) onto the base, resolve conflicts, re-test, push with `--force-with-lease` |
 | `/ship-pr`        | After implement: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/worktree`       | `open` a worktree for a branch, ticket or PR (env files + deps), `close` it, `prune` merged and stale ones |
+| `/branch`         | Start a branch — checked out or in a ready worktree — cut from the base trunk or git-flow picks |
 | `/start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker        |
 
 ## bond-cockpit (job, implement-flow status line, strip and pane)
@@ -202,8 +203,9 @@ is approved by hand, one at a time.
 
 ## Project profile
 
-`shared/project-profile.md` resolves, per repo, the base branch, whether there
-is a Jira tracker at all, whether PRs open as drafts, and who the reviewers are.
+`shared/project-profile.md` resolves, per repo, the base branch, the branch
+model (`trunk`, or `gitflow` with feature work off `develop` and hotfixes off
+the production branch), whether there is a Jira tracker at all, whether PRs open as drafts, and who the reviewers are.
 A repo can state its own answers in `.bond/project.json`; otherwise they are
 inferred from the `origin` remote. Without a manifest the tracker resolves to
 `none`, and `/implement` takes a free-text task, cuts a

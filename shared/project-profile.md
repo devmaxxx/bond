@@ -27,6 +27,9 @@ the repo's own statement about itself beats a guess made from its URL.
   "tracker": "none",
   "jiraSite": "example.atlassian.net",
   "baseBranch": "main",
+  "branchModel": "trunk",
+  "developBranch": "develop",
+  "productionBranch": "main",
   "reviewers": [],
   "draft": false,
   "prTitle": "plain"
@@ -70,6 +73,24 @@ First match wins:
    `origin/` prefix). Run `git remote set-head origin --auto` first if it is
    unset.
 4. `main`.
+
+### `BRANCH_MODEL` — `trunk` or `gitflow`
+
+`branchModel` in the manifest, else **`trunk`**: every branch is cut from, and
+its PR targets, `BASE_BRANCH`.
+
+Under `gitflow` the branch's type picks its base instead of steps 2–4 above
+(an explicit `--base` still wins):
+
+- `feat`, `fix`, `chore`, `docs`, `release` ⇒ `DEVELOP_BRANCH` —
+  `developBranch` in the manifest, else `develop`;
+- `hotfix` ⇒ `PRODUCTION_BRANCH` — `productionBranch` in the manifest, else
+  `main` when `origin/main` exists, else `master`.
+
+The branch names keep the Conventional Branch prefixes of the
+`authorship-conventions` skill; only the bases follow git-flow. A repo with an
+`origin/develop` and no `branchModel` is a guess, not git-flow: a command
+that cuts a branch asks once and offers to write the answer here.
 
 ### `PR_TITLE` — `plain` or `conventional`
 
