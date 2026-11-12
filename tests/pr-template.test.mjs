@@ -8,18 +8,18 @@ import { describe, it } from "node:test";
 import {
   cdTarget,
   checkBash,
-  checkMcp,
   hasTicket,
-  isBonlivaRemote,
   isGhPrCreate,
   resolveDraft,
+  resolveJiraTracked,
   resolvePrTitle,
   titleProblems,
 } from "../hooks/pr-template.mjs";
 import { scrubShell } from "../hooks/shell.mjs";
 
-/** A throwaway git repo with the given origin and optional manifest. */
-function repo(origin, manifest) {
+/** A throwaway git repo with an origin and an optional manifest. */
+function repo(manifest) {
+  const origin = "https://github.com/devmaxxx/repograph.git";
   const dir = mkdtempSync(join(tmpdir(), "bond-repo-"));
   execFileSync("git", ["init", "-q"], { cwd: dir });
   execFileSync("git", ["remote", "add", "origin", origin], { cwd: dir });
@@ -48,7 +48,7 @@ const BODY_WITH_JIRA = [
   "",
   "## Jira",
   "",
-  "- ERP-135: https://bonliva.atlassian.net/browse/ERP-135",
+  "- ERP-135: https://example.atlassian.net/browse/ERP-135",
   "",
   "## Test plan",
   "",
@@ -59,10 +59,8 @@ const BODY_WITH_JIRA = [
 const JIRA_MISSING =
   "a ticket id is in play but the description has no `## Jira` section";
 const NOT_DRAFT =
-  "this repo opens PRs as drafts — add --draft (the author publishes when ready)";
-const NOT_DRAFT_MCP =
-  "this repo opens PRs as drafts — use create_draft_pull_request (the author publishes when ready)";
-const PERSONAL = { requireDraft: (target) => target ?? false };
+  "this repo opens PRs as drafts (`draft: true` in .bond/project.json) — add --draft (the author publishes when ready)";
+const DRAFTS = { requireDraft: () => true };
 
 /** A well-formed create call; `extra` adds the flags under test. */
 function create(extra = "", body = GOOD_BODY, title = "Tidy the export") {
@@ -140,7 +138,7 @@ describe("recognising a pull request creation", () => {
       "## Summary",
       "EOF",
     ].join("\n");
-    assert.deepEqual(checkBash(cmd), [NOT_DRAFT]);
+    assert.deepEqual(checkBash(cmd, DRAFTS), [NOT_DRAFT]);
   });
 
   it("does not treat a suffixed command as gh pr create", () => {
@@ -149,41 +147,35 @@ describe("recognising a pull request creation", () => {
 });
 
 describe("the template's own protections", () => {
-  it("blocks a create call that is not a draft", () => {
+  it("blocks a create call that is not a draft where the repo asks for drafts", () => {
     const errors = checkBash(
       `gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`,
+      DRAFTS,
     );
     assert.deepEqual(errors, [NOT_DRAFT]);
   });
 
-  it("lets a non-draft through outside Bonliva", () => {
-    const errors = checkBash(
-      `gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`,
-      PERSONAL,
-    );
+  it("lets a non-draft through by default", () => {
+    const errors = checkBash(`gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`);
     assert.deepEqual(errors, []);
   });
 
-  it("still demands the template outside Bonliva", () => {
-    const body = ["## Summary", "", "- tidied it", ""].join("\n");
-    assert.deepEqual(
-      checkBash(`gh pr create --title "Tidy the export" --body "${body}"`, PERSONAL),
-      ["description is missing its `## Test plan` section"],
-    );
+  it("lets a draft through where the repo asks for drafts", () => {
+    assert.deepEqual(checkBash(create(), DRAFTS), []);
   });
 
-  it("takes Bonliva from --repo over the checkout's remote", () => {
-    const personalTarget = `gh pr create --repo devmaxxx/repograph --title "Tidy the export" --body "${GOOD_BODY}"`;
-    assert.deepEqual(checkBash(personalTarget), []);
-    const bonlivaTarget = `gh pr create -R Bonliva/bonliva-erp --title "Tidy the export" --body "${GOOD_BODY}"`;
-    assert.deepEqual(checkBash(bonlivaTarget, PERSONAL), [NOT_DRAFT]);
+  it("still demands the template without drafts", () => {
+    const body = ["## Summary", "", "- tidied it", ""].join("\n");
+    assert.deepEqual(checkBash(`gh pr create --title "Tidy the export" --body "${body}"`), [
+      "description is missing its `## Test plan` section",
+    ]);
   });
 
   it("resolves drafts in the directory a leading cd moves into", () => {
     const seen = [];
-    const cmd = `cd ~/bonliva-erp && gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`;
-    checkBash(cmd, { requireDraft: (target, dir) => (seen.push(dir), false) });
-    assert.deepEqual(seen, ["~/bonliva-erp"]);
+    const cmd = `cd ~/repo && gh pr create --title "Tidy the export" --body "${GOOD_BODY}"`;
+    checkBash(cmd, { requireDraft: (dir) => (seen.push(dir), false) });
+    assert.deepEqual(seen, ["~/repo"]);
   });
 
   it("blocks a description with no `## Summary` section", () => {
@@ -221,29 +213,6 @@ describe("the template's own protections", () => {
   });
 });
 
-describe("recognising a Bonliva remote", () => {
-  it("matches the Bonliva workspace and org on either host", () => {
-    for (const url of [
-      "git@bitbucket.org:bonliva/bonliva-erp.git",
-      "https://bitbucket.org/bonliva/bonliva-crm.git",
-      "git@github.com:Bonliva/bonliva-erp.git",
-      "git@github-work:Bonliva/bonliva-erp.git",
-    ]) {
-      assert.equal(isBonlivaRemote(url), true, url);
-    }
-  });
-
-  it("does not match a personal repo or a lookalike owner", () => {
-    for (const url of [
-      "https://github.com/devmaxxx/repograph.git",
-      "git@github.com:devmaxxx/bonliva-notes.git",
-      "git@github.com:notbonliva/app.git",
-    ]) {
-      assert.equal(isBonlivaRemote(url), false, url);
-    }
-  });
-});
-
 describe("reading the cd target", () => {
   it("takes the last cd before gh pr create", () => {
     assert.equal(cdTarget("cd /a && cd '/b c' && gh pr create --draft"), "/b c");
@@ -263,32 +232,23 @@ describe("reading the cd target", () => {
   });
 
   it("ignores a literal 'gh pr create' mentioned before the real one", () => {
-    const cmd = `echo "run gh pr create later" && cd ~/bonliva-erp && gh pr create --draft`;
-    assert.equal(cdTarget(cmd), "~/bonliva-erp");
+    const cmd = `echo "run gh pr create later" && cd ~/repo && gh pr create --draft`;
+    assert.equal(cdTarget(cmd), "~/repo");
   });
 });
 
 describe("resolving whether a repo opens drafts", () => {
-  const BONLIVA = "git@bitbucket.org:bonliva/bonliva-erp.git";
-  const PERSONAL_ORIGIN = "https://github.com/devmaxxx/repograph.git";
-
-  it("follows the remote when there is no manifest", () => {
-    assert.equal(resolveDraft(repo(BONLIVA), null), true);
-    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN), null), false);
+  it("opens ready for review when there is no manifest", () => {
+    assert.equal(resolveDraft(repo()), false);
   });
 
-  it("lets the PR's explicit target outrank the remote", () => {
-    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN), true), true);
-    assert.equal(resolveDraft(repo(BONLIVA), false), false);
-  });
-
-  it("lets the manifest's `draft` outrank everything", () => {
-    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN, { draft: true }), false), true);
-    assert.equal(resolveDraft(repo(BONLIVA, { draft: false }), true), false);
+  it("follows the manifest's `draft`", () => {
+    assert.equal(resolveDraft(repo({ draft: true })), true);
+    assert.equal(resolveDraft(repo({ draft: false })), false);
   });
 
   it("ignores a manifest that does not state `draft`", () => {
-    assert.equal(resolveDraft(repo(PERSONAL_ORIGIN, { tracker: "none" }), null), false);
+    assert.equal(resolveDraft(repo({ tracker: "none" })), false);
   });
 });
 
@@ -381,74 +341,26 @@ describe("requiring the `## Jira` section", () => {
     );
     assert.deepEqual(checkBash(create("", body)), []);
   });
+
+  it("does not demand it where the repo tracks no Jira", () => {
+    const cmd = create("--head feat/ERP-135", GOOD_BODY, "ERP-135: tidy the export");
+    assert.deepEqual(checkBash(cmd, { jiraTracked: () => false }), []);
+  });
 });
 
-describe("the Bitbucket MCP path", () => {
-  it("blocks the non-draft create call outright", () => {
-    const errors = checkMcp(
-      { title: "Tidy the export", description: BODY_WITH_JIRA },
-      "mcp__bond-bitbucket__create_pull_request",
-    );
-    assert.deepEqual(errors, [NOT_DRAFT_MCP]);
+describe("resolving whether a repo tracks Jira", () => {
+  it("tracks none when there is no manifest", () => {
+    assert.equal(resolveJiraTracked(repo()), false);
   });
 
-  it("allows the non-draft create call outside the bonliva workspace", () => {
-    const errors = checkMcp(
-      { workspace: "devmaxxx", title: "Tidy the export", description: GOOD_BODY },
-      "mcp__bond-bitbucket__create_pull_request",
-    );
-    assert.deepEqual(errors, []);
-  });
-
-  it("takes Bonliva from the workspace over the checkout's remote", () => {
-    const errors = checkMcp(
-      { workspace: "bonliva", title: "Tidy the export", description: GOOD_BODY },
-      "mcp__bond-bitbucket__create_pull_request",
-      PERSONAL,
-    );
-    assert.deepEqual(errors, [NOT_DRAFT_MCP]);
-  });
-
-  it("accepts a draft that follows the template", () => {
-    const errors = checkMcp(
-      {
-        title: "ERP-135: tidy the export",
-        source_branch: "feat/ERP-135",
-        description: BODY_WITH_JIRA,
-      },
-      "mcp__bond-bitbucket__create_draft_pull_request",
-    );
-    assert.deepEqual(errors, []);
-  });
-
-  it("demands the Jira section for a ticket id on the source branch", () => {
-    const errors = checkMcp(
-      {
-        title: "tidy the export",
-        source_branch: "feat/ERP-135",
-        description: GOOD_BODY,
-      },
-      "mcp__bond-bitbucket__create_draft_pull_request",
-    );
-    assert.deepEqual(errors, [JIRA_MISSING]);
-  });
-
-  it("does not demand it for an encoding name in the description", () => {
-    const errors = checkMcp(
-      {
-        title: "Write the export as UTF-8",
-        source_branch: "chore/export-encoding",
-        description: GOOD_BODY,
-      },
-      "mcp__bond-bitbucket__create_draft_pull_request",
-    );
-    assert.deepEqual(errors, []);
+  it("follows the manifest's `tracker`", () => {
+    assert.equal(resolveJiraTracked(repo({ tracker: "jira" })), true);
+    assert.equal(resolveJiraTracked(repo({ tracker: "none" })), false);
+    assert.equal(resolveJiraTracked(repo({ draft: true })), false);
   });
 });
 
 describe("a repo whose squash subject is the PR title", () => {
-  const ORIGIN = "https://github.com/olkp1/beauty-crm.git";
-
   it("demands a Conventional Commits subject and refuses a plain sentence", () => {
     assert.deepEqual(titleProblems("feat(api): the client's own reviews", "conventional"), []);
     assert.equal(titleProblems("Tidy the export", "conventional").length, 1);
@@ -457,9 +369,9 @@ describe("a repo whose squash subject is the PR title", () => {
   });
 
   it("reads the style from `prTitle` in the manifest, plain otherwise", () => {
-    assert.equal(resolvePrTitle(repo(ORIGIN, { prTitle: "conventional" })), "conventional");
-    assert.equal(resolvePrTitle(repo(ORIGIN, { draft: false })), "plain");
-    assert.equal(resolvePrTitle(repo(ORIGIN)), "plain");
+    assert.equal(resolvePrTitle(repo({ prTitle: "conventional" })), "conventional");
+    assert.equal(resolvePrTitle(repo({ draft: false })), "plain");
+    assert.equal(resolvePrTitle(repo()), "plain");
   });
 
   it("lets a gh pr create through with a conventional title there", () => {
@@ -483,16 +395,7 @@ describe("the title", () => {
   });
 
   it("blocks a gh create call whose title is a commit subject", () => {
-    const errors = checkBash(create("", GOOD_BODY, "feat: tidy the export"), PERSONAL);
-    assert.equal(errors.length, 1);
-    assert.match(errors[0], /Conventional Commits subject/);
-  });
-
-  it("blocks a Bitbucket create call whose title is a commit subject", () => {
-    const errors = checkMcp(
-      { title: "fix(export): write UTF-8", description: GOOD_BODY, workspace: "devmaxxx" },
-      "mcp__bond-bitbucket__create_draft_pull_request",
-    );
+    const errors = checkBash(create("", GOOD_BODY, "feat: tidy the export"));
     assert.equal(errors.length, 1);
     assert.match(errors[0], /Conventional Commits subject/);
   });

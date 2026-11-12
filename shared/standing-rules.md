@@ -64,7 +64,7 @@ see `shared/project-profile.md`.
 
 ## GitHub account — always on
 
-Two accounts are logged into `gh`: Bonliva work pushes as one, everything else
+Two accounts are logged into `gh`: work pushes as one, everything else
 as the other. Apply the `bond:authorship-conventions` skill before any push or
 `gh` write, and ask when the repo matches neither side of the rule. Pick the
 account per command — `GH_TOKEN=$(gh auth token -u <account>) gh …` — never
@@ -129,16 +129,16 @@ what was skipped.
 Branches are Conventional Branch: `<type>/<description>`, lowercase and
 hyphenated. Apply the `bond:authorship-conventions` skill before any
 `checkout -b` and before opening a PR — it covers branch, commit, PR and doc
-alike. Bonliva repos keep the shape bond gives them, and a rename after the PR
+alike. Jira-tracked repos keep the shape bond gives them, and a rename after the PR
 is open costs the PR.
 
 ## Commands ask first — always on
 
-Every bond command — `bond`, `bond-bonliva`, `bond-beauty-crm` — opens with
+Every bond command — `bond`, `bond-beauty-crm`, `bond-oss` — opens with
 **one** `AskUserQuestion` that carries every decision its arguments leave open:
 the target, the scope, an ambiguous argument, which of several candidates, and
-each outward or destructive step it will take (push, PR, merge, Jira, Teams or
-Outline writes, deletes). Up to four questions, the recommended option first. A
+each outward or destructive step it will take (push, PR, merge, Jira
+writes, deletes). Up to four questions, the recommended option first. A
 few read-only calls to frame the options come before it; no write does.
 
 Arguments that settle everything ⇒ no question. Once answered, the command runs
@@ -146,21 +146,6 @@ to the end without asking again; only a blocker it could not have known at the
 start (a failing check, a ticket blocker, a tool error) earns a second question.
 Where nobody can be asked — a cron or `-p` turn, a subagent — take the
 recommended options and name them in the report.
-
-## Code review at the end — always on
-
-Apply the `bond:finishing-with-code-review` skill at the end of every task that
-changed code. **The skill owns the procedure** — the target, the launch, the
-apply-and-prove, the commit, and what the recap must name. Do not run a review
-from memory of this paragraph.
-
-In particular the level is not set here: `bond:routing-code-review` reads it off
-the diff, and a level written into a standing rule is a guess that outranks the
-router on every task it is wrong about.
-
-A task reported done with the review unrun is not done. The router's card names
-the skips — a docs-only or comment-only diff, or a small low-risk one — and a skip is said in words,
-as is a review that found nothing.
 
 ## A new PR is audited in a fresh context — always on
 
@@ -179,8 +164,8 @@ from it.
 
 The opening session does not review its own PR again and runs no wait loop:
 it says the audit is running and relays the agent's report when it returns.
-A push to a PR that was already open is not a new PR, and a `/fix-qa` round
-that opens one is not audited: its flow already ran the review pair once.
+A push to a PR that was already open is not a new PR: its flow already ran the
+review pair once.
 
 ## Pushed worktrees are removed without asking — always on
 

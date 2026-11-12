@@ -53,12 +53,9 @@ Examples: `/bond:sweep-pr`, `/bond:sweep-pr --merge`,
 
 ### 1. List
 
-- GitHub: `gh pr list --state open --limit 200 --json
+`gh pr list --state open --limit 200 --json
   number,title,author,headRefName,baseRefName,isDraft,url,isCrossRepository` plus `--author @me`
   under `--mine` and `--base <branch>` when given.
-- Bitbucket: `mcp__bond-bitbucket__get_pull_requests` with `state: OPEN`, then
-  filter by destination and, under `--mine`, by author. The author cannot be
-  matched to the active account ⇒ say so and continue as `--dry-run`.
 
 None ⇒ say so and stop.
 
@@ -114,14 +111,12 @@ Print it before any write:
 Per PR, in list order, at most one attempt per action:
 
 - **retarget** — run `/bond:rebase <n> <retarget> --from <old base>` first;
-  only after its push, move the base: `gh pr edit <n> --base <retarget>`, the
-  update-PR call on Bitbucket. A hand-back leaves the PR on its old base.
+  only after its push, move the base: `gh pr edit <n> --base <retarget>`. A hand-back leaves the PR on its old base.
 - **rebase** — run `/bond:rebase <n>`. It merges instead for a shared branch —
   a colleague's PR under `--all` is one, so their branch is never force-pushed.
   A hand-back ⇒ report the files under *Needs you*, next PR.
-- **restart CI** — once per PR per sweep. GitHub: `gh run rerun <run-id>
-  --failed`, the run id from the failed check's link. Bitbucket:
-  `run_pipeline` on the head branch. Woodpecker: `woodpecker-cli pipeline start <repo-id> <n>`.
+- **restart CI** — once per PR per sweep. `gh run rerun <run-id>
+  --failed`, the run id from the failed check's link. Woodpecker: `woodpecker-cli pipeline start <repo-id> <n>`.
   Do not wait for it; the end table says *restarted*.
 
 A rebase or restart starts CI again, so that PR is not green in this sweep:
@@ -138,22 +133,14 @@ merge in this sweep may have moved its base. Merge only when **all** hold:
   no CI at all);
 - `MERGEABLE`, not `BEHIND` a base that requires up-to-date branches;
 - GitHub `reviewDecision` is `APPROVED`, or empty with no required review on
-  the base; Bitbucket: no participant has requested changes, and the approvals
-  the repo's branch restrictions require are present (unreadable ⇒ at least
-  one approval from someone other than the author);
+  the base;
 - `new comments: 0`;
 - no blocking finding from **Review a PR** on that head — a head that moved
   since step 2 is reviewed again first;
 - no standing instruction excludes it.
 
-Then:
-
-- GitHub: `gh pr merge <n> --squash --match-head-commit <head sha read just
-  now>` — the sha pins the merge to the head that was checked.
-- Bitbucket: `merge_pull_request` with `merge_strategy: squash` and
-  `close_source_branch: true` — or `false` when another open PR targets the
-  head branch (it would be orphaned; step 6 deletes the branch later). The tool missing (it is off by default in the
-  MCP) ⇒ report *merge by hand*, do not fall back to anything else.
+Then `gh pr merge <n> --squash --match-head-commit <head sha read just
+now>` — the sha pins the merge to the head that was checked.
 
 A refused merge is reported with the host's reason, never retried around.
 

@@ -65,8 +65,8 @@ Conventional Commit subjects; the **first** commit's subject is the PR title
 `pnpm tasks pr` will take, so it names the task's work as a whole.
 
 Before the PR: the cheap slice (`lint`, `typecheck`, the unit sets of the
-touched packages), `pnpm exec repograph changes --base origin/main`, and bond's
-`finishing-with-code-review` over the branch.
+touched packages), `pnpm exec repograph changes --base origin/main`, and a `/code-review`
+over the branch.
 
 ## 5. Done and PR
 

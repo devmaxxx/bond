@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CacheSnapshot, ModelTally, UsageSnapshot } from '../types'
-import { EMPTY_JOB, agentCard, agentSpawned, sendNotice, elapsed, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
+import { EMPTY_JOB, agentCard, agentSpawned, flowActions, flowBand, flowRecorded, flowResume, flowWritten, pausePath, sendNotice, elapsed, endJob, isBusy, jobCard, jobBrief, loopEnded, startJob, testRun, toolAsked, toolEnded, toolLabel, toolStarted, workflowLaunched } from '../hooks/job'
 import { summaryCard } from '../hooks/summary'
 
 const NOW = Date.parse('2026-10-12T12:00:00Z')
@@ -254,4 +254,71 @@ test('elapsed reads in seconds, minutes, then hours', () => {
   expect(elapsed(9_500)).toBe('9s')
   expect(elapsed(125_000)).toBe('2m05s')
   expect(elapsed(3_660_000)).toBe('1h01m')
+})
+
+const FLOW_PATH = '/Users/x/.local/state/bond-flow/repo--feat-auth.json'
+const flowJson = (phases: [string, string][], paused = '') => JSON.stringify({ branch: 'feat/auth', paused, phases: phases.map(([name, status]) => ({ name, status })) })
+
+test('a write of the implement flow progress file draws its gauge and one mark per phase', () => {
+  let job = startJob(EMPTY_JOB, '/bond:implement --spec docs/specs/auth.md', NOW)
+  job = flowRecorded(job, 'Write', { file_path: FLOW_PATH, content: flowJson([['Setup', 'done'], ['Plan', 'active'], ['Review', 'skipped'], ['Ship + PR', 'todo']]) }, false, NOW)
+  const rows = jobCard(job, [], NOW + 30_000)?.rows ?? []
+
+  expect(rows).toContainEqual({ kind: 'section', title: 'flow · feat/auth', tone: 'dim' })
+  expect(rows).toContainEqual({ kind: 'gauge', label: 'flow', value: '2/4', ratio: 0.5, note: 'Plan · 30s', tone: 'ok' })
+  expect(rows).toContainEqual({ kind: 'phase', mark: '–', name: 'Review', canRerun: true, tone: 'dim' })
+  expect(rows).toContainEqual({ kind: 'phase', mark: '○', name: 'Ship + PR', canRerun: false, tone: 'dim' })
+  expect(rows).toContainEqual({ kind: 'controls', actions: ['pause', 'stop'], tone: 'dim' })
+})
+
+test('a paused flow warns with its reason and survives the next prompt', () => {
+  let job = startJob(EMPTY_JOB, 'implement', NOW)
+  job = flowRecorded(job, 'Write', { file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Build', 'paused']], 'plan approval') }, false, NOW)
+  job = startJob(job, 'approved', NOW + 1_000)
+
+  expect(jobBrief(job, NOW + 2_000).rows).toContainEqual({ kind: 'gauge', label: 'flow', value: '1/2', ratio: 0.5, note: '⏸ Build · plan approval', tone: 'warn' })
+})
+
+test('other writes and malformed progress files leave the flow alone', () => {
+  expect(flowWritten({ file_path: '/repo/docs/plans/x.json', content: flowJson([['Plan', 'done']]) }, NOW)).toBe(null)
+  expect(flowWritten({ file_path: '/tmp/bond-flow/x.json', content: flowJson([['Plan', 'done']]) }, NOW)).toBe(null)
+  expect(flowWritten({ file_path: FLOW_PATH, content: 'null' }, NOW)).toBe(null)
+  expect(flowWritten({ file_path: FLOW_PATH, content: '{' }, NOW)).toBe(null)
+  expect(flowWritten({ file_path: FLOW_PATH, content: flowJson([['Plan', 'running']]) }, NOW)).toBe(null)
+  expect(flowWritten({ file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Ship', 'done']]) }, NOW)?.current).toBe(-1)
+})
+
+test('the band above the prompt carries the flow bar while it runs, the wait at a checkpoint, and nothing once done', () => {
+  const at = (phases: [string, string][], paused = '') => flowRecorded(startJob(EMPTY_JOB, 'implement', NOW), 'Write', { file_path: FLOW_PATH, content: flowJson(phases, paused) }, false, NOW)
+
+  expect(flowBand(at([['Setup', 'done'], ['Plan', 'active']]), NOW + 5_000, 120)).toEqual({ text: 'flow feat/auth  ▰▱ 1/2 · Plan · 5s', tone: 'ok' })
+  expect(flowBand(at([['Plan', 'done'], ['Build', 'paused']], 'plan approval'), NOW, 120)?.tone).toBe('warn')
+  expect(flowBand(at([['Plan', 'done'], ['Build', 'done']]), NOW, 120)).toBe(null)
+  expect(flowBand(EMPTY_JOB, NOW, 120)).toBe(null)
+})
+
+test('a running flow offers pause and stop, a stopped one resume, a finished one nothing; resume and rerun name the branch and phase', () => {
+  const flow = flowWritten({ file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Build', 'active']]) }, NOW)!
+
+  expect(flowActions(flow, true)).toEqual(['pause', 'stop'])
+  expect(flowActions(flow, false)).toEqual(['resume'])
+  expect(flowActions({ ...flow, file: undefined }, true)).toEqual(['stop'])
+  expect(flowActions({ ...flow, current: -1 }, true)).toEqual([])
+  expect(flowResume(flow)).toBe('/bond:implement --resume feat/auth')
+  expect(flowResume(flow, 'Tests "first"')).toBe('/bond:implement --resume feat/auth --from "Tests first"')
+  expect(pausePath(flow)).toBe('/Users/x/.local/state/bond-flow/repo--feat-auth.pause')
+})
+
+test('a progress write that was denied or failed never reached the file, so the flow stays where it was', () => {
+  const running = flowRecorded(startJob(EMPTY_JOB, 'implement', NOW), 'Write', { file_path: FLOW_PATH, content: flowJson([['Plan', 'active'], ['Build', 'todo']]) }, false, NOW)
+  const denied = flowRecorded(running, 'Write', { file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Build', 'paused']], 'crafted') }, true, NOW + 1_000)
+
+  expect(denied.flow).toEqual(running.flow)
+  expect(flowRecorded(running, 'Edit', { file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Build', 'done']]) }, false, NOW)).toBe(running)
+})
+
+test('the band names a stop without asking for a reply that would not continue the run', () => {
+  const stopped = flowRecorded(startJob(EMPTY_JOB, 'implement', NOW), 'Write', { file_path: FLOW_PATH, content: flowJson([['Plan', 'done'], ['Build', 'paused']], 'stopped · /bond:implement --resume feat/auth') }, false, NOW)
+
+  expect(flowBand(stopped, NOW, 120)).toEqual({ text: 'flow feat/auth  ▰▱ 1/2 · ⏸ Build · stopped · /bond:implement --resume feat/auth', tone: 'warn' })
 })

@@ -1,15 +1,14 @@
 ---
 name: pr-review
 description: >
-  Reviews one open pull request's diff against its base — GitHub or Bitbucket —
-  and returns verified findings ranked most severe first, each with file:line,
-  a one-line defect and the concrete input that breaks it. Use right after a PR
+  Reviews one open pull request's diff against its base and returns verified findings ranked most severe first,
+  each with file:line, a one-line defect and the concrete input that breaks it. Use right after a PR
   is opened, before it is tested or marked ready, so the review's fixes land
   before anything is verified. Read-only: never edits, commits, pushes,
   comments on the PR or resolves threads — the caller applies the fixes.
 model: opus
 effort: high
-tools: Bash, Read, Grep, Glob, Skill, mcp__bond-bitbucket__get_pull_request
+tools: Bash, Read, Grep, Glob, Skill
 ---
 
 Review the PR once. Report verified findings. Stop.
@@ -22,8 +21,8 @@ Review the PR once. Report verified findings. Stop.
 
 ## Job
 
-1. **Coordinates.** GitHub: `gh pr view <n> --json number,title,headRefOid,baseRefName,body,url`.
-   Bitbucket: `get_pull_request`. `MERGED` / `CLOSED` / `DECLINED` ⇒ one line, stop.
+1. **Coordinates.** `gh pr view <n> --json number,title,headRefOid,baseRefName,body,url`.
+   `MERGED` / `CLOSED` ⇒ one line, stop.
 2. **The diff.** `git fetch origin <base> <head sha>`, then
    `git diff origin/<base>...<head sha>`. No checkout: read files at the head
    with `git show <head sha>:<path>` when the working tree is elsewhere.

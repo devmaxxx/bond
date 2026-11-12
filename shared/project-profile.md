@@ -3,12 +3,11 @@
 > **Not an invocable command.** The single place a bond command works out _what
 > kind of repo it is standing in_. Every command that touches a host, a base
 > branch, an issue tracker, reviewers or a chat channel resolves this profile
-> first and reads the answers off it — no command hardcodes Bonliva again.
+> first and reads the answers off it — no command hardcodes a workspace, a base
+> branch or a reviewer list.
 
-The plugin started life inside Bonliva, so its defaults were Bonliva's: a
-Bitbucket workspace, a Jira project, a `dev` base branch, a fixed reviewer list.
-Those are now _one profile among several_. A repo that is not Bonliva's gets the
-generic profile and the commands still work.
+A repo with no `.bond/project.json` gets the generic profile: GitHub, the
+remote's default branch, no tracker, no drafts, GitHub's own reviewers.
 
 ## Resolve the profile
 
@@ -25,14 +24,11 @@ the repo's own statement about itself beats a guess made from its URL.
 
 ```json
 {
-  "host": "github",
   "tracker": "none",
   "baseBranch": "main",
   "reviewers": [],
   "draft": false,
-  "prTitle": "plain",
-  "teamsChannel": null,
-  "clockifyProject": null
+  "prTitle": "plain"
 }
 ```
 
@@ -43,32 +39,24 @@ and the guess mattered.
 
 ### `HOST` — where pull requests live
 
-From the `origin` URL: `bitbucket.org` → **Bitbucket** (the `bond-bitbucket`
-MCP), `github.com` or a `github-*` SSH alias → **GitHub** (`gh`). A repo with
-several remotes resolves `origin`, not the first remote listed — `git remote -v`
-sorts alphabetically, so the fork you push to may not be the one printed first.
+GitHub, through `gh`. The `origin` URL must be `github.com` or a `github-*` SSH
+alias. A repo with several remotes resolves `origin`, not the first remote
+listed — `git remote -v` sorts alphabetically, so the fork you push to may not
+be the one printed first.
 
-Neither host matched, and no `host` in the manifest ⇒ report it and stop. A PR
-opened against the wrong host is not recoverable by editing it.
+`origin` is not on GitHub ⇒ report it and stop. A PR opened against the wrong
+host is not recoverable by editing it.
 
-### `WORKSPACE` / `OWNER` and `REPO_SLUG`
+### `OWNER` and `REPO_SLUG`
 
-The path segments of the `origin` URL. `git@bitbucket.org:bonliva/bonliva-erp.git`
-→ workspace `bonliva`, slug `bonliva-erp`. `https://github.com/devmaxxx/repograph.git`
+The path segments of the `origin` URL. `https://github.com/devmaxxx/repograph.git`
 → owner `devmaxxx`, slug `repograph`.
-
-### `BONLIVA` — is this a Bonliva repo?
-
-True when the workspace is `bonliva`, when a remote points at
-`bitbucket.org/bonliva/…`, or when `.bonliva-dev/project.json` exists at the
-root. It gates the Jira, Teams and Clockify defaults below, and `DRAFT` — nothing
-else.
 
 ### `DRAFT` — does a PR open as a draft?
 
-`draft` in the manifest, else `BONLIVA`. A repo outside Bonliva that wants drafts
-sets `"draft": true`; a Bonliva repo that does not sets `"draft": false`.
-`hooks/check-pr.mjs` enforces the resolved value.
+`draft` in the manifest, else `false`: a PR opens ready for review. A repo that
+wants drafts sets `"draft": true`. `hooks/check-pr.mjs` enforces the resolved
+value.
 
 ### `BASE_BRANCH` — what a PR targets, and what a branch is cut from
 
@@ -76,17 +64,11 @@ First match wins:
 
 1. An explicit `--base` argument on the command.
 2. `baseBranch` in `.bond/project.json`.
-3. **Bonliva only** — the slug table, which encodes real per-repo history:
-   slug contains `erp` → `main`, `crm` → `dev`, `async` → `master`, else `dev`.
-4. The remote's own default branch:
+3. The remote's own default branch:
    `git symbolic-ref --quiet --short refs/remotes/origin/HEAD` (strip the
    `origin/` prefix). Run `git remote set-head origin --auto` first if it is
    unset.
-5. `main`.
-
-Step 3 is why this list exists: `dev` is the right fallback inside Bonliva and
-the wrong one everywhere else. Applying it to a repo whose default branch is
-`main` cuts the branch off a base that does not exist.
+4. `main`.
 
 ### `PR_TITLE` — `plain` or `conventional`
 
@@ -97,7 +79,7 @@ subject, and `hooks/check-pr.mjs` enforces whichever the profile says.
 
 ### `TRACKER` — `jira` or `none`
 
-`tracker` in the manifest, else `jira` when `BONLIVA`, else **`none`**.
+`tracker` in the manifest, else **`none`**.
 
 `TRACKER=none` is a first-class path, not an error. Under it:
 
@@ -107,7 +89,7 @@ subject, and `hooks/check-pr.mjs` enforces whichever the profile says.
   and the PR title carries no key prefix.
 - The branch description comes from the work itself:
   `<type>/<short-hyphenated-description>` per the `authorship-conventions` skill,
-  not the `<type>/<KEY>` shape bond imposes inside Bonliva.
+  not the `<type>/<KEY>` shape bond uses under `TRACKER=jira`.
 - A plan file is named after the branch description rather than the ticket.
 
 `TICKET_KEYS` under `TRACKER=jira` are the configured Jira project keys — see
@@ -117,50 +99,29 @@ those keys is free text, not a ticket.
 ### `REVIEWERS`
 
 1. `reviewers` in `.bond/project.json`.
-2. `$HOME/.bond/pr-reviewers.json` — **only when `BONLIVA`.** That file holds
-   Bonliva colleagues; adding them to a personal repo's PR is a request for
-   review from people who cannot see the repo.
-3. The host's own defaults: `get_effective_default_reviewers` on Bitbucket,
-   the configured reviewers or `CODEOWNERS` on GitHub.
+2. The repo's configured reviewers or `CODEOWNERS` on GitHub.
 
 Nothing resolved ⇒ open the PR with no reviewers. Never invent one.
-
-### `TEAMS_CHANNEL` / `CLOCKIFY_PROJECT`
-
-`BONLIVA` only, unless the manifest names one. `/request-review`,
-`/teams-post` and `/publish-timelog` report that the profile has no channel or
-project and stop, rather than posting a personal repo's work into a work
-channel.
 
 ## Procedure: Resolve PR coordinates
 
 **Inputs:** the PR token a command was given — a number, a full URL, or nothing.
 
-A full URL names its own host, and that host **wins over the profile**: a
-Bitbucket URL is a Bitbucket PR even when run from a GitHub checkout.
+A full URL names its own repo, and that repo **wins over the profile**: a PR URL
+for another repo is that repo's PR even when run from this checkout.
 
-- `https://bitbucket.org/<ws>/<repo>/pull-requests/<id>` → Bitbucket, workspace
-  `<ws>`, slug `<repo>`, id `<id>`.
-- `https://github.com/<owner>/<repo>/pull/<id>` → GitHub, owner `<owner>`, slug
+- `https://github.com/<owner>/<repo>/pull/<id>` → owner `<owner>`, slug
   `<repo>`, id `<id>`.
-- A **bare number** takes `HOST`, `WORKSPACE`/`OWNER` and `REPO_SLUG` from the
-  profile — never a hardcoded workspace. Inside Bonliva that still resolves to
-  `bonliva`; elsewhere it resolves to the repo actually in front of you.
-- **Nothing** — on GitHub, `gh pr view --json number` resolves the PR for the
-  current branch; on Bitbucket, ask. Never guess a PR number.
+- A **bare number** takes `OWNER` and `REPO_SLUG` from the profile — never a
+  hardcoded owner.
+- **Nothing** — `gh pr view --json number` resolves the PR for the current
+  branch. Never guess a PR number.
 
 ## Procedure: PR details and CI status
 
 **Inputs:** the coordinates above.
 
-**Bitbucket** — `mcp__bond-bitbucket__get_pull_request` for `title`, `state`
-(`MERGED`/`DECLINED` ⇒ nothing to do), `source_branch`, `destination_branch`,
-`source.commit.hash`. For CI, `get_commit_statuses` on that hash (newest
-`type == "build"` whose name starts with `Pipeline`), falling back to
-`list_pipeline_runs` on the source branch; then `get_pipeline_steps` and
-`get_pipeline_step_logs` for the failed steps.
-
-**GitHub** — `gh` throughout:
+`gh` throughout:
 
 ```sh
 gh pr view <id> --json number,title,state,isDraft,headRefName,baseRefName,headRefOid,url
@@ -176,12 +137,11 @@ check's `link` (its last path segment) and read only the failed steps:
 gh run view <run-id> --log-failed
 ```
 
-`gh pr checks <id> --watch --fail-fast` blocks until the checks settle, which is
-the GitHub equivalent of polling a Bitbucket pipeline.
+`gh pr checks <id> --watch --fail-fast` blocks until the checks settle.
 
-Map both hosts onto one vocabulary before reporting: **running**, **passed**,
-**failed**. A command that branches on a host-specific status string anywhere
-except inside this procedure has leaked the host into its logic.
+Map the checks onto one vocabulary before reporting: **running**, **passed**,
+**failed**. A command that branches on a raw `gh` status string anywhere except
+inside this procedure has leaked it into its logic.
 
 ## Procedure: Diagnose CI failure
 
@@ -189,8 +149,8 @@ except inside this procedure has leaked the host into its logic.
 
 1. Resolve the CI state through **PR details and CI status**.
 2. **running** or **passed** — say so and stop; there is nothing to diagnose.
-3. **failed** — pull the logs of the failed steps only: `get_pipeline_step_logs`
-   per failed step on Bitbucket, `gh run view <run-id> --log-failed` on GitHub.
+3. **failed** — pull the logs of the failed steps only:
+   `gh run view <run-id> --log-failed`.
 4. From each, extract the concrete cause — failing test names, type errors, lint
    rule + `file:line`, build/compile errors, or the failed command and its exit
    code. Logs can be long; summarize, never echo them whole.
@@ -204,7 +164,7 @@ Diagnosis only: fixing, committing and pushing belong to the caller.
 
 **Inputs:** the coordinates above.
 
-**Read — GitHub.** Thread resolution state is GraphQL-only — no REST endpoint
+**Read.** Thread resolution state is GraphQL-only — no REST endpoint
 exposes `isResolved`, and no REST endpoint resolves a thread:
 
 ```
@@ -223,10 +183,7 @@ outside threads — `gh api repos/<OWNER>/<REPO_SLUG>/issues/<n>/comments --pagi
 — and have no resolution state, so only a caller's own record of handled ids
 keeps them from being re-worked.
 
-**Read — Bitbucket.** `mcp__bond-bitbucket__get_pull_request_comments`, whose
-comments carry their own resolution state.
-
-**Reply and resolve — GitHub.**
+**Reply and resolve.**
 
 - inline review comment —
   `gh api -X POST repos/<OWNER>/<REPO_SLUG>/pulls/<n>/comments/<databaseId>/replies -f body='…'`
@@ -237,22 +194,12 @@ comments carry their own resolution state.
 - resolve the thread, GraphQL-only:
   `gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id=<thread node id>`.
 
-**Reply and resolve — Bitbucket.** `mcp__bond-bitbucket__add_pull_request_comment`
-and `mcp__bond-bitbucket__resolve_pull_request_comment`.
-
 Never resolve a thread that was not actually addressed.
 
-## Worked examples
-
-**`bonliva-erp`** — origin `git@bitbucket.org:bonliva/bonliva-erp.git` ⇒ host
-Bitbucket, workspace `bonliva`, `BONLIVA` true, base `main` (slug table),
-tracker `jira`, reviewers from `~/.bond/pr-reviewers.json`. Exactly today's
-behaviour.
+## Worked example
 
 **`repograph`** — origin `https://github.com/devmaxxx/repograph.git` ⇒ host
-GitHub, owner `devmaxxx`, `BONLIVA` false, base `main` (remote default; the slug
-table is skipped, which is what stops it landing on `dev`), tracker `none`,
-reviewers from GitHub's own defaults or none, no Teams channel, no Clockify
-project. `/implement add a rename cache` cuts `feat/add-a-rename-cache`, writes
-the plan, implements, and opens a GitHub PR (not a draft) with `## Summary` and
-`## Test plan` and no `## Jira`.
+GitHub, owner `devmaxxx`, base `main` (remote default), tracker `none`,
+reviewers from GitHub's own defaults or none. `/implement add a rename cache`
+cuts `feat/add-a-rename-cache`, writes the plan, implements, and opens a GitHub
+PR (not a draft) with `## Summary` and `## Test plan` and no `## Jira`.

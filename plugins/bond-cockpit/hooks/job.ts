@@ -1,5 +1,5 @@
-import type { JobLoop, JobState } from '../types'
-import type { Card, Row, Tone } from './cache'
+import type { FlowPhase, FlowState, JobLoop, JobState } from '../types'
+import type { Card, FlowAction, Row, Tone } from './cache'
 
 const RECENT_TOOLS = 3
 // A loop with no tool call for this long counts as quiet, not working: a fork the engine never
@@ -22,6 +22,10 @@ const SUBCOMMANDS = new Set(['exec', 'run', 'x', 'dlx'])
 const VALUE_FLAGS = new Set(['-C', '--dir', '--prefix', '--cwd', '--filter', '-F', '--workspace'])
 // Only a checker reports in errors; a test runner's output may name them in a test title.
 const COUNTS_ERRORS = /^(tsc|eslint|biome|lint|typecheck|check)$/
+// The implement flow reports its progress by writing this file; the write is the event, the file is never read.
+const FLOW_FILE = /\/\.local\/state\/bond-flow\/[^/]+\.json$/
+const FLOW_STATUS = new Set<FlowPhase['status']>(['done', 'active', 'paused', 'todo', 'skipped'])
+const FLOW_MARK: Record<FlowPhase['status'], string> = { done: '✓', active: '●', paused: '⏸', todo: '○', skipped: '–' }
 
 export const EMPTY_JOB: JobState = {
   task: null,
@@ -33,6 +37,7 @@ export const EMPTY_JOB: JobState = {
   recent: [],
   loops: {},
   workflow: null,
+  flow: null,
 }
 
 export type AgentName = { id: string; description: string; type: string }
@@ -50,7 +55,8 @@ export function startJob(job: JobState, text: string, now: number): JobState {
   }
   const workflow = job.workflow !== null && !isFinished(job.workflow) ? job.workflow : null
 
-  return { ...EMPTY_JOB, task, startedAt: now, loops: keptLoops(job.loops, now), workflow }
+  // A flow outlives the prompt that started it: "continue" after a checkpoint is a new prompt in the same run.
+  return { ...EMPTY_JOB, task, startedAt: now, loops: keptLoops(job.loops, now), workflow, flow: job.flow ?? null }
 }
 
 export function endJob(job: JobState, now: number): JobState {
@@ -105,6 +111,37 @@ export function toolStarted(job: JobState, id: string, tool: string, args: Recor
   const history = [...loop.history, { label, at: now }].slice(-HISTORY)
 
   return { ...job, tools: job.tools + 1, loops: { ...job.loops, [agentId]: { ...loop, calls: loop.calls + 1, last: label, at: now, done: false, pushed, history } } }
+}
+
+/** A main-thread Write that went through moves the flow; a denied or failed one never reached the file, so it does not. */
+export function flowRecorded(job: JobState, tool: string, args: Record<string, unknown>, hasFailed: boolean, now: number): JobState {
+  const flow = tool === 'Write' && !hasFailed ? flowWritten(args, now) : null
+
+  return flow === null ? job : { ...job, flow }
+}
+
+/** The flow state a Write of the implement flow's progress file carries, or null for any other write or a malformed one. */
+export function flowWritten(args: Record<string, unknown>, now: number): FlowState | null {
+  if (typeof args.file_path !== 'string' || !FLOW_FILE.test(args.file_path) || typeof args.content !== 'string') {
+    return null
+  }
+  try {
+    const raw = JSON.parse(args.content) as { branch?: unknown; phases?: unknown; paused?: unknown }
+    if (typeof raw.branch !== 'string' || !Array.isArray(raw.phases) || raw.phases.length === 0) {
+      return null
+    }
+    const phases = raw.phases.flatMap((phase: { name?: unknown; status?: unknown }) =>
+      typeof phase?.name === 'string' && FLOW_STATUS.has(phase.status as FlowPhase['status']) ? [{ name: phase.name, status: phase.status as FlowPhase['status'] }] : [],
+    )
+    if (phases.length !== raw.phases.length) {
+      return null
+    }
+    const current = phases.findIndex(phase => phase.status === 'active' || phase.status === 'paused' || phase.status === 'todo')
+
+    return { branch: raw.branch, file: args.file_path, phases, current, paused: typeof raw.paused === 'string' && raw.paused !== '' ? raw.paused : null, at: now }
+  } catch {
+    return null
+  }
 }
 
 /** A test, typecheck or lint run's counts, when the command names a runner and its output reports any. */
@@ -182,6 +219,10 @@ export function jobCard(job: JobState, agents: readonly AgentName[], now: number
     rows.push({ kind: 'section', title: ['workflow', job.workflow.name, shortRun(job.workflow.runId)].filter(Boolean).join(' · '), tone: 'dim' })
     rows.push({ kind: 'gauge', label: 'finished', value: `${done}/${started}`, ratio: started === 0 ? 0 : done / started, note: isDone ? 'done' : elapsed(now - at), tone: isDone ? 'plain' : 'ok' })
   }
+  const flow = job.flow ?? null
+  if (flow !== null) {
+    rows.push(...flowRows(flow, now, isRunning))
+  }
   if (loops.length > 0) {
     const red = loops.filter(isRed).length
     rows.push({ kind: 'section', title: `agents · ${working} working${red > 0 ? ` · ${red} red` : ''}`, tone: 'dim' })
@@ -237,6 +278,10 @@ export function jobBrief(job: JobState, now: number): { rows: Row[]; isActive: b
   const rows: Row[] = []
   if (job.task !== null || working > 0) {
     rows.push(nowRow(job, isRunning, now))
+  }
+  const flow = job.flow ?? null
+  if (flow !== null) {
+    rows.push(flowGauge(flow, now))
   }
   if (working > 0 || job.workflow !== null) {
     const loops = Object.values(keptLoops(job.loops, now))
@@ -417,6 +462,92 @@ function withDefaults(loop: JobLoop): JobLoop {
 
 function isWorking(loop: Pick<JobLoop, 'done' | 'at'>, now: number): boolean {
   return !loop.done && now - loop.at < STALE_MS
+}
+
+/**
+ * The flow in one line for the band above the prompt, seen whatever tab or pane is open:
+ * a bar of filled phases, the count, and the phase it is in or stopped at. Null once it is done.
+ */
+export function flowBand(job: JobState, now: number, columns: number): { text: string; tone: Tone } | null {
+  const flow = job.flow ?? null
+  if (flow === null || flow.current === -1) {
+    return null
+  }
+  const { bar, finished, total, phase } = flowProgress(flow)
+  const state = flow.paused !== null ? `⏸ ${phase} · ${flow.paused}` : `${phase} · ${elapsed(now - flow.at)}`
+  const text = `flow ${flow.branch}  ${bar} ${finished}/${total} · ${state}`
+
+  return { text: clip(text, Math.max(20, columns)), tone: flow.paused !== null ? 'warn' : 'ok' }
+}
+
+/** The flow for the status line: branch, bar, count and the phase. No clock in it, so the line changes only at a boundary. */
+export function flowStatus(job: JobState): string | null {
+  const flow = job.flow ?? null
+  if (flow === null || flow.current === -1) {
+    return null
+  }
+  const { bar, finished, total, phase } = flowProgress(flow)
+
+  return `${flow.branch} ${bar} ${finished}/${total} · ${flow.paused !== null ? `⏸ ${phase}` : phase}`
+}
+
+function flowProgress(flow: FlowState): { bar: string; finished: number; total: number; phase: string } {
+  const total = flow.phases.length
+  const finished = flow.phases.filter(phase => phase.status === 'done' || phase.status === 'skipped').length
+  const width = Math.min(total, 12)
+  const filled = Math.round((finished / total) * width)
+
+  return { bar: `${'▰'.repeat(filled)}${'▱'.repeat(width - filled)}`, finished, total, phase: flow.phases[flow.current]?.name ?? '' }
+}
+
+/** The flow's section: its branch, a gauge of finished phases, then one mark per phase. */
+function flowRows(flow: FlowState, now: number, isRunning: boolean): Row[] {
+  return [
+    { kind: 'section', title: `flow · ${flow.branch}`, tone: 'dim' },
+    flowGauge(flow, now),
+    { kind: 'controls', actions: flowActions(flow, isRunning), tone: 'dim' },
+    ...flow.phases.map(phase => ({
+      kind: 'phase' as const,
+      mark: FLOW_MARK[phase.status],
+      name: phase.name,
+      // Only a phase already reached can run again; one still ahead is reached by resuming.
+      canRerun: phase.status !== 'todo',
+      tone: phase.status === 'active' ? ('ok' as const) : phase.status === 'paused' ? ('warn' as const) : ('dim' as const),
+    })),
+  ]
+}
+
+/** The buttons a flow offers: pause and stop while the session runs it, resume once it stands still. */
+export function flowActions(flow: FlowState, isRunning: boolean): FlowAction[] {
+  if (flow.current === -1) {
+    return []
+  }
+  if (!isRunning) {
+    return ['resume']
+  }
+
+  return flow.file === undefined ? ['stop'] : ['pause', 'stop']
+}
+
+/** The prompt that resumes a flow, from its next phase or from the one named. */
+export function flowResume(flow: FlowState, phase?: string): string {
+  const from = phase === undefined ? '' : ` --from "${phase.replace(/"/g, '')}"`
+
+  return `/bond:implement --resume ${flow.branch}${from}`
+}
+
+/** The file whose presence stops the run at its next phase boundary. */
+export function pausePath(flow: FlowState): string | null {
+  return flow.file === undefined ? null : flow.file.replace(/\.json$/, '.pause')
+}
+
+function flowGauge(flow: FlowState, now: number): Row {
+  const finished = flow.phases.filter(phase => phase.status === 'done' || phase.status === 'skipped').length
+  const total = flow.phases.length
+  const phase = flow.current === -1 ? 'done' : (flow.phases[flow.current]?.name ?? '')
+  const note = flow.paused !== null ? `⏸ ${phase} · ${flow.paused}` : flow.current === -1 ? 'done' : `${phase} · ${elapsed(now - flow.at)}`
+
+  return { kind: 'gauge', label: 'flow', value: `${finished}/${total}`, ratio: total === 0 ? 0 : finished / total, note, tone: flow.paused !== null ? 'warn' : flow.current === -1 ? 'plain' : 'ok' }
 }
 
 function isFinished(workflow: NonNullable<JobState['workflow']>): boolean {

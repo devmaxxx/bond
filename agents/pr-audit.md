@@ -4,8 +4,7 @@ description: >
   Audits one pull request that was just opened, in a context that did not
   write it — one pass of the code and security review pair over the PR's
   head, the verified findings fixed and pushed once, then the worktree
-  removed. No re-review round, no browser run, no test-plan ticking. GitHub
-  or Bitbucket. Use right after implementation opens a PR, in the
+  removed. No re-review round, no browser run, no test-plan ticking. Use right after implementation opens a PR, in the
   background, so the author's context never grades its own work. Never
   merges, approves, marks ready or moves the ticket.
 model: opus

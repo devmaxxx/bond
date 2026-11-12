@@ -1,7 +1,6 @@
 # Which account pushes
 
-Two accounts are authenticated in `gh` on github.com: **maxSynEfisco** (Bonliva
-work) and **devmaxxx** (personal). The active one decides which token pushes.
+Two accounts are authenticated in `gh` on github.com: **maxSynEfisco** (work) and **devmaxxx** (personal). The active one decides which token pushes.
 A commit pushed or a PR opened from the wrong account is public, attributed to
 the wrong identity, and undone only by force-pushing or closing and reopening
 the PR.
@@ -25,22 +24,23 @@ GH_TOKEN=$(gh auth token -u devmaxxx) gh pr create …
 ```
 
 `hooks/gh-account-guard.mjs` enforces this where `BOND_GH_ACCOUNTS` maps repo
-owners to accounts (`devmaxxx=devmaxxx,bonliva=maxSynEfisco`): a push or `gh`
+owners to accounts (`devmaxxx=devmaxxx,<work-org>=maxSynEfisco`): a push or `gh`
 write that would go out as the wrong account is blocked with the command that
 would not.
 
-**The rule.** Bonliva projects use **maxSynEfisco**; everything else uses
+**The rule.** Work projects use **maxSynEfisco**; personal ones use
 **devmaxxx**. Decide from the repo in front of you, never from memory. First
 match wins:
 
 1. **GitHub remote owner is `devmaxxx`** → **devmaxxx**. The token must match the
    repo owner, so this beats every other signal, manifest included.
-2. **`.bonliva-dev/project.json` at the repo root**, or a remote pointing at
-   `bitbucket.org/bonliva/...` → **maxSynEfisco**.
+2. **GitHub remote owner is mapped in `BOND_GH_ACCOUNTS`** → **the account the
+   map names for that owner** — maxSynEfisco for the work org, devmaxxx for
+   another personal owner. Being in the map is not what makes a repo work's.
 3. **Anything else** — a remote owned by another org, no remote, a bare
    directory → **ask once which account this repo uses. Do not guess.**
 
-Signals disagreeing (a Bonliva manifest in a repo whose GitHub remote is
+Signals disagreeing (a work-org mapping for a repo whose GitHub remote is
 `devmaxxx/...`) is rule 1: push with the account that owns the remote.
 
 Do not `gh auth switch`: the active account is **global to this machine**, so a
@@ -66,7 +66,7 @@ git config --local user.name "<name>"
 git config --local user.email "<email>"
 ```
 
-The machine's global identity is already the Bonliva one, so Bonliva repos need
+The machine's global identity is already the work one, so work repos need
 nothing. A personal repo that should not carry the work address needs its own
 local identity: ask for the name and email once, and never invent one. This file
 is published in a public repo, so the addresses themselves stay out of it.

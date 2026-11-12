@@ -8,7 +8,7 @@ Precedence, first that holds:
 4. `tree` — there is no base yet
 5. `path <p>` — one leg of a split run
 
-A PR number reviews only what is pushed, which is why an unpushed fix or a dirty tree drops the target to the branch. Bitbucket PRs are always `branch`: the fork fetches a PR through `gh`, and that is GitHub only.
+A PR number reviews only what is pushed, which is why an unpushed fix or a dirty tree drops the target to the branch.
 
 **Split.** `files ≥ 20` and the answer is `high` or `max` ⇒ one run per module among the changed paths, each at the routed level, because the 15-finding cap is per run and a 31-file diff spends it before it reaches the third module. Each run waits for its own report before the next starts. The first such run verifies that a directory target actually scopes the diff; if it does not, one run, and `(cap 15, unsplit)` in the route line.
 

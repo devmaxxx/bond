@@ -1,9 +1,8 @@
 # Shared PR template
 
 > **Not an invocable command.** Single source of truth for the title and
-> description of every pull request opened in a Bonliva repo, on GitHub and on
-> Bitbucket alike. Used by `/bond:open-pr`, by the Ship + PR step of
-> `/bond:implement` and `/bond-bonliva:fix-qa`, and by the `pr-template` skill. Edit the
+> description of every pull request bond opens. Used by `/bond:open-pr`, by the Ship + PR step of
+> `/bond:implement`, and by the `pr-template` skill. Edit the
 > format here and every PR path picks it up — do not copy this format into
 > individual commands.
 
@@ -23,8 +22,8 @@ Set these before building the title/description:
   key (`ERP`, `CRMDEV`) followed by `-` and digits. Not any `[A-Z]+-\d+` — that
   shape also spells `UTF-8` and `SHA-256`. Set `BOND_JIRA_PROJECTS` (comma- or
   space-separated) to replace the list when a project is added. Empty whenever
-  the project profile resolves `TRACKER=none`, which is every repo outside
-  Bonliva unless `.bond/project.json` says otherwise.
+  the project profile resolves `TRACKER=none`, which is every repo unless
+  `.bond/project.json` says `jira`.
 
 ## Title
 
@@ -54,7 +53,7 @@ refusing it. The issue goes into the body (`Closes #<n>`).
 
 ## Jira
 
-<For each ticket: - ERP-123: https://bonliva.atlassian.net/browse/ERP-123>
+<For each ticket: - ERP-123: https://<site>.atlassian.net/browse/ERP-123>
 
 ## Test plan
 
@@ -62,30 +61,31 @@ refusing it. The issue goes into the body (`Closes #<n>`).
 - [ ] <edge case>
 ```
 
-Omit the `## Jira` section entirely if `<tickets>` is empty. The description
+Omit the `## Jira` section entirely if `<tickets>` is empty.
+
+When the branch's plan file (`docs/plans/<KEY>.md` or the branch slug) has a
+`## Coverage` section, the **Test plan** carries one item per acceptance
+criterion, led by its id — `- [ ] AC2: wrong password returns 401
+(auth.test.ts › rejects a wrong password)` — and every `manual:` criterion as
+an item to check by hand. The description
 ends at the test plan: no "generated with" footer, no session link, no AI
 co-author line — the PR is owned by the human who opens it (`authorship-conventions`).
 
 ## Drafts
 
-When the project profile resolves `DRAFT` — every Bonliva repo by default — the
-PR is created as a **draft**, on every host — `--draft` on `gh pr create`,
-`create_draft_pull_request` on Bitbucket. The author publishes it when it is
-ready for review.
+When the project profile resolves `DRAFT` — `"draft": true` in
+`.bond/project.json` — the PR is created as a **draft** (`--draft` on
+`gh pr create`). The author publishes it when it is ready for review.
 
-Otherwise open it ready for review: drop `--draft`, use `create_pull_request`.
-A repo changes its own answer with `"draft": true|false` in `.bond/project.json`.
+Otherwise open it ready for review: no `--draft`.
 
 ## Host
 
-Resolve the host from `git remote get-url origin` before building the call; a
-Bonliva repo may live on either.
-
-**GitHub** (`gh`) — write the description to a file and pass `--body-file`, so
-the body survives quoting intact (`--draft` in Bonliva only):
+GitHub (`gh`). Write the description to a file and pass `--body-file`, so the
+body survives quoting intact (`--draft` only where the profile resolves `DRAFT`):
 
 ```sh
-gh pr create --draft --base <base> --head <branch> \
+gh pr create --base <base> --head <branch> \
   --title "<title>" --body-file "$body_file" \
   --reviewer <login> --reviewer <login>
 ```
@@ -94,29 +94,16 @@ Never `--fill` / `--fill-first` / `--fill-verbose`: they build the body from
 commit subjects, which is exactly the per-PR wording this template exists to
 replace.
 
-**Bitbucket** (MCP) — `mcp__bond-bitbucket__create_draft_pull_request` in
-Bonliva, `create_pull_request` elsewhere, with
-`workspace`, `repo_slug`, `title`, `description`, `source_branch`,
-`destination_branch`, `reviewers`.
-
 ## Reviewers
 
-Every PR is created with default reviewers attached. Resolve them in this order:
+Resolve reviewers in this order:
 
 1. **The project profile** — `shared/project-profile.md`, the `REVIEWERS` field:
-   a repo's own `.bond/project.json` first, then
-   `$HOME/.bond/pr-reviewers.json` (managed by `/bond-bonliva:set-reviewers`) **when the
-   profile says the repo is Bonliva's**. Entries there carry a Bitbucket `uuid`;
-   a `login` on the entry is the GitHub handle for the same person. That file
-   lists Bonliva colleagues, so a personal repo never draws from it — a review
-   request to someone who cannot open the repo is noise they have to clear.
-2. **The host's own defaults** — otherwise call
-   `mcp__bond-bitbucket__get_effective_default_reviewers` with the workspace and
-   repo slug on Bitbucket, or read the repo's configured reviewers /
+   the repo's own `reviewers` in `.bond/project.json`. An entry may be a plain
+   GitHub login.
+2. **The host's own defaults** — the repo's configured reviewers or
    `CODEOWNERS` on GitHub.
 
-Pass the resolved values as the `reviewers` array on
-`create_draft_pull_request` / `create_pull_request`, or as repeated `--reviewer`
-flags on `gh pr create`. Omit them if both sources yield nothing — an
-unresolvable reviewer is not a reason to skip the PR. Never invent reviewers or
-carry them over from an old PR.
+Pass the resolved values as repeated `--reviewer` flags on `gh pr create`. Omit
+them if both sources yield nothing — an unresolvable reviewer is not a reason to
+skip the PR. Never invent reviewers or carry them over from an old PR.

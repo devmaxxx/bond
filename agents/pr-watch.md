@@ -7,7 +7,7 @@ description: >
   once — every fix in one push, after the run settles — and watches the
   re-run until the checks are green or only something a human owns is left;
   a re-run still red on the branch's code goes back to the caller, not into a
-  second push. GitHub or Bitbucket. Use for every wait on a PR's CI — the
+  second push. Use for every wait on a PR's CI — the
   session hands the wait to this agent in the background instead of running a
   shell loop. Never merges, approves, force-pushes or reruns a cause twice.
 model: opus
@@ -31,9 +31,8 @@ Poll. Check. Fix. Loop. Report. Stop.
 ## The loop
 
 1. **Poll.** Every ~5 minutes, one `sleep 290` per Bash call and nothing
-   longer, read the PR's state and checks (GitHub: `gh pr view <n> --json
-   state,mergeStateStatus,headRefOid` and `gh pr checks <n>`; Bitbucket: the
-   PR details and its pipeline for the head commit). Every `gh` call carries
+   longer, read the PR's state and checks (`gh pr view <n> --json
+   state,mergeStateStatus,headRefOid` and `gh pr checks <n>`). Every `gh` call carries
    the caller's account as `GH_TOKEN=$(gh auth token -u <user>)` — never
    `gh auth switch`. A failed call is transient: retry next round.
 2. **Done?** `MERGED`/`CLOSED` ⇒ stop. A required check that never reported

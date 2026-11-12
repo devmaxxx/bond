@@ -1,7 +1,7 @@
 import type { EngineInterface, RenderElement } from 'claude-code'
 
 import { hitTone } from './cache'
-import type { Card, Row, Segment, TabName, Tone } from './cache'
+import type { Card, FlowAction, Row, Segment, TabName, Tone } from './cache'
 
 export type Ui = ReturnType<EngineInterface['ui']['resolve']>
 
@@ -38,7 +38,15 @@ const TIME_COLUMNS = 8
 const TAB_HOTKEY: Record<TabName, string> = { job: 'j', session: 's' }
 
 /** Given, `onAgent` makes each agent's name a button that opens it, and `onTab` each tab heading. */
-export type Presses = { onAgent?: (agentId: string) => void; onTab?: (tab: TabName) => void }
+export type Presses = {
+  onAgent?: (agentId: string) => void
+  onTab?: (tab: TabName) => void
+  // A flow control, or with `phase` a rerun of that phase.
+  onFlow?: (action: FlowAction | 'rerun', phase?: string) => void
+}
+
+export const FLOW_LABEL: Record<FlowAction, string> = { pause: '⏸ pause', stop: '■ stop', resume: '▶ resume' }
+export const FLOW_HOTKEY: Record<FlowAction, string> = { pause: 'p', stop: 'x', resume: 'r' }
 
 /** `columns` is the pane body's width; bars stretch to fill whatever the card has. */
 export function drawCards(ui: Ui, cards: readonly Card[], columns: number, presses: Presses = {}): RenderElement {
@@ -159,6 +167,29 @@ function drawRow(ui: Ui, row: Row, key: string, inner: number, presses: Presses)
     }
     case 'agent':
       return drawAgent(ui, row, key, presses.onAgent)
+    case 'controls':
+      return presses.onFlow === undefined || row.actions.length === 0 ? (
+        <Box key={key} />
+      ) : (
+        <Box key={key} flexDirection="row" gap={2}>
+          {row.actions.map(action => (
+            <ui.Button key={`flow:${action}`} label={FLOW_LABEL[action]} hotkey={FLOW_HOTKEY[action]} onPress={() => presses.onFlow?.(action)} />
+          ))}
+        </Box>
+      )
+    case 'phase':
+      return (
+        <Box key={key} flexDirection="row">
+          <Box flexGrow={1}>
+            <Text wrap="truncate-end" {...tone}>{`${row.mark} ${row.name}`}</Text>
+          </Box>
+          {row.canRerun && presses.onFlow !== undefined ? (
+            <ui.Button key={`rerun:${row.name}`} plain label={`↻ rerun ${row.name}`} onPress={() => presses.onFlow?.('rerun', row.name)}>
+              <Text dimColor>↻</Text>
+            </ui.Button>
+          ) : null}
+        </Box>
+      )
     case 'line':
       return (
         <Box key={key}>

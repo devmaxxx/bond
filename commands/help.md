@@ -4,7 +4,7 @@ description: List all bond plugin commands with their descriptions
 
 # /bond:help
 
-Print a table of all commands provided by the `bond` plugin, then the Bonliva-only commands of its companion `bond-bonliva` plugin, with a one-line description of each.
+Print a table of all commands provided by the `bond` plugin, then those of its companion plugins, with a one-line description of each.
 
 ## Steps
 
@@ -23,32 +23,16 @@ Output the following table verbatim:
 | `/bond:linkedin`       | Write a LinkedIn post or article from the source, numbers checked, with an optional cover-image prompt |
 | `/bond:linkedin-draft` | Put an approved post or article into LinkedIn through Chrome as a draft, never published         |
 | `/bond:jira`           | Create, edit, assign, comment on, or transition a Jira issue (assigned to you by default)       |
-| `/bond:open-pr`        | Open a PR for the current branch (GitHub or Bitbucket; draft in Bonliva repos)                   |
+| `/bond:open-pr`        | Open a PR for the current branch on GitHub                                                       |
 | `/bond:merge-pr`       | Merge one PR once it is green: push first, squash-merge, remove its branch and worktree         |
 | `/bond:sweep-pr`       | Sweep open PRs: retarget, rebase, restart infra CI, merge the green ones under `--merge`          |
 | `/bond:review-pr`      | Review a PR like a senior reviewer and write it up as one comment, figures from read-only prod data |
 | `/bond:rebase`         | Rebase (or merge) a branch on its base, resolve conflicts, re-test, push with lease               |
-| `/bond:ship-pr`        | After implement/fix-qa: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
+| `/bond:ship-pr`        | After implement: browser-test the PR, tick its test plan, mark ready, loop review → fix → CI |
 | `/bond:worktree`       | Open a worktree for a branch, ticket or PR; close it; prune merged and stale ones                  |
 | `/bond:start`          | Check out a fresh typed branch — creating the Jira issue first where there is a tracker          |
 
-Then output this second table verbatim — these need `bond-bonliva@devmaxxx` enabled in the repo's `.claude/settings.local.json`:
-
-| Command | Purpose |
-| --- | --- |
-| `/bond-bonliva:sync-check`     | Why an ERP taxation and its CRM booking disagree — from the two URLs, live data and the sync code |
-| `/bond-bonliva:fix-qa`         | Re-run implementation against QA feedback — from a Jira ticket, or given as free text           |
-| `/bond-bonliva:jira-sync`      | Move tickets of merged PRs to QA (fixVersion), open PRs to In Review, post QA test plans        |
-| `/bond-bonliva:log-plan`       | Generate a day/week/month time-log plan                                                         |
-| `/bond-bonliva:publish-timelog`| Publish an existing time-log md to Jira + Clockify (1 entry/day) and reconcile the totals        |
-| `/bond-bonliva:projects`       | Manage the projects tracked by `/log-plan` (add, remove, discover, clear)                       |
-| `/bond-bonliva:publish-doc`    | Publish a markdown doc to Outline, keeping its id and hash in the frontmatter                   |
-| `/bond-bonliva:request-review` | Post a Teams card inviting reviewers to review a PR                                             |
-| `/bond-bonliva:set-reviewers`  | Set or change the default reviewers added to PRs                                                |
-| `/bond-bonliva:setup-plugin`   | Set up the bond-bonliva plugin: install MCP servers and configure env vars                              |
-| `/bond-bonliva:teams-post`     | Post a message to a Teams channel via a Workflow webhook                                        |
-
-Then output this third table verbatim — these need `bond-oss@devmaxxx` enabled (globally, or in each library repo):
+Then output this second table verbatim — these need `bond-oss@devmaxxx` enabled (globally, or in each library repo):
 
 | Command | Purpose |
 | --- | --- |

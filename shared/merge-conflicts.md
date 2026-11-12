@@ -19,7 +19,7 @@
 
 GitHub: `gh pr view <n> --json mergeable,mergeStateStatus` — `UNKNOWN` is still
 computing, re-read it; still unknown, fall through to the trial merge.
-Everywhere, and the only way on Bitbucket:
+Without `gh`, or when it stays unknown:
 
 ```sh
 git fetch origin <BASE_BRANCH>
@@ -45,8 +45,7 @@ fresh base, not only for a conflict fix.
   - a commit in `git log --format='%ae' origin/<BASE_BRANCH>..HEAD` by an
     author other than the active git user;
   - another open PR uses this branch as its base (a stacked PR —
-    `gh pr list --base <branch>`; `get_pull_requests` filtered by
-    destination on Bitbucket);
+    `gh pr list --base <branch>`);
   - the branch is itself a long-lived one (`main`, `dev`, `release/*`,
     `hotfix/*`).
 

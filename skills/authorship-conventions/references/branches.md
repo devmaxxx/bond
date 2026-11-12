@@ -10,8 +10,8 @@ with a prose _why_ body. No AI signature anywhere.
 `<type>/<description>` — the type carries meaning for humans and for CI; the
 description says what the branch does, in lowercase words joined by hyphens.
 
-**Bonliva repos are the exception:** the `bond` commands already name branches
-there, and this skill defers to them. See §5.
+**Jira-tracked repos (`TRACKER=jira`) are the exception:** the `bond` commands
+already name branches there, and this skill defers to them. See §5.
 
 | Prefix | Use it for |
 |---|---|
@@ -47,13 +47,13 @@ Good: `feat/add-login-page`, `fix/issue-482-header-overflow`,
 
 Bad: `Feature/Add-Login` (uppercase), `fix/header_bug` (underscore),
 `feat/new--login` (consecutive hyphens), `csv-export` (no type prefix),
-`feat/ERP-587-export` (uppercase ticket id outside a Bonliva repo, where nothing
+`feat/ERP-587-export` (uppercase ticket id where no Jira tooling
 consumes it — lowercase it: `feat/erp-587-export`).
 
-# Bonliva branches
+# Jira branches
 
 `/bond:start` and `/bond:implement` cut the branch themselves and impose their
-own shape. **Do not override them** — the Jira tooling and `/bond-bonliva:fix-qa` find
+own shape. **Do not override them** — the Jira tooling finds
 the branch by that shape:
 
 - Prefix from the issue type: `Bug` → `fix`, everything else → `feat`.
@@ -61,14 +61,13 @@ the branch by that shape:
 - Multiple tickets: `<prefix>/<KEY>_<KEY>`, e.g. `feat/ERP-135_ERP-136`.
 
 That shape keeps the uppercase Jira key and uses an underscore, so it breaks
-rules 1 and 2 above on purpose. In a Bonliva repo bond wins. Everywhere else
+rules 1 and 2 above on purpose. Under `TRACKER=jira` bond wins. Everywhere else
 this skill's rules win. Where the project profile resolves `TRACKER=none` there
 is no key at all — use the `<type>/<description>` shape of §1.
 
-Naming a branch by hand in a Bonliva repo? Match bond: `<feat|fix>/<KEY>` and
+Naming a branch by hand under `TRACKER=jira`? Match bond: `<feat|fix>/<KEY>` and
 **stop at the key**. `feat/ERP-587-export-timesheet-to-csv` is the natural thing
 to write and it is wrong here — no slug after the key, no lowercasing the key.
-`/bond-bonliva:fix-qa` looks the branch up by that shape.
 
 # Renaming a branch
 

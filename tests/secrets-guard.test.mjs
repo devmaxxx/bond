@@ -411,41 +411,6 @@ describe("PreToolUse on Write / Edit / MultiEdit", () => {
   });
 });
 
-describe("PreToolUse on a pull request opened through Bitbucket", () => {
-  const open = (tool, input) => checkTool({ tool_name: `mcp__bond-bitbucket__${tool}`, tool_input: input }, committable);
-
-  it("blocks a secret in the description", () => {
-    assert.match(
-      open("create_pull_request", { title: "feat: x", description: `key ${fake.atlassian()}` }),
-      /Atlassian API token/,
-    );
-  });
-
-  it("blocks a secret in the title of a draft", () => {
-    assert.match(open("create_draft_pull_request", { title: fake.github(), description: "" }), /GitHub token/);
-  });
-
-  it("lets a clean pull request through", () => {
-    assert.equal(open("create_pull_request", { title: "feat: x", description: "## Summary" }), null);
-  });
-
-  it("blocks a secret in a comment", () => {
-    assert.match(open("add_pull_request_comment", { content: `token ${fake.github()}` }), /GitHub token/);
-  });
-
-  it("blocks a secret written into an existing comment", () => {
-    assert.match(open("update_pull_request_comment", { content: `token ${fake.github()}` }), /GitHub token/);
-  });
-
-  it("blocks a secret written into an existing pull request's description", () => {
-    assert.match(open("update_pull_request", { title: "feat: x", description: fake.github() }), /GitHub token/);
-  });
-
-  it("lets a clean comment through", () => {
-    assert.equal(open("add_pull_request_comment", { content: "## Review" }), null);
-  });
-});
-
 describe("PreToolUse on Bash", () => {
   const bash = (command, isCommittable = committable, readText) =>
     checkTool({ tool_name: "Bash", tool_input: { command } }, isCommittable, readText);
@@ -522,28 +487,28 @@ describe("PreToolUse on Bash", () => {
   });
 
   describe("registering an MCP server", () => {
-    // setup-plugin hands each server its token through `claude mcp add-json`;
+    // The user registers each server by hand, its token through `claude mcp add-json`;
     // local and user scope keep it in ~/.claude.json, project scope in the committed .mcp.json.
     const json = () => `'{"type":"stdio","env":{"TOKEN":"${fake.atlassian()}"}}'`;
 
     for (const tail of ["--scope local", "--scope user", "-s user", ""]) {
       it(`allows add-json ${tail ? `with ${tail}` : "with the default scope"}`, () => {
-        assert.equal(bash(`claude mcp add-json bitbucket ${json()} ${tail}`), null);
+        assert.equal(bash(`claude mcp add-json atlassian ${json()} ${tail}`), null);
       });
     }
 
     it("allows add with -e", () => {
-      assert.equal(bash(`claude mcp add bitbucket -e TOKEN=${fake.atlassian()} --scope local -- npx bitbucket-mcp`), null);
+      assert.equal(bash(`claude mcp add atlassian -e TOKEN=${fake.atlassian()} --scope local -- npx atlassian-mcp`), null);
     });
 
     for (const scope of ["--scope project", "--scope=project", "-s project"]) {
       it(`blocks ${scope}`, () => {
-        assert.match(bash(`claude mcp add-json bitbucket ${json()} ${scope}`), /Atlassian API token/);
+        assert.match(bash(`claude mcp add-json atlassian ${json()} ${scope}`), /Atlassian API token/);
       });
     }
 
     it("blocks a registration chained to another command", () => {
-      assert.match(bash(`claude mcp add-json bitbucket ${json()} --scope local && git commit -am x`), /Atlassian API token/);
+      assert.match(bash(`claude mcp add-json atlassian ${json()} --scope local && git commit -am x`), /Atlassian API token/);
     });
 
     it("blocks another claude subcommand that carries a token", () => {
@@ -706,28 +671,6 @@ describe("the hook end to end", () => {
     assert.equal(notebookEdit("key = os.environ['API_KEY']").status, 0);
   });
 
-  for (const [tool, field] of [
-    ["create_pull_request", "description"],
-    ["create_draft_pull_request", "description"],
-    ["update_pull_request", "title"],
-    ["add_pull_request_comment", "content"],
-    ["update_pull_request_comment", "content"],
-  ]) {
-    it(`exits 2 for ${tool} with a token in its ${field}, and 0 for a clean one`, () => {
-      const call = (text) =>
-        runHook({
-          hook_event_name: "PreToolUse",
-          cwd: tempDir(),
-          tool_name: `mcp__bond-bitbucket__${tool}`,
-          tool_input: { workspace: "bonliva", repo_slug: "crm", pull_request_id: 7, [field]: text },
-        });
-      const blocked = call(`deploy with ${fake.slack()}`);
-      assert.equal(blocked.status, 2);
-      assert.match(blocked.stderr, /Slack token/);
-      assert.equal(call("deploy with the token from the vault").status, 0);
-    });
-  }
-
   it("exits 2 for a MultiEdit that adds a token another of its edits takes out", () => {
     const cwd = repo();
     const token = fake.github();
@@ -848,11 +791,6 @@ describe("the registration in hooks.json", () => {
     "Edit",
     "MultiEdit",
     "NotebookEdit",
-    "mcp__bond-bitbucket__create_pull_request",
-    "mcp__bond-bitbucket__create_draft_pull_request",
-    "mcp__bond-bitbucket__add_pull_request_comment",
-    "mcp__bond-bitbucket__update_pull_request_comment",
-    "mcp__bond-bitbucket__update_pull_request",
   ]) {
     it(`sends ${tool} to the guard`, () => {
       assert.match(tool, new RegExp(`^(?:${guarded.matcher})$`));

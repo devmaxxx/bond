@@ -1,5 +1,5 @@
 ---
-description: Diagnose a red pipeline (Woodpecker, GitHub Actions, Bitbucket) or a PR's failing CI, fix what the branch broke, push, and wait for the re-run — or every one of your open PRs with --mine
+description: Diagnose a red pipeline (Woodpecker, GitHub Actions) or a PR's failing CI, fix what the branch broke, push, and wait for the re-run — or every one of your open PRs with --mine
 ---
 
 # /bond:fix-ci
@@ -32,8 +32,7 @@ given earlier in the session, override the matching step for the rest of the run
 
 - a Woodpecker pipeline URL — `https://<server>/repos/<repo-id>/pipeline/<n>[/<step>]`;
 - a GitHub Actions run or job URL — `github.com/<o>/<r>/actions/runs/<id>[/job/<id>]`;
-- a Bitbucket pipeline URL — `bitbucket.org/<ws>/<r>/pipelines/results/<n>[/steps/<uuid>]`;
-- a PR number or URL (either host);
+- a PR number or URL;
 - nothing — the PR of the current branch.
 
 Free text next to a target ("investigate create PR fix", "check and fix") only
@@ -67,11 +66,9 @@ failing the old way, and an id-keyed rerun would repeat forever.
 ### 0. Resolve the targets
 
 1. Resolve the project profile.
-2. `--mine` — GitHub: `gh pr list --author @me --state open --json
+2. `--mine` — `gh pr list --author @me --state open --json
    number,headRefName,baseRefName,statusCheckRollup`, keeping PRs with a
-   failing check. Bitbucket: `get_pull_requests` (state `OPEN`), keeping those
-   authored by the current user, then **PR details and CI status** on each to
-   keep the **failed** ones. Nothing ⇒ say so and stop.
+   failing check. Nothing ⇒ say so and stop.
 3. A URL for another repo ⇒ find its checkout under `~/Documents/projects/`
    and work there, or stop and say which repo is missing. A Woodpecker repo id
    maps to its repo through `woodpecker-cli` (`repo ls`); check a
@@ -100,9 +97,8 @@ a checkout.
 - **pre-existing-on-base** ⇒ report it with the base pipeline. Not fixed here:
   it is not this branch's, and fixing it here hides it from the base.
 - **flaky** ⇒ rerun once, unless its `<step>: <cause>` is in `reruns`:
-  `gh run rerun <id> --failed`; Woodpecker `pipeline start <repo-id> <n>`;
-  Bitbucket has no rerun tool here — list it under *Needs you*. Record the key,
-  then go to step 5. A deploy pipeline (`deployment` event, or a step that
+  `gh run rerun <id> --failed`; Woodpecker `pipeline start <repo-id> <n>`.
+  Record the key, then go to step 5. A deploy pipeline (`deployment` event, or a step that
   deploys an environment) is never restarted without the user's yes — it re-runs
   the deploy.
 - **infra** ⇒ *Needs you*, with the cause and the excerpt. Never rotate,
@@ -142,7 +138,7 @@ is gone after the rebase — re-run its failing command before fixing it.
    `bond:testing-behavior`.
 2. Fix the root cause, not the symptom — no skipped tests, no raised timeouts,
    no `|| true`, no disabled lint rule, no `continue-on-error`. A CI config
-   change (`.woodpecker/*.yaml`, `.github/workflows/*`, `bitbucket-pipelines.yml`)
+   change (`.woodpecker/*.yaml`, `.github/workflows/*`)
    is linted locally first (`woodpecker-cli lint`).
 3. Reproduce the failing step locally — the exact command the step ran, through
    `bond:test-runner` — then **Test** and **Review and fix** with `SCOPE` = the fix.
@@ -174,8 +170,6 @@ settled line — the session runs no wait loop of its own (standing rule
 - **Woodpecker, no GitHub PR** — every 15s, `woodpecker-cli pipeline ls
   <repo-id> --output json` until the pipeline for the pushed commit (or the
   restarted one) is no longer `pending`/`running`.
-- **Bitbucket** — **PR details and CI status** every 30s until the pipeline
-  for the head commit settles.
 
 Then: passed ⇒ done. Failed ⇒ back to step 1 with the new pipeline, until
 `--rounds` is spent. A flaky step that fails again on its rerun is reclassified
@@ -196,7 +190,7 @@ woodpecker repo 1 #181 dev — PR #57 (fix/ci-pricing-type) — passed on #183
 ```
 
 Then **Needs you**: infra causes with their excerpts, pre-existing-on-base
-failures with the base pipeline, Bitbucket reruns to start by hand, deploy
+failures with the base pipeline, deploy
 restarts awaiting a yes, and every stop reason.
 
 ## Do NOT

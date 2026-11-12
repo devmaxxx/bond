@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { EMPTY_SESSION, cacheCards, cacheStatus, recordRequest, resolveTtl, shouldWarn, ttlMs } from '../hooks/cache'
+import { EMPTY_SESSION, cacheCards, cacheStatus, recordRequest, resolveTtl, ttlMs } from '../hooks/cache'
 import type { Card } from '../hooks/cache'
 import type { CacheSnapshot } from '../types'
 
@@ -71,15 +71,7 @@ test('a cold write counts as a rebuild and costs more than no cache', () => {
   expect(texts(cacheCards(COLD, recordRequest(EMPTY_SESSION, COLD), 0, 10_000)[1])[1]).toBe('cost 1.25× vs uncached · lost 20.0k')
 })
 
-test('the toast fires once inside the warning window and never after expiry', () => {
-  expect(shouldWarn(WARM, FIVE_MINUTES - 11_000, 10_000, null)).toBe(false)
-  expect(shouldWarn(WARM, FIVE_MINUTES - 9_000, 10_000, null)).toBe(true)
-  expect(shouldWarn(WARM, FIVE_MINUTES - 8_000, 10_000, WARM.at)).toBe(false)
-  expect(shouldWarn(WARM, FIVE_MINUTES + 1, 10_000, null)).toBe(false)
-  expect(shouldWarn(WARM, FIVE_MINUTES - 9_000, 0, null)).toBe(false)
-})
-
-test('the status line shows hit rate and time left, and nothing before the first request', () => {
+test('the countdown reads hit rate and time left, and nothing before the first request', () => {
   expect(cacheStatus(WARM, FIVE_MINUTES - 7_000, 10_000)).toBe('cache 96% ⏱0:07')
   expect(cacheStatus(null, 0, 10_000)).toBe(null)
 })

@@ -29,13 +29,6 @@ describe("every registered hook command", () => {
 
 describe("the vendored agent-base-kit", () => {
   const bond = join(ROOT, "hooks/vendor/agent-base-kit.mjs");
-  const bonliva = join(ROOT, "plugins/bond-bonliva/hooks/vendor/agent-base-kit.mjs");
-
-  // bond-bonliva installs into its own cache directory, so it cannot import
-  // across to bond's copy; the two must still be one version.
-  it("is the same file in bond and in bond-bonliva", () => {
-    assert.equal(readFileSync(bonliva, "utf8"), readFileSync(bond, "utf8"));
-  });
 
   it("names the version and the tarball it was taken from", () => {
     const [header] = readFileSync(bond, "utf8").split("\n");
@@ -49,7 +42,7 @@ describe("the PreToolUse guards on agent-base-kit", () => {
   // and runs the call unchecked; `|| exit 2` turns that into a block. Any
   // other event must keep exiting non-2 there, or a broken hook would drop the
   // prompt.
-  const plugins = [ROOT, join(ROOT, "plugins/bond-bonliva")];
+  const plugins = [ROOT];
   const onKit = (root, script) => readFileSync(join(root, script), "utf8").includes("./vendor/agent-base-kit.mjs");
   const entries = plugins.flatMap((root) => {
     const { hooks } = JSON.parse(readFileSync(join(root, "hooks/hooks.json"), "utf8"));
@@ -90,10 +83,10 @@ describe("the PreToolUse guards on agent-base-kit", () => {
       : { hook_event_name: "PreToolUse", cwd, tool_name: tool, tool_input: { file_path: join(cwd, "notes.md"), content: "hello" } };
   };
 
-  it("are secrets-guard, check-commit and migration-guard", () => {
+  it("are secrets-guard and check-commit", () => {
     assert.deepEqual(
       entries.filter((entry) => entry.event === "PreToolUse").map((entry) => entry.script).sort(),
-      ["hooks/check-commit.mjs", "hooks/migration-guard.mjs", "hooks/secrets-guard.mjs"],
+      ["hooks/check-commit.mjs", "hooks/secrets-guard.mjs"],
     );
   });
 

@@ -44,7 +44,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__bond-bitbucket__create_pull_request|mcp__bond-bitbucket__create_draft_pull_request|mcp__bond-bitbucket__update_pull_request|mcp__bond-bitbucket__add_pull_request_comment|mcp__bond-bitbucket__update_pull_request_comment",
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -74,7 +74,7 @@
         ]
       },
       {
-        "matcher": "Bash|mcp__bond-bitbucket__create_pull_request|mcp__bond-bitbucket__create_draft_pull_request",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",

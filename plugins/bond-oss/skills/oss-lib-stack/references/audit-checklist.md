@@ -42,7 +42,7 @@ Compare against `templates/ts-lib/` and the user's newest lib, not memory.
 
 ## 6. Ship
 
-- [ ] Branch `<type>/<desc>`, PR ready for review (not draft outside Bonliva),
+- [ ] Branch `<type>/<desc>`, PR ready for review (not draft unless `.bond/project.json` says so),
       CI green, squash-merge `type: summary (#N)`.
 - [ ] A user-visible change ⇒ release it (`/bond-oss:release`) — the npm page
       shows the old README until then.

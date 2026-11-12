@@ -119,7 +119,6 @@ describe("the rules file this plugin actually ships", () => {
       "## Caveman mode",
       "## GitHub account",
       "## Branch names",
-      "## Code review at the end",
     ]) {
       assert.ok(out.includes(heading), `${heading} missing from the rendered rules`);
     }

@@ -1,7 +1,7 @@
 # Shared implementation flow
 
-> **Not an invocable command.** Shared include used by `/bond:implement` and
-> `/bond-bonliva:fix-qa`. Each command owns only its unique decisions — which tickets,
+> **Not an invocable command.** Shared include used by `/bond:implement` (and,
+> for single procedures, `/bond:ship-pr` and `/bond:fix-ci`). Each command owns only its unique decisions — which tickets,
 > how the branch is chosen, how the plan is built — and calls the procedures
 > below for everything they have in common, so the shared logic lives in exactly
 > one place. A command lists which procedures it runs, in what order, and the
@@ -21,12 +21,13 @@ upfront answer settled them — never a second time. The upfront question is
 phrased, and its answers recorded as owner rulings apart from your own
 decisions, per `${CLAUDE_PLUGIN_ROOT}/shared/owner-questions.md`.
 
-Three things still stop the flow: a genuine blocker where no option is viable
+These still stop the flow: a genuine blocker where no option is viable
 (missing type, error response, no branch found) — surface it and abort/pause as
 the procedure says; a blocker found in the ticket or its comments (see **Check
-for blockers**), which is asked once; and the explicit `--no-auto` flag, which
-pauses once for plan confirmation (see the Implementation plan procedure). None
-is a "choose between options" prompt.
+for blockers**), which is asked once; the explicit `--no-auto` flag, which
+pauses once for plan confirmation (see the Implementation plan procedure); and
+the checkpoints the caller asked for (`CHECKPOINTS`, see **Progress and
+checkpoints**) or a pause file. None is a "choose between options" prompt.
 
 ## Procedure: Resolve Jira ticket(s)  *(`TRACKER=jira` only)*
 
@@ -173,12 +174,8 @@ fails, surface the error but **do not abort**.
 The base branch a feature branch is cut from / a PR targets differs per repo.
 Resolve `BASE_BRANCH` off the **project profile** —
 `${CLAUDE_PLUGIN_ROOT}/shared/project-profile.md`, the `BASE_BRANCH` field —
-which walks the explicit argument, the repo's own `.bond/project.json`, the
-Bonliva slug table, and finally the remote's default branch.
-
-The slug table (`erp` → `main`, `crm` → `dev`, `async` → `master`, else `dev`)
-applies **only inside Bonliva**. Outside it, `dev` is a branch that usually does
-not exist, so the profile falls through to `refs/remotes/origin/HEAD` instead.
+which walks the explicit argument, the repo's own `.bond/project.json`, and
+finally the remote's default branch (`refs/remotes/origin/HEAD`).
 
 ## Procedure: Set up the branch
 
@@ -186,7 +183,7 @@ not exist, so the profile falls through to `refs/remotes/origin/HEAD` instead.
 or `existing` (attach to an already-pushed branch); `BASE_BRANCH` (the branch a
 `new` branch is cut from — when the caller leaves it unset, resolve it via the
 **Default base branch** procedure above); `WORKTREE_SUFFIX` (empty for
-`/implement`, `-qa` for `/fix-qa`); mode = worktree (default) or in-place
+`/implement`, a short suffix for a caller that reopens a branch); mode = worktree (default) or in-place
 (`--no-worktree`).
 
 ### Ensure a fresh branch name (`BRANCH_SOURCE=new` only)
@@ -226,8 +223,8 @@ Do **not** require a clean working tree.
 6. `cd` into the worktree. All later procedures run inside it.
    Local-scope MCP servers follow a worktree to its main repo, but
    `.claude/settings.local.json` is an untracked file and does not: `cp
-   <original>/.claude/settings.local.json .claude/` when it exists, or a Bonliva
-   worktree opens without `bond-bonliva` enabled.
+   <original>/.claude/settings.local.json .claude/` when it exists, or the
+   worktree opens without the plugins and permissions enabled there.
 7. `BRANCH_SOURCE=existing` only: `git pull --ff-only origin <BRANCH_NAME>` to
    fast-forward. Abort on failure — do not auto-merge or rebase. (`new` is
    already at the `origin/<BASE_BRANCH>` tip.)
@@ -249,7 +246,9 @@ Do **not** require a clean working tree.
 ## Procedure: Analyse the codebase
 
 **Inputs:** `FOCUS` — the ticket descriptions/acceptance criteria
-(`/implement`) or the selected QA feedback items (`/fix-qa`).
+(`/implement`) or the items a caller selects; `SPEC_FILE` when
+the caller has one — read it whole first, it outranks a ticket's description
+where the two disagree (record the disagreement under **Open questions**).
 
 Explore the code relevant to `FOCUS`:
 
@@ -265,7 +264,8 @@ Explore the code relevant to `FOCUS`:
 
 **Inputs:** `PLAN_FILE` = `docs/plans/<TICKET_IDS>.md` (create `docs/plans/` if
 absent); `PLAN_MODE` = `write` or `append`; for `append`, the dated section the
-caller supplies; `MODE` (`auto`/`no-auto`); `CONFIRM_PROMPT`.
+caller supplies; `MODE` (`auto`/`no-auto`); `CONFIRM_PROMPT`; `SPEC_FILE`
+(optional).
 
 Base structure — used to create a fresh plan, and when an `append` target file
 is missing:
@@ -285,15 +285,28 @@ For each ticket:
   - Links: <blocking/blocked-by/subtasks with status; omit if none>
   - Open questions: <ambiguities or decisions flagged>
 
+## Spec
+<only with SPEC_FILE: its path, then every acceptance criterion it states,
+numbered AC1, AC2, … in the spec's order and worded as it words them. Without a
+spec, number the tickets' acceptance criteria here the same way; with neither,
+write the criteria the task implies and mark them `(inferred)`.>
+
 ## Files to change
 - `<path/to/file>` — <one-line reason>
 
 ## Implementation steps
+Contract first — shared types, schemas, DTOs or the API shape both sides
+use — then one vertical slice per behaviour (schema → service/API → UI), each
+slice small enough to test on its own.
 1. <Concrete step>
 2. ...
 
 ## Tests
-- `<test file path>` — `<describe> > <it>` — <what it asserts>
+- `<test file path>` — `<describe> > <it>` — <what it asserts> — <AC ids>
+
+## Coverage
+<filled by **Converge**: one line per AC — `AC1` → `<file> › <test>`, or
+`not covered` with the reason>
 
 ## Decisions
 Choices made autonomously during the flow (see **Autonomy**):
@@ -311,22 +324,143 @@ As the flow proceeds, log every autonomous choice point under `## Decisions`
 choice already made before this procedure runs (e.g. branch selection). Leave
 the section empty (or omit the bullet) if nothing was chosen.
 
+Under `PLAN_MODE=write`, run **Review the plan** before the plan is printed.
+
 Print the full plan (write) or the appended section (append) to the user.
 
-In `auto` mode, skip confirmation and note that auto-confirm is enabled. In
+With `CHECKPOINTS` = `plan` or `all`, stop here through **Progress and
+checkpoints** with the plan's options (Approve / Edit / Stop) instead. Otherwise
+in `auto` mode, skip confirmation and note that auto-confirm is enabled. In
 `no-auto` mode, ask `CONFIRM_PROMPT` and wait for explicit confirmation; if the
 user requests changes, update the plan and ask again before proceeding.
+
+## Procedure: Review the plan
+
+**Inputs:** `PLAN_FILE`; `SPEC_FILE` or the tickets.
+
+The context that wrote the plan does not grade it. Spawn one read-only `Plan`
+agent (no `Edit`/`Write`) with the absolute paths of `PLAN_FILE`, `SPEC_FILE`
+and the checkout, and the tickets' text when there is no spec. It returns
+findings only, most severe first, against this list:
+
+- an acceptance criterion with no test in **Tests**, or a test tied to none;
+- a step that names no file, or a file in **Files to change** no step touches;
+- a contract (types, DTO, API shape) changed after the code that uses it, or
+  frontend and backend disagreeing on it;
+- a migration with no way back, or one that rewrites an applied migration;
+- an endpoint, query or action that reads or writes user data with no
+  authorisation step;
+- a requirement in the spec or tickets that no step delivers.
+
+Apply the findings to `PLAN_FILE` without asking (see **Autonomy**); log one
+you reject under `## Decisions` with the reason. An empty answer is a pass —
+say so. A plan of one or two files skips the agent: say "plan review: skipped,
+small plan". The review runs once; the revised plan is not reviewed again.
+
+## Procedure: Progress and checkpoints
+
+**Inputs:** `PHASES` (ordered names), `CHECKPOINTS` (`none` / `plan` / `all`),
+the branch, `TICKET_IDS`, `BASE_BRANCH`.
+
+**Progress file.** `FLOW_FILE=~/.local/state/bond-flow/<repo>--<branch with / as ->.json`,
+where `<repo>` is the name of the repo's main checkout — the folder holding
+`git rev-parse --path-format=absolute --git-common-dir` — so a worktree and the
+main checkout name the same file. Never under `~/.claude/`: Claude Code
+protects that folder and asks before every write there, whatever the allow
+rules say. Outside bypass mode the user allows the folder once with
+`Edit(~/.local/state/bond-flow/**)` in `permissions.allow`; without that rule
+each write is a prompt.
+
+Write it with the `Write` tool — never a shell redirect, so the bond-cockpit
+status line sees each write and shows the flow's progress — when the run
+starts, at every phase boundary and at every stop:
+
+```json
+{ "branch": "feat/x", "repo": "/abs/checkout", "plan": "docs/plans/x.md",
+  "tickets": ["ERP-135"], "base": "main", "pr": "",
+  "flags": ["--spec", "docs/specs/x.md", "--checkpoints"],
+  "paused": "",
+  "phases": [{ "name": "Setup", "status": "done" }, { "name": "Analyse", "status": "active" }] }
+```
+
+`status` is `done`, `active`, `paused`, `todo` or `skipped`; `paused` holds the
+reason while the run waits, empty otherwise; `pr` is the PR's number or URL
+once **Ship + PR** opened it. A phase the run will not do — by its mode, or
+**Tests first** with two or more tickets — is `skipped` from the first write,
+never left `todo`. At each boundary also print one line:
+`▰▰▰▱▱▱▱▱▱▱ 3/10 · Plan review`. After the last phase every status is `done` or
+`skipped`. Mark **Audit** `done` before spawning the `bond:pr-audit` agent, so
+a resume never spawns a second one.
+
+**Pause file.** Before each phase starts, check for `FLOW_FILE` with `.json`
+replaced by `.pause` (`touch` it from another terminal to stop the run). When it
+exists, delete it and stop as a checkpoint would.
+
+**Stop.** At a checkpoint — after the plan when `CHECKPOINTS` is `plan`, after
+every phase when it is `all`, or on a pause file — mark the next phase `paused`,
+set `paused` to why, write `FLOW_FILE`, then ask in one `AskUserQuestion`:
+
+- after the plan: **Approve**, **Edit** (the user names the changes, or edits
+  `PLAN_FILE` and replies `approved` — re-read the file then, never the copy in
+  context), **Stop**. The plan's stop comes once **Review the plan** has run,
+  so under `all` there is no separate stop between Plan and Plan review;
+- elsewhere: **Continue**, **Stop**; free text is a note — apply it (record it
+  under `## Decisions` as an owner ruling), then ask again.
+
+**Stop** sets `paused` to `stopped · /bond:implement --resume <branch>`, writes
+`FLOW_FILE`, and ends the turn with the worktree, plan and progress file kept,
+the same resume command printed. **Teardown** does not run. An interrupt (Esc)
+leaves the file at the last boundary.
+
+**Resume.** Read `FLOW_FILE` for the branch named, else the current branch;
+when the current checkout has none (the main checkout, while the run lived in a
+worktree), the repo's one progress file — several ⇒ list their branches and
+abort. Abort with "no stopped run for <branch>" when there is none, and —
+without `--from` — with "<branch> already finished" when every phase is `done`
+or `skipped`. Otherwise `cd` to its `repo`, re-read `plan` and the spec,
+restore `flags`, `TICKET_IDS` from `tickets`, `BASE_BRANCH` from `base` and
+`PR_REF` from `pr`, and continue at the first phase not `done` or `skipped` —
+or, with `--from "<phase>"`, at that phase, after marking it and every later
+phase `todo` (a name the file does not list aborts, naming the phases it
+does). The phase starts again from what is already there: rerunning a build or
+test phase re-runs it over the whole plan, work it already committed stays and
+is checked, not redone, and a PR in `pr` is updated, never opened a second
+time.
+
+**From the cockpit.** bond-cockpit's buttons drive the same mechanisms: pause
+leaves the `.pause` file, stop aborts the running turn (the file stays at the
+last boundary), resume and ↻ rerun submit `/bond:implement --resume <branch>`
+with or without `--from`.
+
+## Procedure: Tests first
+
+**Inputs:** `SCOPE` (as in **Implement**).
+
+Before any production code in `SCOPE`, write the tests the plan's **Tests**
+section lists for it — through `superpowers:test-driven-development` when the
+superpowers plugin is installed — following the rules of **Test** (co-located,
+the module's own style, `bond:testing-behavior`). Run them through
+`bond:test-runner` and read why each fails:
+
+- failing because the behaviour is missing ⇒ correct, go on;
+- failing on an import, a typo or the test setup ⇒ fix the test, run again;
+- **passing** ⇒ the behaviour already exists or the test proves nothing: tighten
+  the test, or record under `## Decisions` that the criterion was already met.
+
+Tests that need code to exist before they compile (a new module's types) get
+the bare contract first — signatures and types, no behaviour — then the red run.
+No commit here: tests and code ship together.
 
 ## Procedure: Implement
 
 **Inputs:** `SCOPE` — what to implement: the whole plan (`/implement`) or only
-the newest `## QA fix round` section (`/fix-qa`).
+the newest appended section (`PLAN_MODE=append`).
 
 Execute the implementation steps within `SCOPE` in order. After each logical
 group of changes, briefly say what was done and which files were modified.
 
 - Do **not** commit — leave staging and committing to the user or
-  `/bonliva-dev:ship`.
+  the **Ship + PR** step.
 - If something blocks a step (missing type, unexpected API shape, etc.), pause
   and ask the user rather than guessing. An unexpected shape from a
   third-party library is a `bond:docs-explorer` lookup first, a question only if
@@ -336,7 +470,8 @@ group of changes, briefly say what was done and which files were modified.
 
 **Inputs:** `SCOPE` (as above).
 
-Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
+Write the tests listed in the plan's **Tests** section that fall within `SCOPE`
+and that **Tests first** has not already written:
 
 - Co-locate tests with the code they test (e.g. `*.spec.ts` next to the
   service/controller, `*.test.tsx` next to the component).
@@ -347,6 +482,18 @@ Write the tests listed in the plan's **Tests** section that fall within `SCOPE`:
 
 Run them, and the module's existing tests, through the `bond:test-runner` agent —
 one command per call — so only the failures come back.
+
+## Procedure: Converge
+
+**Inputs:** `PLAN_FILE`, `SCOPE`.
+
+After **Test** is green, fill the plan's `## Coverage`: for each AC in
+`## Spec`, the test that proves it (`<file> › <test>`), found by reading the
+tests, not by trusting the plan. An AC with no test gets one written now and
+run through `bond:test-runner`; an AC that cannot be tested automatically
+(visual, third-party, manual) is marked `manual: <how to check>` and becomes an
+item of the PR's **Test plan**. A requirement the build changed or dropped is
+recorded under `## Decisions`, never quietly left out.
 
 ## Procedure: Review and fix
 
@@ -393,12 +540,13 @@ Tell the user:
 - Branch and where it was cut from / attached to.
 - Worktree path, unless `WORKTREE` is `none`.
 - Tickets handled: `<ID>: <summary>` for each.
-- Plan file: `PLAN_FILE`.
+- Plan file: `PLAN_FILE`, and the spec when there was one.
+- Coverage: `<covered>/<total>` acceptance criteria, each `manual:` one named.
 - Files changed: brief list.
 - Next step: in `auto` mode Ship + PR, Hand off the audit and Teardown run
   automatically — once the audit is handed off, its agent removes the
-  worktree; in `no-auto` mode, tell the user to run `/bonliva-dev:ship` to
-  validate, commit, and push.
+  worktree; in `no-auto` mode, tell the user to validate, commit, and push
+  (**Ship + PR** does that in `auto` mode).
 
 ## Procedure: Ship + PR  *(auto mode only — skip entirely when `MODE` is `no-auto`)*
 
@@ -409,28 +557,37 @@ branch** procedure resolves it).
 Commit and push happen here as the upfront question settled them — do not ask
 again.
 
-1. Validate, commit, and push the branch. Inside Bonliva that is
-   `/bonliva-dev:ship`; where the profile is not Bonliva that command belongs to
-   a plugin the repo does not have, so run the repo's own checks (its test and
-   lint scripts, each through `bond:test-runner`) and then commit and push directly. Every
-   commit message follows the `authorship-conventions` skill: Conventional Commits
-   subject, prose *why* body, and no AI signature — no `Co-Authored-By`
-   naming a tool, no `Claude-Session:` link, no "generated with" footer. The
-   plugin's `check-commit` hook blocks a commit that breaks this; fix the
-   message rather than bypassing the hook.
+1. Validate, commit, and push the branch:
+   - **Checks.** Run the repo's own typecheck, lint and test scripts for the
+     packages the change touched — whichever of them the repo defines — each
+     through `bond:test-runner`. A red check stops here; fix it, do not skip or
+     loosen it.
+   - **Stage by path.** `git add -- <file>…` with the files `SCOPE` changed and
+     the plan file (`PLAN_FILE` ships with the work: the PR's test plan is
+     built from its `## Coverage`). Never `git add -A`, `git add .` or
+     `commit -a`. Then read `git status --porcelain`: anything left unstaged
+     that is not yours (an env file, a stray artifact, a file outside `SCOPE`)
+     ⇒ report it and stop rather than sweep it in or delete it.
+   - **Commit.** Every commit message follows the `authorship-conventions`
+     skill: Conventional Commits subject, prose *why* body, and no AI
+     signature — no `Co-Authored-By` naming a tool, no `Claude-Session:` link,
+     no "generated with" footer. The plugin's `check-commit` hook blocks a
+     commit that breaks this; fix the message rather than bypassing the hook.
+   - **Push** with an explicit refspec, `git push -u origin HEAD:<branch>`, as
+     the account `bond:authorship-conventions` names for this repo — a
+     per-command `GH_TOKEN=$(gh auth token -u <account>)` over HTTPS, never
+     `gh auth switch`.
 2. Then, by `PR_HANDLING`:
    - `create` → invoke `/bond:open-pr <BASE_BRANCH> --issue <TICKET_IDS>`
      (no `--issue` when `TICKET_IDS` is empty) to create the PR on
-     whichever host the profile resolved, targeting the base branch (pass the
+     GitHub, targeting the base branch (pass the
      resolved `BASE_BRANCH` explicitly so it matches the branch the work was cut
      from).
    - `update` → the push updates the existing PR. Look for an open PR on this
-     source branch — `mcp__bond-bitbucket__get_pull_requests` on Bitbucket,
-     `gh pr list --head <branch> --state open --json number,url` on GitHub. If
+     source branch — `gh pr list --head <branch> --state open --json number,url`. If
      one exists, print its URL and do **not** invoke `/bond:open-pr`. If none
      exists, invoke `/bond:open-pr` to create it. Do **not** re-ping reviewers on
-     a QA round — just tell the user they can run `/bond-bonliva:request-review` if the
-     project has a channel for it.
+     a follow-up round.
 
 If either step fails, surface the error and stop — do not retry blindly, and do
 **not** proceed to Teardown (leave the worktree in place so the user can fix and
@@ -493,17 +650,19 @@ surface it, never force.
 ## Do NOT
 
 - Do not commit anything yourself in `no-auto` mode. In `auto` mode, committing
-  is delegated to `/bonliva-dev:ship`.
+  belongs to the **Ship + PR** step.
 - Do not commit before **Review and fix** has run, where it runs — the review's
   fixes belong in the same commit as the work they correct, not in a follow-up.
 - Do not review twice: no review during the build, none in the session when
   the audit takes the PR, no re-review after the fixes.
-- Do not push the branch yourself in `no-auto` mode — tell the user to run
-  `/bonliva-dev:ship`.
+- Do not push the branch yourself in `no-auto` mode — tell the user to validate,
+  commit and push.
 - Do not move a ticket to In Review on a red or still-running pipeline, and do
   not move it at all once the autofix rounds are exhausted.
 - Do not autofix a third time on the same PR, and do not widen a CI fix
   into unrelated work to get the pipeline green.
 - Do not force-remove a dirty worktree — surface the warning instead.
+- Do not skip a checkpoint the caller asked for, and do not treat silence or an
+  unrelated reply as Approve or Continue.
 - When `PR_HANDLING` is `update`, do not open a second PR and do not auto-ping
   reviewers.

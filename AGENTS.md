@@ -10,3 +10,9 @@ This file is the repo's only agent instructions file — Claude Code reads it to
    not written here: each person sets `BOND_USER_NAME` in the `env` block of
    their `~/.claude/settings.json`. If it is unset, use `git config user.name`.
 2. When working with any third-party library, look up official docs first to confirm current APIs. Use the `bond:docs-explorer` subagent for documentation lookup — it ships with the plugin, so it is available in every repo, not just this one.
+3. Push once the work is finished: when every change the task asked for is
+   implemented, its checks pass and the agent has finalized its work (review
+   findings applied, nothing left open), commit and push the branch without
+   asking — with an explicit refspec (`git push origin HEAD:<branch>`) and as
+   the account `bond:authorship-conventions` names for this repo. Work that is
+   unfinished, failing or waiting on the user stays local.

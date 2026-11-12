@@ -1,11 +1,13 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl, shouldWarn } from './cache'
+import { EMPTY_SESSION, cacheCards, cacheStatus, isTtl, recordRequest, resolveTtl } from './cache'
 import type { CacheTtl, TabName } from './cache'
-import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, isBusy, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
-import { drawCards } from './pane'
-import { summaryCard } from './summary'
+import { EMPTY_JOB, agentCard, sendNotice, agentSpawned, endJob, flowActions, flowBand, flowRecorded, flowResume, flowStatus, isBusy, pausePath, jobCard, loopEnded, startJob, testRun, toolAsked, toolEnded, toolStarted, workflowLaunched } from './job'
+import { FLOW_HOTKEY, FLOW_LABEL, drawCards } from './pane'
+import type { FlowAction } from './cache'
+import { isStripMode, stripLine, summaryCard } from './summary'
+import type { StripMode } from './summary'
 import { EMPTY_MODELS, intoSession, modelsCard, recordModel, usageCard, usageSnapshot } from './usage'
 
 // Three tabs in open order: main, job, session. The agent tab opens beside them on a press.
@@ -19,7 +21,12 @@ const AGENT = 'bond-cockpit-agent'
 const PANE_COLUMNS = 46
 const TICK_MS = 1000
 const DEFAULT_CACHE_TTL = 'auto'
-const DEFAULT_WARN_SECONDS = 10
+// How close to expiry the cache countdown turns yellow in the cards.
+const WARN_MS = 10_000
+// $.store, so the strip under the prompt keeps its mode across sessions.
+const STRIP_KEY = 'strip'
+const STRIP_MODES: Record<string, StripMode> = { expand: 'expanded', show: 'expanded', collapse: 'collapsed', hide: 'hidden' }
+const SHOW_LABEL = 'show cockpit'
 
 
 const cache = atom({ plugin: 'bond-cockpit', key: 'cache' } as const, null)
@@ -32,27 +39,30 @@ const job = atom({ plugin: 'bond-cockpit', key: 'job' } as const, EMPTY_JOB)
 // The second the pane last redrew for elapsed times; written only while something runs.
 const beat = atom({ plugin: 'bond-cockpit', key: 'beat' } as const, 0)
 const watched = atom({ plugin: 'bond-cockpit', key: 'watched' } as const, null)
+// The strip's mode as the drawings read it, so a change redraws them; $.store keeps it across sessions.
+const strip = atom({ plugin: 'bond-cockpit', key: 'strip' } as const, null)
 
 // session.start fires again after /clear; a tick left running would stack with the new one.
 let tick: Timer | null = null
-// The cache entry (by its request time) already warned about, so the toast fires once per entry.
-let warnedAt: number | null = null
+// The status line's last text; null until the first push, so a reload clears whatever the old module left there.
+let statusShown: string | undefined | null = null
 let ttlSetting = DEFAULT_CACHE_TTL
 // Only a model switch reports the TTL; nothing else in a session does.
 let reportedTtl: CacheTtl | null = null
-let warnMs = DEFAULT_WARN_SECONDS * 1000
 let isTurnRunning = false
+// The main loop's running turn, so the cockpit's stop can abort it.
+let heldTurn: string | null = null
 
 export const register: Register = (on, options) => {
-  const warnSeconds = Number(options.cacheWarnSeconds ?? DEFAULT_WARN_SECONDS)
-  warnMs = Number.isFinite(warnSeconds) ? Math.max(0, warnSeconds) * 1000 : DEFAULT_WARN_SECONDS * 1000
   ttlSetting = String(options.cacheTtl ?? DEFAULT_CACHE_TTL)
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit: the main tab, or `job` / `session` for that tab' })
-    openPanes($).catch(() => undefined)
+    await $.command.register({ name: 'bond-cockpit', description: 'Open the bond cockpit panes (`job` / `session` for one tab), or set the strip under the prompt: `expand`, `collapse`, `hide`, `show`' })
     await measure($).catch(() => undefined)
+    const stored = await $.store.get(STRIP_KEY).catch(() => undefined)
+    await update($, strip, () => (isStripMode(stored) ? stored : 'expanded'))
+    statusShown = null
     await pushStatus($)
     tick?.cancel()
     tick = $.clock.every(TICK_MS, () => void onTick($).catch(() => undefined))
@@ -62,9 +72,13 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'bond-cockpit' }, async ($, e) => {
     const tab = e.args.trim()
+    const mode = STRIP_MODES[tab]
+    if (mode !== undefined) {
+      await setStrip($, mode)
+      return { text: mode === 'hidden' ? 'bond cockpit: strip hidden; `/bond-cockpit show` brings it back.' : `bond cockpit: strip ${mode}.` }
+    }
     const isTab = isTabName(tab)
     await (isTab ? openTab($, tab) : openPanes($))
-    await pushStatus($)
 
     return { text: isTab ? `bond cockpit: ${tab} tab opened.` : 'bond cockpit opened; ctrl+x tab cycles main, job and session.' }
   })
@@ -88,6 +102,7 @@ export const register: Register = (on, options) => {
     const agentId = (e as { agentId?: string }).agentId
     if (agentId === undefined) {
       isTurnRunning = true
+      heldTurn = (e as { turnId?: string }).turnId ?? null
       await guard(async () => {
         const now = await $.clock.now()
         await update($, job, current => startJob(current, e.text, now))
@@ -102,6 +117,7 @@ export const register: Register = (on, options) => {
     const agentId = e.agentId
     if (agentId === undefined) {
       isTurnRunning = false
+      heldTurn = null
     }
     await guard(async () => {
       const now = await $.clock.now()
@@ -124,9 +140,14 @@ export const register: Register = (on, options) => {
       const result = (ran.result ?? {}) as { stdout?: unknown; stderr?: unknown; workflowName?: string; runId?: string }
       const test = tool === 'Bash' && agentId !== undefined ? testRun(String(args.command ?? ''), `${String(result.stdout ?? '')}\n${String(result.stderr ?? '')}`, ran.isError === true) : null
       await update($, job, current => {
-        const ended = toolEnded(current, id, ran.deny !== undefined || ran.isError === true, agentId, test)
-        return tool === 'Workflow' && agentId === undefined ? workflowLaunched(ended, result.workflowName, result.runId) : ended
+        const hasFailed = ran.deny !== undefined || ran.isError === true
+        const ended = toolEnded(current, id, hasFailed, agentId, test)
+        if (agentId !== undefined) {
+          return ended
+        }
+        return tool === 'Workflow' ? workflowLaunched(ended, result.workflowName, result.runId) : flowRecorded(ended, tool, args, hasFailed, startedAt)
       })
+      await pushStatus($)
     })
 
     return ran
@@ -183,7 +204,6 @@ export const register: Register = (on, options) => {
       }
       await update($, cache, () => snapshot)
       await update($, session, current => recordRequest(current, snapshot))
-      await pushStatus($)
     }
 
     return stepped
@@ -201,6 +221,80 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // Above the prompt, on every tab: a /bond:implement run's line and its buttons while it reports progress, and
+  // with the strip hidden a button that brings the strip back.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const [jobNow, now, mode] = await Promise.all([read($, job), $.clock.now(), stripMode($), read($, beat)])
+    if (e.props.hasSurvey || e.props.maxRows < 1) {
+      return next(e)
+    }
+    // The flow's line and buttons stay even with the strip shown: the line under the prompt takes no keys.
+    const flow = jobNow.flow ?? null
+    const band = flow === null ? null : flowBand(jobNow, now, e.props.bodyColumns)
+    const isHidden = mode === 'hidden'
+    if (band === null && !isHidden) {
+      return next(e)
+    }
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const isRunning = jobNow.startedAt !== null && jobNow.endedAt === null
+    const phase = flow === null ? undefined : flow.phases[flow.current]?.name
+
+    return (
+      <Box flexDirection="column">
+        {band === null ? null : <Text color={band.tone === 'warn' ? 'yellow' : 'green'} wrap="truncate-end">{band.text}</Text>}
+        <Box flexDirection="row" gap={2}>
+          {isHidden ? <Button key="cockpit:show" label={SHOW_LABEL} hotkey="c" dimColor onPress={() => void setStrip($, 'expanded').catch(() => undefined)} /> : null}
+          {flow === null || band === null ? null : flowActions(flow, isRunning).map(action => (
+            <Button key={`flow:${action}`} label={FLOW_LABEL[action]} hotkey={FLOW_HOTKEY[action]} onPress={() => void flowPress($, action).catch(() => undefined)} />
+          ))}
+          {band === null || phase === undefined ? null : <Button key="flow:rerun" label={`↻ rerun ${phase}`} onPress={() => void flowPress($, 'rerun', phase).catch(() => undefined)} />}
+        </Box>
+        {await next(e)}
+      </Box>
+    )
+  })
+
+  // The cockpit under the prompt, below the engine's hint line: the main card, one line collapsed, or nothing hidden.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    const mode = await stripMode($)
+    if (mode === 'hidden') {
+      return next(e)
+    }
+    const [hint, cacheNow, now, usageNow, jobNow, modelsNow] = await Promise.all([
+      next(e),
+      read($, cache),
+      $.clock.now(),
+      read($, usage),
+      read($, job),
+      read($, models),
+      read($, countdown),
+      read($, beat),
+    ])
+    const ui = $.ui.resolve(e)
+    const columns = e.viewport?.columns ?? 80
+    if (mode === 'collapsed') {
+      const line = stripLine(jobNow, cacheNow, usageNow, now, WARN_MS)
+      const color = line.tone === 'bad' ? 'red' : line.tone === 'warn' ? 'yellow' : line.tone === 'ok' ? 'green' : undefined
+
+      return (
+        <ui.Box flexDirection="column">
+          {hint}
+          <ui.Text wrap="truncate-end" dimColor={color === undefined} {...(color === undefined ? {} : { color })}>{line.text}</ui.Text>
+        </ui.Box>
+      )
+    }
+    const main = summaryCard(jobNow, cacheNow, usageNow, modelsNow, now, WARN_MS)
+    // The hint line takes no keys, so its headings stay plain text rather than buttons that open a tab.
+    const card = { ...main, rows: main.rows.map(row => (row.kind === 'section' ? { ...row, tab: undefined } : row)) }
+
+    return (
+      <ui.Box flexDirection="column">
+        {hint}
+        {drawCards(ui, [card], columns)}
+      </ui.Box>
+    )
+  })
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const [cacheNow, sessionNow, now, jobNow, agents] = await Promise.all([
       read($, cache),
@@ -213,10 +307,13 @@ export const register: Register = (on, options) => {
       read($, beat),
     ])
     const current = jobCard(jobNow, agents, now)
-    const [entry] = cacheCards(cacheNow, sessionNow, now, warnMs)
+    const [entry] = cacheCards(cacheNow, sessionNow, now, WARN_MS)
     const cards = [...(current === null ? [] : [current]), ...(entry === undefined ? [] : [entry])]
 
-    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns, { onAgent: agentId => void openAgent($, agentId, agents).catch(() => undefined) })
+    return drawCards($.ui.resolve(e), cards, e.props.bodyColumns, {
+      onAgent: agentId => void openAgent($, agentId, agents).catch(() => undefined),
+      onFlow: (action, phase) => void flowPress($, action, phase).catch(() => undefined),
+    })
   })
 
   // One agent up close: its latest calls, and a line to message it (SendMessage's own delivery).
@@ -253,7 +350,7 @@ export const register: Register = (on, options) => {
       read($, usage),
       read($, countdown),
     ])
-    const cards = intoSession(cacheCards(cacheNow, sessionNow, now, warnMs).slice(1), [modelsCard(modelsNow), usageCard(usageNow, now)])
+    const cards = intoSession(cacheCards(cacheNow, sessionNow, now, WARN_MS).slice(1), [modelsCard(modelsNow), usageCard(usageNow, now)])
     const shown = cards.length > 0 ? cards : [{ title: 'Session', status: '', badge: '', tone: 'dim' as const, rows: [{ kind: 'note' as const, text: 'No request yet', tone: 'dim' as const }] }]
 
     return drawCards($.ui.resolve(e), shown, e.props.bodyColumns)
@@ -270,7 +367,7 @@ export const register: Register = (on, options) => {
       read($, countdown),
       read($, beat),
     ])
-    const card = summaryCard(jobNow, cacheNow, usageNow, modelsNow, now, warnMs)
+    const card = summaryCard(jobNow, cacheNow, usageNow, modelsNow, now, WARN_MS)
 
     return drawCards($.ui.resolve(e), [card], e.props.bodyColumns, { onTab: tab => void openTab($, tab, true).catch(() => undefined) })
   })
@@ -303,9 +400,56 @@ async function openAgent($: EngineInterface, agentId: string, agents: readonly {
   await $.ui.focus({ requestId: AGENT, key: 'say' }).catch(() => undefined)
 }
 
+/**
+ * A flow button. Pause leaves the `.pause` file the run checks at each phase boundary; stop aborts the
+ * running turn, so a resume restarts the phase it was in; resume and rerun submit the resume command,
+ * rerun first aborting a turn still running.
+ */
+async function flowPress($: EngineInterface, action: FlowAction | 'rerun', phase?: string): Promise<void> {
+  const flow = (await read($, job)).flow ?? null
+  if (flow === null) {
+    return
+  }
+  if (action === 'pause') {
+    const path = pausePath(flow)
+    if (path !== null) {
+      await $.fs.write(path, '')
+      $.ui.toast('bond flow: pauses at the next phase boundary')
+    }
+    return
+  }
+  if ((action === 'stop' || action === 'rerun') && heldTurn !== null) {
+    await $.turn.abort({ turnId: heldTurn })
+  }
+  if (action === 'stop') {
+    $.ui.toast(`bond flow: stopped; resume restarts ${flow.phases[flow.current]?.name ?? 'the run'}`)
+    return
+  }
+  await $.prompt.submit({ text: flowResume(flow, action === 'rerun' ? phase : undefined), asUser: true })
+}
+
+async function stripMode($: EngineInterface): Promise<StripMode> {
+  const held = await read($, strip)
+  if (isStripMode(held)) {
+    return held
+  }
+  const stored = await $.store.get(STRIP_KEY).catch(() => undefined)
+
+  return isStripMode(stored) ? stored : 'expanded'
+}
+
+async function setStrip($: EngineInterface, mode: StripMode): Promise<void> {
+  await $.store.set(STRIP_KEY, mode)
+  await update($, strip, () => mode)
+}
+
+// The status line carries the implement flow's progress while a run reports it, and nothing otherwise.
 async function pushStatus($: EngineInterface): Promise<void> {
-  const [cacheNow, now] = await Promise.all([read($, cache), $.clock.now()])
-  $.ui.status(cacheStatus(cacheNow, now, warnMs) ?? undefined)
+  const text = flowStatus(await read($, job)) ?? undefined
+  if (text !== statusShown) {
+    statusShown = text
+    $.ui.status(text)
+  }
 }
 
 async function measure($: EngineInterface): Promise<void> {
@@ -320,17 +464,11 @@ async function onTick($: EngineInterface): Promise<void> {
   if (isTurnRunning || isBusy(jobNow, now)) {
     await update($, beat, () => Math.floor(now / 1000))
   }
-  const text = cacheStatus(cacheNow, now, warnMs) ?? ''
+  const text = cacheStatus(cacheNow, now, WARN_MS) ?? ''
   if (text !== shown) {
     await update($, countdown, () => text)
-    await pushStatus($)
   }
-  // Mid-turn the user cannot send a message, so the advice would be noise.
-  if (cacheNow !== null && !isTurnRunning && shouldWarn(cacheNow, now, warnMs, warnedAt)) {
-    warnedAt = cacheNow.at
-    const seconds = Math.ceil((cacheNow.at + cacheNow.ttlMs - now) / 1000)
-    $.ui.toast(`bond-cockpit: cache expires in ${seconds}s: send a message now`)
-  }
+  await pushStatus($)
 }
 
 // The Job card is a view: a failure in its bookkeeping must never fail the tool call or the turn it watches.

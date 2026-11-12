@@ -61,7 +61,7 @@ closes a PR. §6 is the enforcement.
 | "It's only a PR comment"             | Same rule, same footer, same strip.                       |
 | "The branch name is just cosmetic"   | Renaming it after the PR is open closes the PR.           |
 | "I'll fix the branch name later"     | Later is after the push, and then after the PR. Now.      |
-| "An underscore reads fine"           | Invalid per the spec outside the Bonliva `<KEY>_<KEY>` shape. |
+| "An underscore reads fine"           | Invalid per the spec outside the Jira `<KEY>_<KEY>` shape. |
 | "This repo has no convention"        | It has this one. A prefix invented on the spot is not it. |
 | "The account was right last time"    | It is machine-global; another session may have switched it. |
 | "I'll check the account at push time" | Check on entering the repo; at push time the mistake is one keystroke away. |

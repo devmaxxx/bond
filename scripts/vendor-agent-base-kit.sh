@@ -2,8 +2,7 @@
 # bond has no package.json, so its hooks import a vendored copy of
 # agent-base-kit's bundled dist instead of node_modules. This rewrites that copy
 # from the published tarball, checked against the registry's integrity, so the
-# file is reproducible from a version number. bond-bonliva reaches it through a
-# symlink, which the plugin cache resolves into a real file on install.
+# file is reproducible from a version number.
 #
 #   scripts/vendor-agent-base-kit.sh 0.1.0
 set -eu

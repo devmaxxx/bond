@@ -1,6 +1,6 @@
 ---
 name: routing-code-review
-description: Use when a `/code-review` is about to be launched — at task end by finishing-with-code-review, in the review step of /implement or /fix-qa, or because the user asked for a diff, branch, PR or path to be reviewed — and no level was typed for it in this conversation; when you notice yourself picking a review level or a `--fix`, `--comment` or `--post` flag; when the user names a level or asks for ultra; or when the diff under review changes shape after it was routed (new commits land, the target moves from the tree to a PR, a second fix round starts).
+description: Use when a `/code-review` is about to be launched — in the review step of /implement, or because the user asked for a diff, branch, PR or path to be reviewed — and no level was typed for it in this conversation; when you notice yourself picking a review level or a `--fix`, `--comment` or `--post` flag; when the user names a level or asks for ultra; or when the diff under review changes shape after it was routed (new commits land, the target moves from the tree to a PR, a second fix round starts).
 ---
 
 # Routing code review
@@ -22,7 +22,7 @@ A field the task's own question settled is settled here — granted ⇒ `max`, d
 
 ## Target and flags
 
-Target: the one the user named, else `pr #n` when the PR is pushed and the tree clean, else `branch`, `tree`, `path <p>`; Bitbucket is always `branch`. `files ≥ 20` ⇒ one run per module, each waiting for its report.
+Target: the one the user named, else `pr #n` when the PR is pushed and the tree clean, else `branch`, `tree`, `path <p>`. `files ≥ 20` ⇒ one run per module, each waiting for its report.
 
 `--fix` on this conversation's own work, off on a PR or branch it did not write. `--comment` only on the user's word, once per PR. Never `--post`, never `--fix` with `--comment`.
 

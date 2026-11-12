@@ -1,22 +1,19 @@
 ---
 name: pr-template
 description: >-
-  Use whenever opening or creating a pull request in a Bonliva repo, on any
-  host — `gh pr create` against GitHub, the `create_pull_request` /
-  `create_draft_pull_request` Bitbucket MCP calls, the `/bond:open-pr` command,
-  the Ship + PR step of `/bond:implement` and `/bond-bonliva:fix-qa`, or any time you
-  write a PR title and description. Enforces the one shared PR template so every
-  PR has the same Summary / Jira / Test plan shape, opens as a draft in Bonliva, and
-  carries the same default reviewers. Trigger on "open a PR", "create a pull
-  request", "draft a PR", "write a PR description", "gh pr create", "add
-  reviewers to a PR".
+  Use whenever opening or creating a pull request — `gh pr create`, the
+  `/bond:open-pr` command, the Ship + PR step of `/bond:implement`, or any time
+  you write a PR title and description. Enforces the one shared PR template so
+  every PR has the same Summary / Jira / Test plan shape and the same reviewer
+  rules. Trigger on "open a PR", "create a pull request", "draft a PR", "write a
+  PR description", "gh pr create", "add reviewers to a PR".
 ---
 
 # PR template
 
-Every pull request in a Bonliva repo uses **one** title + description format and
-the same default reviewers, whatever host the repo lives on. Do not invent a
-per-PR layout, do not copy an old PR's wording, and do not hand-pick reviewers.
+Every pull request bond opens uses **one** title + description format and the
+same reviewer rules. Do not invent a per-PR layout, do not copy an old PR's
+wording, and do not hand-pick reviewers.
 
 ## The rule
 
@@ -35,23 +32,16 @@ Set its inputs from the branch being shipped:
 Then apply the template's Title and Description sections verbatim, including
 omitting the `## Jira` section when there are no tickets.
 
-## Every host, every path
+## The create call
 
-Resolve the host from `git remote get-url origin` before building the call:
-`gh pr create` on GitHub,
-with `--body-file` or `--body` and never `--fill`; the Bitbucket MCP create
-calls otherwise. `/bond:open-pr` and the Ship + PR steps go through the same
-template.
-
-Details: references/hosts.md — read when the host or the create call is in doubt.
+`gh pr create` with `--body-file` or `--body`, never `--fill`. `/bond:open-pr`
+and the Ship + PR steps go through the same template.
 
 ## Drafts
 
-When the profile resolves `DRAFT` (`shared/project-profile.md` — every Bonliva
-repo, unless `.bond/project.json` sets `draft`) PRs are created as drafts on
-every host — `--draft` on `gh pr create`, `create_draft_pull_request` on
-Bitbucket. The author publishes when the PR is ready for review. Otherwise open
-it ready for review.
+When the profile resolves `DRAFT` (`shared/project-profile.md` — `"draft": true`
+in `.bond/project.json`) PRs are created as drafts with `--draft`. The author
+publishes when the PR is ready for review. Otherwise open it ready for review.
 
 ## Reviewers
 
